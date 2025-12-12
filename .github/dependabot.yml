@@ -1,0 +1,42 @@
+version: 2
+updates:
+  # Rust dependencies
+  - package-ecosystem: "cargo"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    commit-message:
+      prefix: "deps(rust):"
+    labels:
+      - "dependencies"
+      - "rust"
+    groups:
+      rust-minor:
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"
+
+  # npm dependencies for spacey-node
+  - package-ecosystem: "npm"
+    directory: "/crates/spacey-node"
+    schedule:
+      interval: "weekly"
+    commit-message:
+      prefix: "deps(npm):"
+    labels:
+      - "dependencies"
+      - "javascript"
+
+  # GitHub Actions
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    commit-message:
+      prefix: "ci:"
+    labels:
+      - "ci"
+      - "dependencies"
+

@@ -1,0 +1,25 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/spacey-spidermonkey",
+    "crates/spacey-node",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+license = "MPL-2.0"
+authors = ["Pegasus Heavy Industries, LLC"]
+repository = "https://github.com/pegasusheavy/spacey"
+
+[workspace.dependencies]
+# Shared dependencies across workspace
+spacey-spidermonkey = { path = "crates/spacey-spidermonkey" }
+
+[package]
+name = "spacey"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+spacey-spidermonkey = { workspace = true }

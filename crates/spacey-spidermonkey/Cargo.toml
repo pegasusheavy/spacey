@@ -1,0 +1,29 @@
+[package]
+name = "spacey-spidermonkey"
+description = "A JavaScript engine inspired by SpiderMonkey, implemented in Rust"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+# Unicode support for identifier parsing
+unicode-xid = "0.2"
+
+# Arbitrary precision integers for BigInt
+num-bigint = "0.4"
+num-traits = "0.2"
+
+# Fast hash maps
+rustc-hash = "2.0"
+
+# Arena allocation for AST nodes
+bumpalo = "3.16"
+
+[dev-dependencies]
+criterion = "0.5"
+
+# Uncomment when benchmarks are ready
+# [[bench]]
+# name = "parser"
+# harness = false
+
+

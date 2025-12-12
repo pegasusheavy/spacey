@@ -1,0 +1,68 @@
+name: Test262
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    # Run weekly on Sundays at 00:00 UTC
+    - cron: '0 0 * * 0'
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  test262:
+    name: ECMAScript Test262 Suite
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-action@stable
+        with:
+          toolchain: nightly
+
+      - name: Cache cargo registry
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-test262-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-test262-
+
+      - name: Clone Test262
+        run: |
+          git clone --depth 1 https://github.com/tc39/test262.git tests/test262
+
+      - name: Build release binary
+        run: cargo build --release
+
+      - name: Run Test262 (subset)
+        run: |
+          echo "Test262 runner not yet implemented"
+          echo "This workflow will run the ECMAScript conformance test suite"
+          echo "once the test harness is implemented."
+          # TODO: Implement test262 runner
+          # cargo run --release -- --test262 tests/test262/test
+        continue-on-error: true
+
+      - name: Generate compliance report
+        run: |
+          echo "## Test262 Compliance Report" > test262-report.md
+          echo "" >> test262-report.md
+          echo "Test262 runner pending implementation." >> test262-report.md
+          echo "" >> test262-report.md
+          echo "See [TODO.md](TODO.md) for implementation roadmap." >> test262-report.md
+
+      - name: Upload compliance report
+        uses: actions/upload-artifact@v4
+        with:
+          name: test262-report
+          path: test262-report.md
+

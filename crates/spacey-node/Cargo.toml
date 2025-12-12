@@ -1,0 +1,23 @@
+[package]
+name = "spacey-node"
+description = "Node.js bindings for the spacey-spidermonkey JavaScript engine"
+version.workspace = true
+edition.workspace = true
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+# The SpiderMonkey engine
+spacey-spidermonkey = { path = "../spacey-spidermonkey" }
+
+# Node.js native addon bindings
+napi = { version = "2", default-features = false, features = ["napi4"] }
+napi-derive = "2"
+
+[build-dependencies]
+napi-build = "2"
+
+# Note: Profile settings moved to workspace root
+
+

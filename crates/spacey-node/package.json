@@ -1,0 +1,26 @@
+{
+  "name": "spacey-node",
+  "version": "0.1.0",
+  "description": "Node.js bindings for the spacey-spidermonkey JavaScript engine",
+  "main": "index.js",
+  "types": "index.d.ts",
+  "license": "MPL-2.0",
+  "keywords": ["javascript", "engine", "spidermonkey", "rust", "napi"],
+  "napi": {
+    "name": "spacey-node",
+    "triples": {
+      "defaults": true
+    }
+  },
+  "scripts": {
+    "build": "napi build --platform --release",
+    "build:debug": "napi build --platform"
+  },
+  "devDependencies": {
+    "@napi-rs/cli": "^2.18.0"
+  },
+  "engines": {
+    "node": ">= 16"
+  }
+}
+

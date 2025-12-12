@@ -1,0 +1,14 @@
+//! Built-in JavaScript objects and constructors.
+//!
+//! This module will contain implementations of all built-in objects:
+//! - Object, Function, Array, String, Number, Boolean
+//! - Math, JSON, Date, RegExp
+//! - Map, Set, WeakMap, WeakSet
+//! - Promise, Symbol
+//! - Error types
+//! - TypedArrays, ArrayBuffer, DataView
+//! - Etc.
+
+// TODO: Implement built-in objects
+
+
