@@ -252,3 +252,16 @@ fn test_compile_function_with_var() {
         }
     }
 }
+
+#[test]
+fn test_compile_obj_assign() {
+    let bytecode = compile_ok("var obj = { city: 'NYC' }; obj.city = 'LA';");
+    println!("Object assign bytecode:");
+    for (i, inst) in bytecode.instructions.iter().enumerate() {
+        println!("{}: {:?}", i, inst);
+    }
+    println!("\nConstants:");
+    for (i, c) in bytecode.constants.iter().enumerate() {
+        println!("{}: {:?}", i, c);
+    }
+}

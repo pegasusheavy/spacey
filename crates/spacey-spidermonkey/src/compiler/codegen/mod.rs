@@ -1152,8 +1152,23 @@ impl Compiler {
                 }
             }
             Expression::Member(member) => {
+                // For obj.prop = value:
+                // Stack order for SetProperty: [object, value] (SetProperty pops value first, then object)
+                // We compile: object first, then the value is already on stack from right-hand side
+                // Current stack: [value]
+                // After compile object: [value, object]
+                // SetProperty will pop in order: value, object - WRONG!
+                //
+                // Fix: Push object first, then use Swap or restructure
+                // Actually, the right approach is to compile object first, then compile value
+                // But we already compiled value. We need to swap the stack order.
+
                 // Compile object
                 self.compile_expression(&member.object)?;
+
+                // Now stack is: [value, object]
+                // Swap so it becomes: [object, value]
+                self.emit(Instruction::simple(OpCode::Swap));
 
                 // Compile property name
                 match &member.property {

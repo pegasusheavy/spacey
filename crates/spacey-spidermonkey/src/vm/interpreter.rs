@@ -319,6 +319,13 @@ impl VM {
                     }
                 }
 
+                OpCode::Swap => {
+                    let len = self.stack.len();
+                    if len >= 2 {
+                        self.stack.swap(len - 1, len - 2);
+                    }
+                }
+
                 OpCode::LoadTrue => {
                     self.stack.push(Value::Boolean(true));
                 }
@@ -572,6 +579,13 @@ impl VM {
                 OpCode::Dup => {
                     if let Some(value) = self.stack.last().cloned() {
                         self.stack.push(value);
+                    }
+                }
+
+                OpCode::Swap => {
+                    let len = self.stack.len();
+                    if len >= 2 {
+                        self.stack.swap(len - 1, len - 2);
                     }
                 }
 
