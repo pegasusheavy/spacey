@@ -326,6 +326,113 @@ impl VM {
 
                 OpCode::Nop => {}
 
+                OpCode::ForInInit => {
+                    // Pop object to iterate, push keys array and index 0
+                    let obj = self.stack.pop().unwrap_or(Value::Undefined);
+
+                    // Get enumerable keys from the object
+                    // In a full impl, would use Object.keys or iterate prototype chain
+                    let keys = match &obj {
+                        Value::Object(_) => {
+                            // Placeholder - in full impl would get actual keys
+                            vec![]
+                        }
+                        Value::String(s) => {
+                            // String indices
+                            (0..s.len()).map(|i| Value::String(i.to_string())).collect()
+                        }
+                        _ => vec![],
+                    };
+
+                    // Push keys and index onto stack for iteration
+                    // We use a special representation: index as Number, followed by the obj
+                    self.stack.push(obj); // Keep object for reference
+                    self.stack.push(Value::Number(0.0)); // Current index
+                    self.stack.push(Value::Object(keys.len())); // Keys count
+                }
+
+                OpCode::ForInNext => {
+                    // Check if there are more keys
+                    // Stack: [obj, index, count]
+                    if let Some(Operand::Jump(target)) = instruction.operand {
+                        let count = match self.stack.pop() {
+                            Some(Value::Object(n)) => n,
+                            _ => 0,
+                        };
+                        let index = match self.stack.pop() {
+                            Some(Value::Number(n)) => n as usize,
+                            _ => 0,
+                        };
+                        let obj = self.stack.pop().unwrap_or(Value::Undefined);
+
+                        if index >= count {
+                            // No more keys, jump to end
+                            self.ip = target as usize;
+                        } else {
+                            // Push next key and restore iteration state
+                            self.stack.push(obj.clone());
+                            self.stack.push(Value::Number((index + 1) as f64));
+                            self.stack.push(Value::Object(count));
+                            // Push the key value (index as string for now)
+                            self.stack.push(Value::String(index.to_string()));
+                        }
+                    }
+                }
+
+                OpCode::ForInDone => {
+                    // Clean up iteration state
+                    // Stack should have: [obj, index, count] - pop them all
+                    self.stack.pop(); // count
+                    self.stack.pop(); // index
+                    self.stack.pop(); // obj
+                }
+
+                OpCode::LogicalAnd => {
+                    let right = self.stack.pop().unwrap_or(Value::Undefined);
+                    let left = self.stack.pop().unwrap_or(Value::Undefined);
+                    // Short-circuit AND: return left if falsy, else right
+                    if left.to_boolean() {
+                        self.stack.push(right);
+                    } else {
+                        self.stack.push(left);
+                    }
+                }
+
+                OpCode::LogicalOr => {
+                    let right = self.stack.pop().unwrap_or(Value::Undefined);
+                    let left = self.stack.pop().unwrap_or(Value::Undefined);
+                    // Short-circuit OR: return left if truthy, else right
+                    if left.to_boolean() {
+                        self.stack.push(left);
+                    } else {
+                        self.stack.push(right);
+                    }
+                }
+
+                OpCode::TypeOf => {
+                    let val = self.stack.pop().unwrap_or(Value::Undefined);
+                    self.stack.push(Value::String(val.type_of().to_string()));
+                }
+
+                OpCode::InstanceOf => {
+                    let right = self.stack.pop().unwrap_or(Value::Undefined);
+                    let left = self.stack.pop().unwrap_or(Value::Undefined);
+                    // Simplified instanceof - checks if left is an object
+                    let result = match (&left, &right) {
+                        (Value::Object(_), Value::Function(_)) => true,
+                        _ => false,
+                    };
+                    self.stack.push(Value::Boolean(result));
+                }
+
+                OpCode::In => {
+                    let right = self.stack.pop().unwrap_or(Value::Undefined);
+                    let left = self.stack.pop().unwrap_or(Value::Undefined);
+                    // Simplified in operator - always returns false for now
+                    // In full impl, would check if property exists in object
+                    self.stack.push(Value::Boolean(false));
+                }
+
                 _ => {
                     // TODO: Implement remaining opcodes
                 }

@@ -198,6 +198,20 @@ pub enum OpCode {
     /// in operator
     In,
 
+    // Iteration
+    /// Initialize for-in iteration (push keys array and index)
+    ForInInit,
+    /// Get next for-in key (checks index, pushes key or jumps)
+    ForInNext,
+    /// Clean up for-in state (pop iterator state)
+    ForInDone,
+
+    // Logical short-circuit
+    /// Logical AND (short-circuit)
+    LogicalAnd,
+    /// Logical OR (short-circuit)
+    LogicalOr,
+
     // Special
     /// this keyword
     LoadThis,

@@ -22,7 +22,7 @@ pub enum ObjectKind {
     Function,
     /// String wrapper object
     String,
-    /// Number wrapper object  
+    /// Number wrapper object
     Number,
     /// Boolean wrapper object
     Boolean,

@@ -17,6 +17,7 @@ pub mod array;
 pub mod boolean;
 pub mod console;
 pub mod error;
+pub mod function;
 pub mod global;
 pub mod math;
 pub mod number;
@@ -59,6 +60,9 @@ pub fn register_builtins() -> HashMap<String, Value> {
 
     // Error constructors
     register_errors(&mut globals);
+
+    // Function constructor and methods
+    register_function(&mut globals);
 
     globals
 }
@@ -496,6 +500,43 @@ fn register_errors(globals: &mut HashMap<String, Value>) {
     globals.insert(
         "URIError".to_string(),
         make_native("URIError", 1, error::uri_error_constructor),
+    );
+}
+
+/// Register Function constructor and methods.
+fn register_function(globals: &mut HashMap<String, Value>) {
+    // Function constructor
+    globals.insert(
+        "Function".to_string(),
+        make_native("Function", -1, function::function_constructor),
+    );
+
+    // Function.prototype methods
+    globals.insert(
+        "Function_toString".to_string(),
+        make_native("Function.prototype.toString", 0, function::to_string),
+    );
+    globals.insert(
+        "Function_call".to_string(),
+        make_native("Function.prototype.call", -1, function::call),
+    );
+    globals.insert(
+        "Function_apply".to_string(),
+        make_native("Function.prototype.apply", 2, function::apply),
+    );
+    globals.insert(
+        "Function_bind".to_string(),
+        make_native("Function.prototype.bind", -1, function::bind),
+    );
+
+    // Function properties
+    globals.insert(
+        "Function_length".to_string(),
+        make_native("Function.prototype.length", 0, function::get_length),
+    );
+    globals.insert(
+        "Function_name".to_string(),
+        make_native("Function.prototype.name", 0, function::get_name),
     );
 }
 

@@ -183,16 +183,60 @@ impl Compiler {
                     self.emit(Instruction::simple(OpCode::LoadUndefined));
                 }
             }
+            Statement::ForIn(for_in) => {
+                self.compile_for_in_statement(for_in)?;
+                if keep_value {
+                    self.emit(Instruction::simple(OpCode::LoadUndefined));
+                }
+            }
+            Statement::ForOf(for_of) => {
+                self.compile_for_of_statement(for_of)?;
+                if keep_value {
+                    self.emit(Instruction::simple(OpCode::LoadUndefined));
+                }
+            }
+            Statement::DoWhile(do_while) => {
+                self.compile_do_while_statement(do_while)?;
+                if keep_value {
+                    self.emit(Instruction::simple(OpCode::LoadUndefined));
+                }
+            }
+            Statement::Switch(switch_stmt) => {
+                self.compile_switch_statement(switch_stmt)?;
+                if keep_value {
+                    self.emit(Instruction::simple(OpCode::LoadUndefined));
+                }
+            }
+            Statement::Try(try_stmt) => {
+                self.compile_try_statement(try_stmt)?;
+                if keep_value {
+                    self.emit(Instruction::simple(OpCode::LoadUndefined));
+                }
+            }
+            Statement::Throw(throw_stmt) => {
+                self.compile_expression(&throw_stmt.argument)?;
+                self.emit(Instruction::simple(OpCode::Throw));
+            }
+            Statement::FunctionDeclaration(func_decl) => {
+                self.compile_function_declaration(func_decl)?;
+                if keep_value {
+                    self.emit(Instruction::simple(OpCode::LoadUndefined));
+                }
+            }
             Statement::Empty => {
                 if keep_value {
                     self.emit(Instruction::simple(OpCode::LoadUndefined));
                 }
             }
-            _ => {
-                // TODO: Implement remaining statements
-                if keep_value {
-                    self.emit(Instruction::simple(OpCode::LoadUndefined));
-                }
+            Statement::Break => {
+                // Break is handled by the enclosing loop
+                // In full impl, would emit jump to loop end
+                self.emit(Instruction::simple(OpCode::Nop));
+            }
+            Statement::Continue => {
+                // Continue is handled by the enclosing loop
+                // In full impl, would emit jump to loop start
+                self.emit(Instruction::simple(OpCode::Nop));
             }
         }
         Ok(())
@@ -361,6 +405,318 @@ impl Compiler {
             let end_pos = self.bytecode.instructions.len() as i32;
             self.bytecode.instructions[jump_idx].operand = Some(Operand::Jump(end_pos));
         }
+
+        Ok(())
+    }
+
+    fn compile_for_in_statement(&mut self, for_in: &ForInStatement) -> Result<(), Error> {
+        // Compile the object to iterate over
+        self.compile_expression(&for_in.right)?;
+
+        // Initialize iteration (pushes keys array and index 0)
+        self.emit(Instruction::simple(OpCode::ForInInit));
+
+        let loop_start = self.bytecode.instructions.len();
+
+        // Check if there are more keys, get next key if so
+        let jump_to_end = self.emit(Instruction::with_operand(
+            OpCode::ForInNext,
+            Operand::Jump(0), // Placeholder - jumps to end if done
+        ));
+
+        // Store key in variable
+        match &for_in.left {
+            ForInLeft::Declaration(decl) => {
+                // Declare variable if needed
+                if !decl.declarations.is_empty() {
+                    let var_name = &decl.declarations[0].id.name;
+                    let mutable = decl.kind != VariableKind::Const;
+
+                    // Check if already declared in this scope
+                    if self.scope.resolve(var_name).is_none() {
+                        let index = self.scope.declare(var_name.clone(), mutable)?;
+                        self.emit(Instruction::with_operand(
+                            OpCode::StoreLocal,
+                            Operand::Local(index as u16),
+                        ));
+                        self.scope.mark_initialized(index);
+                    } else {
+                        let index = self.scope.resolve(var_name).unwrap();
+                        self.emit(Instruction::with_operand(
+                            OpCode::StoreLocal,
+                            Operand::Local(index as u16),
+                        ));
+                    }
+                }
+            }
+            ForInLeft::Expression(expr) => {
+                // Store to existing variable
+                match expr {
+                    Expression::Identifier(id) => {
+                        if let Some(index) = self.scope.resolve(&id.name) {
+                            self.emit(Instruction::with_operand(
+                                OpCode::StoreLocal,
+                                Operand::Local(index as u16),
+                            ));
+                        } else {
+                            let name_idx =
+                                self.bytecode.add_constant(Value::String(id.name.clone()));
+                            self.emit(Instruction::with_operand(
+                                OpCode::StoreGlobal,
+                                Operand::Property(name_idx),
+                            ));
+                        }
+                    }
+                    _ => {
+                        // For member expressions, would need to handle differently
+                        self.emit(Instruction::simple(OpCode::Pop));
+                    }
+                }
+            }
+        }
+
+        // Compile body
+        self.compile_statement(&for_in.body, false)?;
+
+        // Jump back to start
+        self.emit(Instruction::with_operand(
+            OpCode::Jump,
+            Operand::Jump(loop_start as i32),
+        ));
+
+        // Patch jump to end
+        let end_pos = self.bytecode.instructions.len() as i32;
+        self.bytecode.instructions[jump_to_end].operand = Some(Operand::Jump(end_pos));
+
+        // Clean up iteration state
+        self.emit(Instruction::simple(OpCode::ForInDone));
+
+        Ok(())
+    }
+
+    fn compile_for_of_statement(&mut self, for_of: &ForOfStatement) -> Result<(), Error> {
+        // For-of is ES6, but we can support it with similar logic
+        // For now, emit a simple stub that works like for-in
+        // In a full implementation, would use Symbol.iterator
+
+        // Compile the iterable
+        self.compile_expression(&for_of.right)?;
+
+        // Initialize iteration
+        self.emit(Instruction::simple(OpCode::ForInInit));
+
+        let loop_start = self.bytecode.instructions.len();
+
+        let jump_to_end = self.emit(Instruction::with_operand(
+            OpCode::ForInNext,
+            Operand::Jump(0),
+        ));
+
+        // Store value in variable
+        match &for_of.left {
+            ForInLeft::Declaration(decl) => {
+                if !decl.declarations.is_empty() {
+                    let var_name = &decl.declarations[0].id.name;
+                    let mutable = decl.kind != VariableKind::Const;
+
+                    if self.scope.resolve(var_name).is_none() {
+                        let index = self.scope.declare(var_name.clone(), mutable)?;
+                        self.emit(Instruction::with_operand(
+                            OpCode::StoreLocal,
+                            Operand::Local(index as u16),
+                        ));
+                        self.scope.mark_initialized(index);
+                    } else {
+                        let index = self.scope.resolve(var_name).unwrap();
+                        self.emit(Instruction::with_operand(
+                            OpCode::StoreLocal,
+                            Operand::Local(index as u16),
+                        ));
+                    }
+                }
+            }
+            ForInLeft::Expression(expr) => match expr {
+                Expression::Identifier(id) => {
+                    if let Some(index) = self.scope.resolve(&id.name) {
+                        self.emit(Instruction::with_operand(
+                            OpCode::StoreLocal,
+                            Operand::Local(index as u16),
+                        ));
+                    } else {
+                        let name_idx = self.bytecode.add_constant(Value::String(id.name.clone()));
+                        self.emit(Instruction::with_operand(
+                            OpCode::StoreGlobal,
+                            Operand::Property(name_idx),
+                        ));
+                    }
+                }
+                _ => {
+                    self.emit(Instruction::simple(OpCode::Pop));
+                }
+            },
+        }
+
+        self.compile_statement(&for_of.body, false)?;
+
+        self.emit(Instruction::with_operand(
+            OpCode::Jump,
+            Operand::Jump(loop_start as i32),
+        ));
+
+        let end_pos = self.bytecode.instructions.len() as i32;
+        self.bytecode.instructions[jump_to_end].operand = Some(Operand::Jump(end_pos));
+
+        self.emit(Instruction::simple(OpCode::ForInDone));
+
+        Ok(())
+    }
+
+    fn compile_do_while_statement(&mut self, do_while: &DoWhileStatement) -> Result<(), Error> {
+        let loop_start = self.bytecode.instructions.len();
+
+        // Compile body first
+        self.compile_statement(&do_while.body, false)?;
+
+        // Compile condition
+        self.compile_expression(&do_while.test)?;
+
+        // Jump back to start if true
+        self.emit(Instruction::with_operand(
+            OpCode::JumpIfTrue,
+            Operand::Jump(loop_start as i32),
+        ));
+
+        Ok(())
+    }
+
+    fn compile_switch_statement(&mut self, switch_stmt: &SwitchStatement) -> Result<(), Error> {
+        // Compile discriminant
+        self.compile_expression(&switch_stmt.discriminant)?;
+
+        // Store discriminant in a temp slot by duplicating
+        let discriminant_local = self.scope.locals.len() as u16;
+
+        let mut case_jumps = Vec::new();
+        let mut default_case = None;
+
+        // First pass: Generate tests and jumps
+        for (i, case) in switch_stmt.cases.iter().enumerate() {
+            if let Some(test) = &case.test {
+                // Duplicate discriminant for comparison
+                self.emit(Instruction::simple(OpCode::Dup));
+                self.compile_expression(test)?;
+                self.emit(Instruction::simple(OpCode::StrictEq));
+
+                // Jump to case body if equal
+                let jump = self.emit(Instruction::with_operand(
+                    OpCode::JumpIfTrue,
+                    Operand::Jump(0), // Placeholder
+                ));
+                case_jumps.push((i, jump));
+            } else {
+                // Default case
+                default_case = Some(i);
+            }
+        }
+
+        // Jump to default or end
+        let jump_to_default = self.emit(Instruction::with_operand(OpCode::Jump, Operand::Jump(0)));
+
+        // Second pass: Compile case bodies
+        let mut case_starts = Vec::new();
+        for case in &switch_stmt.cases {
+            case_starts.push(self.bytecode.instructions.len());
+            for stmt in &case.consequent {
+                self.compile_statement(stmt, false)?;
+            }
+        }
+
+        let end_pos = self.bytecode.instructions.len() as i32;
+
+        // Patch case jumps
+        for (case_idx, jump_idx) in case_jumps {
+            self.bytecode.instructions[jump_idx].operand =
+                Some(Operand::Jump(case_starts[case_idx] as i32));
+        }
+
+        // Patch default jump
+        if let Some(default_idx) = default_case {
+            self.bytecode.instructions[jump_to_default].operand =
+                Some(Operand::Jump(case_starts[default_idx] as i32));
+        } else {
+            self.bytecode.instructions[jump_to_default].operand = Some(Operand::Jump(end_pos));
+        }
+
+        // Pop discriminant
+        self.emit(Instruction::simple(OpCode::Pop));
+
+        Ok(())
+    }
+
+    fn compile_try_statement(&mut self, try_stmt: &TryStatement) -> Result<(), Error> {
+        // Simplified try-catch implementation
+        // In a full implementation, would set up exception handlers
+
+        // Compile try block
+        for stmt in &try_stmt.block.body {
+            self.compile_statement(stmt, false)?;
+        }
+
+        // Jump over catch if no exception
+        let jump_over_catch = self.emit(Instruction::with_operand(OpCode::Jump, Operand::Jump(0)));
+
+        // Compile catch block if present
+        if let Some(handler) = &try_stmt.handler {
+            // Declare catch parameter if present
+            if let Some(param) = &handler.param {
+                let index = self.scope.declare(param.name.clone(), true)?;
+                // The exception value would be on the stack
+                self.emit(Instruction::with_operand(
+                    OpCode::StoreLocal,
+                    Operand::Local(index as u16),
+                ));
+                self.scope.mark_initialized(index);
+            }
+
+            // Compile handler body
+            for stmt in &handler.body.body {
+                self.compile_statement(stmt, false)?;
+            }
+        }
+
+        let after_catch = self.bytecode.instructions.len() as i32;
+        self.bytecode.instructions[jump_over_catch].operand = Some(Operand::Jump(after_catch));
+
+        // Compile finally block if present
+        if let Some(finalizer) = &try_stmt.finalizer {
+            for stmt in &finalizer.body {
+                self.compile_statement(stmt, false)?;
+            }
+        }
+
+        Ok(())
+    }
+
+    fn compile_function_declaration(
+        &mut self,
+        func_decl: &FunctionDeclaration,
+    ) -> Result<(), Error> {
+        // Create a placeholder function value
+        // In a full implementation, would compile the function body
+        let func_value = Value::Object(0); // Placeholder
+        let idx = self.bytecode.add_constant(func_value);
+
+        // Store function in scope
+        let local_idx = self.scope.declare(func_decl.id.name.clone(), true)?;
+        self.emit(Instruction::with_operand(
+            OpCode::LoadConst,
+            Operand::Constant(idx),
+        ));
+        self.emit(Instruction::with_operand(
+            OpCode::StoreLocal,
+            Operand::Local(local_idx as u16),
+        ));
+        self.scope.mark_initialized(local_idx);
 
         Ok(())
     }
