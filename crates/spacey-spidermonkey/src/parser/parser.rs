@@ -936,6 +936,28 @@ impl<'a> Parser<'a> {
             TokenKind::LeftBracket => self.parse_array_literal(),
             TokenKind::LeftBrace => self.parse_object_literal(),
             TokenKind::New => self.parse_new_expression(),
+            TokenKind::RegExp { pattern, flags } => {
+                let p = pattern.clone();
+                let f = flags.clone();
+                self.advance();
+                Ok(Expression::Literal(Literal::RegExp {
+                    pattern: p,
+                    flags: f,
+                }))
+            }
+            TokenKind::Slash => {
+                // This could be a regex literal - rescan as regex
+                let start = self.current.span.start;
+                let regex_token = self.scanner.rescan_as_regex(start);
+                match regex_token.kind {
+                    TokenKind::RegExp { pattern, flags } => {
+                        // Update current token to be after the regex
+                        self.current = self.scanner.next_token();
+                        Ok(Expression::Literal(Literal::RegExp { pattern, flags }))
+                    }
+                    _ => Err(Error::SyntaxError("Invalid regex literal".to_string())),
+                }
+            }
             _ => Err(Error::SyntaxError(format!(
                 "Unexpected token: {:?}",
                 self.current.kind
@@ -1181,9 +1203,11 @@ impl<'a> Parser<'a> {
     fn parse_new_expression(&mut self) -> Result<Expression, Error> {
         self.advance(); // consume 'new'
 
-        let callee = Box::new(self.parse_call()?);
+        // Parse the callee - this should be a member expression without call
+        // e.g., "new Foo()", "new a.b.c()", "new Foo.Bar()"
+        let callee = Box::new(self.parse_new_callee()?);
 
-        // Arguments are optional with 'new'
+        // Parse arguments (required for new expressions with parens)
         let arguments = if self.check(&TokenKind::LeftParen) {
             self.advance();
             let args = self.parse_arguments()?;
@@ -1194,6 +1218,42 @@ impl<'a> Parser<'a> {
         };
 
         Ok(Expression::New(NewExpression { callee, arguments }))
+    }
+
+    /// Parse the callee of a new expression (member expression without call parsing)
+    fn parse_new_callee(&mut self) -> Result<Expression, Error> {
+        // Check for nested 'new' (e.g., new new Foo())
+        if self.check(&TokenKind::New) {
+            return self.parse_new_expression();
+        }
+
+        let mut expr = self.parse_primary()?;
+
+        // Allow member access but not function calls
+        loop {
+            if self.check(&TokenKind::Dot) {
+                self.advance();
+                let property = self.expect_identifier()?;
+                expr = Expression::Member(MemberExpression {
+                    object: Box::new(expr),
+                    property: MemberProperty::Identifier(property),
+                    computed: false,
+                });
+            } else if self.check(&TokenKind::LeftBracket) {
+                self.advance();
+                let property = self.parse_expression()?;
+                self.expect(&TokenKind::RightBracket)?;
+                expr = Expression::Member(MemberExpression {
+                    object: Box::new(expr),
+                    property: MemberProperty::Expression(Box::new(property)),
+                    computed: true,
+                });
+            } else {
+                break;
+            }
+        }
+
+        Ok(expr)
     }
 
     fn parse_array_literal(&mut self) -> Result<Expression, Error> {

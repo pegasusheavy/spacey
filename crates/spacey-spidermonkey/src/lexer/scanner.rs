@@ -220,6 +220,84 @@ impl<'a> Scanner<'a> {
         }
     }
 
+    /// Scan a regex literal starting after the opening '/'.
+    /// This should be called when the parser determines a '/' starts a regex.
+    /// The scanner should be positioned right after the '/'.
+    pub fn scan_regex_literal(&mut self) -> Token {
+        let start = self.current_pos - 1; // Include the '/' we already consumed
+        let mut pattern = String::new();
+        let mut in_char_class = false;
+
+        // Scan the pattern until we find the closing '/'
+        loop {
+            match self.peek() {
+                None | Some('\n') | Some('\r') => {
+                    // Unterminated regex literal
+                    return Token::new(TokenKind::Invalid, Span::new(start, self.current_pos));
+                }
+                Some('/') if !in_char_class => {
+                    // End of pattern
+                    self.advance();
+                    break;
+                }
+                Some('\\') => {
+                    // Escape sequence - include both characters
+                    self.advance();
+                    pattern.push('\\');
+                    if let Some((_, ch)) = self.advance() {
+                        pattern.push(ch);
+                    }
+                }
+                Some('[') => {
+                    in_char_class = true;
+                    if let Some((_, ch)) = self.advance() {
+                        pattern.push(ch);
+                    }
+                }
+                Some(']') => {
+                    in_char_class = false;
+                    if let Some((_, ch)) = self.advance() {
+                        pattern.push(ch);
+                    }
+                }
+                Some(ch) => {
+                    pattern.push(ch);
+                    self.advance();
+                }
+            }
+        }
+
+        // Scan the flags
+        let mut flags = String::new();
+        while let Some(ch) = self.peek() {
+            if ch.is_ascii_alphabetic() {
+                flags.push(ch);
+                self.advance();
+            } else {
+                break;
+            }
+        }
+
+        Token::new(
+            TokenKind::RegExp { pattern, flags },
+            Span::new(start, self.current_pos),
+        )
+    }
+
+    /// Check if we can rescan the last token as a regex literal.
+    /// This is used by the parser when it realizes a '/' should be a regex start.
+    pub fn rescan_as_regex(&mut self, slash_start: usize) -> Token {
+        // Position ourselves at the character after the '/'
+        // The slash_start is the position of the '/'
+        // We need to reset to just after the slash
+
+        // Create a new iterator from the slash position + 1
+        self.chars = self.source[slash_start + 1..].char_indices().peekable();
+        self.current_pos = slash_start + 1;
+
+        self.scan_regex_literal()
+    }
+
     fn scan_percent(&mut self) -> TokenKind {
         if self.peek() == Some('=') {
             self.advance();

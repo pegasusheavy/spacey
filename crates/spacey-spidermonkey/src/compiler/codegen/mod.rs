@@ -1187,7 +1187,23 @@ impl Compiler {
             Literal::Undefined => {
                 self.emit(Instruction::simple(OpCode::LoadUndefined));
             }
-            _ => {}
+            Literal::RegExp { pattern, flags } => {
+                // Store regex as a string in format /pattern/flags for now
+                // In a full impl, would create a RegExp object
+                let regex_str = format!("/{}/{}", pattern, flags);
+                let idx = self.bytecode.add_constant(Value::String(regex_str));
+                self.emit(Instruction::with_operand(
+                    OpCode::LoadConst,
+                    Operand::Constant(idx),
+                ));
+            }
+            Literal::BigInt(s) => {
+                let idx = self.bytecode.add_constant(Value::BigInt(s.clone()));
+                self.emit(Instruction::with_operand(
+                    OpCode::LoadConst,
+                    Operand::Constant(idx),
+                ));
+            }
         }
         Ok(())
     }
