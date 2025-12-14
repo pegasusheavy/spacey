@@ -215,6 +215,12 @@ pub enum OpCode {
     // Special
     /// this keyword
     LoadThis,
+    /// arguments object
+    LoadArguments,
+    /// Load specific argument by index
+    LoadArgument,
+    /// Get arguments.length
+    ArgumentsLength,
     /// Throw an exception
     Throw,
     /// No operation

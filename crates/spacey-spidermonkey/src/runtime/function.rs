@@ -1,4 +1,9 @@
 //! JavaScript function representation.
+//!
+//! This module provides:
+//! - Function objects with parameters, bytecode, and closures
+//! - CallFrame for execution context with `this` and `arguments`
+//! - Native function support
 
 use super::value::Value;
 use crate::compiler::Bytecode;
@@ -16,6 +21,8 @@ pub struct Function {
     pub local_count: usize,
     /// Captured upvalues (for closures)
     pub upvalues: Vec<Upvalue>,
+    /// Whether this is a strict mode function
+    pub strict: bool,
 }
 
 impl Function {
@@ -32,6 +39,24 @@ impl Function {
             bytecode,
             local_count,
             upvalues: Vec::new(),
+            strict: false,
+        }
+    }
+
+    /// Creates a new strict mode function.
+    pub fn new_strict(
+        name: Option<String>,
+        params: Vec<String>,
+        bytecode: Bytecode,
+        local_count: usize,
+    ) -> Self {
+        Self {
+            name,
+            params,
+            bytecode,
+            local_count,
+            upvalues: Vec::new(),
+            strict: true,
         }
     }
 
@@ -78,6 +103,50 @@ impl std::fmt::Debug for Callable {
     }
 }
 
+/// The `arguments` object for a function call (ES3 Section 10.1.8).
+#[derive(Debug, Clone)]
+pub struct Arguments {
+    /// The actual arguments passed to the function
+    pub values: Vec<Value>,
+    /// The callee function (arguments.callee)
+    pub callee: Option<Value>,
+    /// The number of arguments (arguments.length)
+    pub length: usize,
+}
+
+impl Arguments {
+    /// Creates a new arguments object.
+    pub fn new(values: Vec<Value>, callee: Option<Value>) -> Self {
+        let length = values.len();
+        Self {
+            values,
+            callee,
+            length,
+        }
+    }
+
+    /// Gets an argument by index.
+    pub fn get(&self, index: usize) -> Value {
+        self.values.get(index).cloned().unwrap_or(Value::Undefined)
+    }
+
+    /// Gets the length.
+    pub fn len(&self) -> usize {
+        self.length
+    }
+
+    /// Checks if empty.
+    pub fn is_empty(&self) -> bool {
+        self.values.is_empty()
+    }
+}
+
+impl Default for Arguments {
+    fn default() -> Self {
+        Self::new(vec![], None)
+    }
+}
+
 /// A call frame for function execution.
 #[derive(Debug)]
 pub struct CallFrame {
@@ -89,6 +158,10 @@ pub struct CallFrame {
     pub base_slot: usize,
     /// Local variables for this frame
     pub locals: Vec<Value>,
+    /// The `this` value for this call
+    pub this_value: Value,
+    /// The `arguments` object for this call
+    pub arguments: Arguments,
 }
 
 impl CallFrame {
@@ -100,6 +173,28 @@ impl CallFrame {
             ip: 0,
             base_slot,
             locals: vec![Value::Undefined; local_count],
+            this_value: Value::Undefined,
+            arguments: Arguments::default(),
+        }
+    }
+
+    /// Creates a new call frame with this binding and arguments.
+    pub fn with_this_and_args(
+        function: Function,
+        base_slot: usize,
+        this_value: Value,
+        args: Vec<Value>,
+        callee: Option<Value>,
+    ) -> Self {
+        let local_count = function.local_count.max(function.params.len());
+        let arguments = Arguments::new(args, callee);
+        Self {
+            function,
+            ip: 0,
+            base_slot,
+            locals: vec![Value::Undefined; local_count],
+            this_value,
+            arguments,
         }
     }
 
@@ -115,12 +210,28 @@ impl CallFrame {
         }
         self.locals[index] = value;
     }
+
+    /// Gets the `this` value.
+    pub fn get_this(&self) -> Value {
+        self.this_value.clone()
+    }
+
+    /// Gets an argument by index.
+    pub fn get_argument(&self, index: usize) -> Value {
+        self.arguments.get(index)
+    }
+
+    /// Gets the number of arguments.
+    pub fn argument_count(&self) -> usize {
+        self.arguments.len()
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::compiler::Bytecode;
+    use std::sync::Arc;
 
     fn make_function(name: Option<&str>, params: Vec<&str>, local_count: usize) -> Function {
         Function::new(
@@ -131,6 +242,10 @@ mod tests {
         )
     }
 
+    // ========================================================================
+    // Function Tests
+    // ========================================================================
+
     #[test]
     fn test_function_new() {
         let func = make_function(Some("test"), vec!["a", "b"], 3);
@@ -138,6 +253,18 @@ mod tests {
         assert_eq!(func.params, vec!["a".to_string(), "b".to_string()]);
         assert_eq!(func.local_count, 3);
         assert!(func.upvalues.is_empty());
+        assert!(!func.strict);
+    }
+
+    #[test]
+    fn test_function_new_strict() {
+        let func = Function::new_strict(
+            Some("strict_test".to_string()),
+            vec!["x".to_string()],
+            Bytecode::new(),
+            1,
+        );
+        assert!(func.strict);
     }
 
     #[test]
@@ -161,6 +288,10 @@ mod tests {
         assert_eq!(func.local_count, cloned.local_count);
     }
 
+    // ========================================================================
+    // Upvalue Tests
+    // ========================================================================
+
     #[test]
     fn test_upvalue() {
         let upvalue = Upvalue {
@@ -174,6 +305,10 @@ mod tests {
         let cloned = upvalue.clone();
         assert_eq!(cloned.index, 5);
     }
+
+    // ========================================================================
+    // Callable Tests
+    // ========================================================================
 
     #[test]
     fn test_callable_function() {
@@ -212,6 +347,47 @@ mod tests {
         }
     }
 
+    // ========================================================================
+    // Arguments Tests
+    // ========================================================================
+
+    #[test]
+    fn test_arguments_new() {
+        let args = Arguments::new(vec![Value::Number(1.0), Value::Number(2.0)], None);
+        assert_eq!(args.len(), 2);
+        assert!(!args.is_empty());
+    }
+
+    #[test]
+    fn test_arguments_default() {
+        let args = Arguments::default();
+        assert_eq!(args.len(), 0);
+        assert!(args.is_empty());
+    }
+
+    #[test]
+    fn test_arguments_get() {
+        let args = Arguments::new(
+            vec![Value::Number(10.0), Value::String("hello".to_string())],
+            None,
+        );
+        assert_eq!(args.get(0), Value::Number(10.0));
+        assert_eq!(args.get(1), Value::String("hello".to_string()));
+        assert_eq!(args.get(2), Value::Undefined); // Out of bounds
+    }
+
+    #[test]
+    fn test_arguments_with_callee() {
+        let func = make_function(Some("test"), vec![], 0);
+        let callee = Value::Function(Arc::new(Callable::Function(func)));
+        let args = Arguments::new(vec![], Some(callee.clone()));
+        assert!(args.callee.is_some());
+    }
+
+    // ========================================================================
+    // CallFrame Tests
+    // ========================================================================
+
     #[test]
     fn test_call_frame_new() {
         let func = make_function(Some("frame_test"), vec!["x", "y"], 5);
@@ -220,6 +396,20 @@ mod tests {
         assert_eq!(frame.ip, 0);
         assert_eq!(frame.base_slot, 10);
         assert_eq!(frame.locals.len(), 5); // max(local_count, params.len())
+        assert_eq!(frame.this_value, Value::Undefined);
+        assert!(frame.arguments.is_empty());
+    }
+
+    #[test]
+    fn test_call_frame_with_this_and_args() {
+        let func = make_function(Some("method"), vec!["a"], 2);
+        let this = Value::Object(123);
+        let args = vec![Value::Number(42.0)];
+        let frame = CallFrame::with_this_and_args(func, 0, this.clone(), args, None);
+
+        assert_eq!(frame.get_this(), this);
+        assert_eq!(frame.argument_count(), 1);
+        assert_eq!(frame.get_argument(0), Value::Number(42.0));
     }
 
     #[test]
