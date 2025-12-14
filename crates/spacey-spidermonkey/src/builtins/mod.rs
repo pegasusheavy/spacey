@@ -23,6 +23,7 @@ pub mod global;
 pub mod math;
 pub mod number;
 pub mod object;
+pub mod regexp;
 pub mod string;
 
 use std::collections::HashMap;
@@ -67,6 +68,9 @@ pub fn register_builtins() -> HashMap<String, Value> {
 
     // Date constructor and methods
     register_date(&mut globals);
+
+    // RegExp constructor and methods
+    register_regexp(&mut globals);
 
     globals
 }
@@ -666,6 +670,65 @@ fn register_date(globals: &mut HashMap<String, Value>) {
     globals.insert(
         "Date_setFullYear".to_string(),
         make_native("Date.prototype.setFullYear", -1, date::set_full_year),
+    );
+}
+
+/// Register RegExp constructor and methods.
+fn register_regexp(globals: &mut HashMap<String, Value>) {
+    // RegExp constructor
+    globals.insert(
+        "RegExp".to_string(),
+        make_native("RegExp", 2, regexp::regexp_constructor),
+    );
+
+    // RegExp.prototype methods
+    globals.insert(
+        "RegExp_exec".to_string(),
+        make_native("RegExp.prototype.exec", 1, regexp::exec),
+    );
+    globals.insert(
+        "RegExp_test".to_string(),
+        make_native("RegExp.prototype.test", 1, regexp::test),
+    );
+    globals.insert(
+        "RegExp_toString".to_string(),
+        make_native("RegExp.prototype.toString", 0, regexp::to_string),
+    );
+
+    // RegExp.prototype properties
+    globals.insert(
+        "RegExp_source".to_string(),
+        make_native("RegExp.prototype.source", 0, regexp::get_source),
+    );
+    globals.insert(
+        "RegExp_global".to_string(),
+        make_native("RegExp.prototype.global", 0, regexp::get_global),
+    );
+    globals.insert(
+        "RegExp_ignoreCase".to_string(),
+        make_native("RegExp.prototype.ignoreCase", 0, regexp::get_ignore_case),
+    );
+    globals.insert(
+        "RegExp_multiline".to_string(),
+        make_native("RegExp.prototype.multiline", 0, regexp::get_multiline),
+    );
+    globals.insert(
+        "RegExp_lastIndex".to_string(),
+        make_native("RegExp.prototype.lastIndex", 0, regexp::get_last_index),
+    );
+
+    // String methods that use RegExp
+    globals.insert(
+        "String_match".to_string(),
+        make_native("String.prototype.match", 1, regexp::string_match),
+    );
+    globals.insert(
+        "String_replace".to_string(),
+        make_native("String.prototype.replace", 2, regexp::string_replace),
+    );
+    globals.insert(
+        "String_search".to_string(),
+        make_native("String.prototype.search", 1, regexp::string_search),
     );
 }
 
