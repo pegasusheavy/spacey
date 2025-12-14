@@ -1,0 +1,35 @@
+#!/bin/sh
+# Pre-push hook: full test suite
+# This runs before pushing to ensure all tests pass
+
+set -e
+
+echo "🚀 Running pre-push checks..."
+
+# Run the full test suite
+echo "🧪 Running full test suite..."
+if ! cargo test --all; then
+    echo "❌ Tests failed!"
+    echo "   Fix failing tests before pushing."
+    exit 1
+fi
+echo "✅ All tests passed"
+
+# Check that the project builds in release mode
+echo "🔨 Checking release build..."
+if ! cargo build --release; then
+    echo "❌ Release build failed!"
+    exit 1
+fi
+echo "✅ Release build OK"
+
+# Run clippy with all features
+echo "📎 Running clippy (all features)..."
+if ! cargo clippy --all-targets --all-features -- -D warnings; then
+    echo "❌ Clippy found issues!"
+    exit 1
+fi
+echo "✅ Clippy OK"
+
+echo "✨ All pre-push checks passed! Ready to push."
+

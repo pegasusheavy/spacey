@@ -1,0 +1,36 @@
+#!/bin/sh
+# Pre-commit hook: format check and linting
+# This runs before each commit to ensure code quality
+
+set -e
+
+echo "🔍 Running pre-commit checks..."
+
+# Check formatting
+echo "📝 Checking code formatting..."
+if ! cargo fmt --all -- --check; then
+    echo "❌ Formatting check failed!"
+    echo "   Run 'cargo fmt' to fix formatting issues."
+    exit 1
+fi
+echo "✅ Formatting OK"
+
+# Run clippy
+echo "📎 Running clippy..."
+if ! cargo clippy --all-targets --all-features -- -D warnings; then
+    echo "❌ Clippy found issues!"
+    echo "   Fix the warnings above before committing."
+    exit 1
+fi
+echo "✅ Clippy OK"
+
+# Run quick tests (lib tests only for speed)
+echo "🧪 Running quick tests..."
+if ! cargo test --lib; then
+    echo "❌ Tests failed!"
+    exit 1
+fi
+echo "✅ Tests OK"
+
+echo "✨ All pre-commit checks passed!"
+

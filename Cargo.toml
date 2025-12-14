@@ -28,3 +28,9 @@ spacey-spidermonkey = { workspace = true }
 rustyline = { version = "14.0", features = ["derive"] }
 owo-colors = "4.0"
 dirs = "5.0"
+
+[dev-dependencies]
+cargo-husky = { version = "1.5", default-features = false, features = ["user-hooks"] }
+
+[package.metadata.husky]
+# See .husky/ directory for hook scripts

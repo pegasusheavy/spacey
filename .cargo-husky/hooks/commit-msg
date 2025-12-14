@@ -1,0 +1,56 @@
+#!/bin/sh
+# Commit-msg hook: validate conventional commit format
+# This ensures commit messages follow the git-flow conventions
+
+commit_msg_file=$1
+commit_msg=$(cat "$commit_msg_file")
+
+# Skip merge commits
+if echo "$commit_msg" | grep -qE "^Merge "; then
+    exit 0
+fi
+
+# Conventional commit pattern:
+# type(scope): description
+# type: description
+# type!: description (breaking change)
+# type(scope)!: description (breaking change)
+pattern="^(feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert)(\([a-z0-9_-]+\))?\!?: .{1,50}"
+
+if ! echo "$commit_msg" | head -1 | grep -qE "$pattern"; then
+    echo "❌ Invalid commit message format!"
+    echo ""
+    echo "Commit message: $(echo "$commit_msg" | head -1)"
+    echo ""
+    echo "Expected format: <type>(<scope>): <description>"
+    echo ""
+    echo "Types: feat, fix, docs, style, refactor, perf, test, build, ci, chore, revert"
+    echo ""
+    echo "Scopes (optional): lexer, parser, ast, compiler, vm, runtime, builtins, gc, repl, cli, node"
+    echo ""
+    echo "Examples:"
+    echo "  feat(lexer): add support for template literals"
+    echo "  fix(parser): handle trailing commas in arrays"
+    echo "  docs: update README with build instructions"
+    echo "  chore: update dependencies"
+    echo "  feat(runtime)!: change Value enum representation"
+    echo ""
+    exit 1
+fi
+
+# Check that description doesn't start with capital letter
+first_char=$(echo "$commit_msg" | head -1 | sed 's/.*: //' | cut -c1)
+if echo "$first_char" | grep -qE "^[A-Z]$"; then
+    echo "⚠️  Warning: Commit description should start with lowercase"
+    echo "   Got: $(echo "$commit_msg" | head -1)"
+    # Warning only, don't block
+fi
+
+# Check description doesn't end with period
+if echo "$commit_msg" | head -1 | grep -qE "\.$"; then
+    echo "⚠️  Warning: Commit description should not end with a period"
+    # Warning only, don't block
+fi
+
+echo "✅ Commit message format OK"
+
