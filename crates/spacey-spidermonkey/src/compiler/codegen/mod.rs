@@ -15,12 +15,29 @@ use crate::ast::*;
 use crate::compiler::bytecode::{Bytecode, Instruction, OpCode, Operand};
 use crate::runtime::value::Value;
 
+/// Tracks break/continue jump targets for loops and switch statements.
+#[derive(Debug, Clone)]
+struct LoopContext {
+    /// Instruction indices that need to be patched for break
+    break_jumps: Vec<usize>,
+    /// Instruction indices that need to be patched for continue (loops only)
+    continue_jumps: Vec<usize>,
+    /// Whether this is a switch (no continue allowed)
+    is_switch: bool,
+    /// Optional label for this loop/switch
+    label: Option<String>,
+}
+
 /// Compiles AST to bytecode.
 pub struct Compiler {
     /// The bytecode being generated
     pub bytecode: Bytecode,
     /// Current scope for variable resolution
     pub scope: Scope,
+    /// Stack of loop/switch contexts for break/continue
+    loop_stack: Vec<LoopContext>,
+    /// Pending label to apply to the next loop/switch
+    pending_label: Option<String>,
 }
 
 impl Compiler {
@@ -29,6 +46,105 @@ impl Compiler {
         Self {
             bytecode: Bytecode::new(),
             scope: Scope::new(),
+            loop_stack: Vec::new(),
+            pending_label: None,
+        }
+    }
+
+    /// Enter a loop or switch context, consuming any pending label
+    fn enter_loop(&mut self, is_switch: bool) {
+        let label = self.pending_label.take();
+        self.loop_stack.push(LoopContext {
+            break_jumps: Vec::new(),
+            continue_jumps: Vec::new(),
+            is_switch,
+            label,
+        });
+    }
+
+    /// Exit a loop or switch context and patch all break/continue jumps
+    fn exit_loop(&mut self, break_target: usize, continue_target: Option<usize>) {
+        if let Some(ctx) = self.loop_stack.pop() {
+            // Patch all break jumps to jump to break_target
+            for jump_idx in ctx.break_jumps {
+                self.bytecode.instructions[jump_idx].operand =
+                    Some(Operand::Jump(break_target as i32));
+            }
+            // Patch all continue jumps to jump to continue_target (if it's a loop)
+            if let Some(target) = continue_target {
+                for jump_idx in ctx.continue_jumps {
+                    self.bytecode.instructions[jump_idx].operand =
+                        Some(Operand::Jump(target as i32));
+                }
+            }
+        }
+    }
+
+    /// Emit a break jump (returns instruction index for later patching)
+    fn emit_break(&mut self) -> Result<(), Error> {
+        self.emit_labeled_break(None)
+    }
+
+    /// Emit a labeled break jump
+    fn emit_labeled_break(&mut self, label: Option<&str>) -> Result<(), Error> {
+        let jump_idx = self.emit(Instruction::with_operand(OpCode::Jump, Operand::Jump(0)));
+
+        if let Some(target_label) = label {
+            // Find the loop with this label (search from innermost to outermost)
+            for ctx in self.loop_stack.iter_mut().rev() {
+                if ctx.label.as_deref() == Some(target_label) {
+                    ctx.break_jumps.push(jump_idx);
+                    return Ok(());
+                }
+            }
+            Err(Error::SyntaxError(format!(
+                "label '{}' not found",
+                target_label
+            )))
+        } else {
+            // Regular break - goes to innermost loop/switch
+            if let Some(ctx) = self.loop_stack.last_mut() {
+                ctx.break_jumps.push(jump_idx);
+                Ok(())
+            } else {
+                Err(Error::SyntaxError("break outside of loop or switch".into()))
+            }
+        }
+    }
+
+    /// Emit a continue jump (returns instruction index for later patching)
+    fn emit_continue(&mut self) -> Result<(), Error> {
+        self.emit_labeled_continue(None)
+    }
+
+    /// Emit a labeled continue jump
+    fn emit_labeled_continue(&mut self, label: Option<&str>) -> Result<(), Error> {
+        let jump_idx = self.emit(Instruction::with_operand(OpCode::Jump, Operand::Jump(0)));
+
+        if let Some(target_label) = label {
+            // Find the loop with this label
+            for ctx in self.loop_stack.iter_mut().rev() {
+                if ctx.label.as_deref() == Some(target_label) {
+                    if ctx.is_switch {
+                        return Err(Error::SyntaxError("continue inside switch".into()));
+                    }
+                    ctx.continue_jumps.push(jump_idx);
+                    return Ok(());
+                }
+            }
+            Err(Error::SyntaxError(format!(
+                "label '{}' not found",
+                target_label
+            )))
+        } else {
+            // Regular continue - goes to innermost loop (not switch)
+            for ctx in self.loop_stack.iter_mut().rev() {
+                if !ctx.is_switch {
+                    ctx.continue_jumps.push(jump_idx);
+                    return Ok(());
+                }
+            }
+            Err(Error::SyntaxError("continue outside of loop".into()))
         }
     }
 
@@ -320,24 +436,16 @@ impl Compiler {
                 }
             }
             Statement::Break => {
-                // Break is handled by the enclosing loop
-                // In full impl, would emit jump to loop end
-                self.emit(Instruction::simple(OpCode::Nop));
+                self.emit_break()?;
             }
-            Statement::BreakLabel(_label) => {
-                // Break with label - jumps to labeled statement
-                // In full impl, would track labels and emit jump
-                self.emit(Instruction::simple(OpCode::Nop));
+            Statement::BreakLabel(label) => {
+                self.emit_labeled_break(Some(label))?;
             }
             Statement::Continue => {
-                // Continue is handled by the enclosing loop
-                // In full impl, would emit jump to loop start
-                self.emit(Instruction::simple(OpCode::Nop));
+                self.emit_continue()?;
             }
-            Statement::ContinueLabel(_label) => {
-                // Continue with label - jumps to labeled loop
-                // In full impl, would track labels and emit jump
-                self.emit(Instruction::simple(OpCode::Nop));
+            Statement::ContinueLabel(label) => {
+                self.emit_labeled_continue(Some(label))?;
             }
             Statement::With(with_stmt) => {
                 self.compile_with_statement(with_stmt)?;
@@ -385,10 +493,12 @@ impl Compiler {
 
     /// Compile labeled statement (ES3 Section 12.12).
     fn compile_labeled_statement(&mut self, labeled: &LabeledStatement) -> Result<(), Error> {
-        // Labels are used for break/continue targets
-        // In a full implementation, would track label positions
-        // For now, just compile the body
+        // Set the pending label so the next loop/switch picks it up
+        self.pending_label = Some(labeled.label.name.clone());
+        // Compile the body (which may be a loop that uses the label)
         self.compile_statement(&labeled.body, false)?;
+        // Clear any unused label
+        self.pending_label = None;
         Ok(())
     }
 
@@ -505,6 +615,9 @@ impl Compiler {
     }
 
     fn compile_while_statement(&mut self, while_stmt: &WhileStatement) -> Result<(), Error> {
+        // Enter loop context
+        self.enter_loop(false);
+
         let loop_start = self.bytecode.instructions.len();
 
         // Compile condition
@@ -526,13 +639,19 @@ impl Compiler {
         ));
 
         // Patch jump to end
-        let end_pos = self.bytecode.instructions.len() as i32;
-        self.bytecode.instructions[jump_to_end].operand = Some(Operand::Jump(end_pos));
+        let end_pos = self.bytecode.instructions.len();
+        self.bytecode.instructions[jump_to_end].operand = Some(Operand::Jump(end_pos as i32));
+
+        // Exit loop context and patch break/continue
+        self.exit_loop(end_pos, Some(loop_start));
 
         Ok(())
     }
 
     fn compile_for_statement(&mut self, for_stmt: &ForStatement) -> Result<(), Error> {
+        // Enter loop context
+        self.enter_loop(false);
+
         // Compile init
         if let Some(init) = &for_stmt.init {
             match init {
@@ -562,6 +681,9 @@ impl Compiler {
         // Compile body
         self.compile_statement(&for_stmt.body, false)?;
 
+        // Continue target is before the update expression
+        let continue_target = self.bytecode.instructions.len();
+
         // Compile update
         if let Some(update) = &for_stmt.update {
             self.compile_expression(update)?;
@@ -575,15 +697,21 @@ impl Compiler {
         ));
 
         // Patch jump to end
+        let end_pos = self.bytecode.instructions.len();
         if let Some(jump_idx) = jump_to_end {
-            let end_pos = self.bytecode.instructions.len() as i32;
-            self.bytecode.instructions[jump_idx].operand = Some(Operand::Jump(end_pos));
+            self.bytecode.instructions[jump_idx].operand = Some(Operand::Jump(end_pos as i32));
         }
+
+        // Exit loop context and patch break/continue
+        self.exit_loop(end_pos, Some(continue_target));
 
         Ok(())
     }
 
     fn compile_for_in_statement(&mut self, for_in: &ForInStatement) -> Result<(), Error> {
+        // Enter loop context
+        self.enter_loop(false);
+
         // Compile the object to iterate over
         self.compile_expression(&for_in.right)?;
 
@@ -659,11 +787,16 @@ impl Compiler {
         ));
 
         // Patch jump to end
-        let end_pos = self.bytecode.instructions.len() as i32;
-        self.bytecode.instructions[jump_to_end].operand = Some(Operand::Jump(end_pos));
+        let end_pos = self.bytecode.instructions.len();
+        self.bytecode.instructions[jump_to_end].operand = Some(Operand::Jump(end_pos as i32));
 
         // Clean up iteration state
         self.emit(Instruction::simple(OpCode::ForInDone));
+
+        let final_end_pos = self.bytecode.instructions.len();
+
+        // Exit loop context and patch break/continue
+        self.exit_loop(final_end_pos, Some(loop_start));
 
         Ok(())
     }
@@ -746,10 +879,16 @@ impl Compiler {
     }
 
     fn compile_do_while_statement(&mut self, do_while: &DoWhileStatement) -> Result<(), Error> {
+        // Enter loop context
+        self.enter_loop(false);
+
         let loop_start = self.bytecode.instructions.len();
 
         // Compile body first
         self.compile_statement(&do_while.body, false)?;
+
+        // Continue target is before the condition test
+        let continue_target = self.bytecode.instructions.len();
 
         // Compile condition
         self.compile_expression(&do_while.test)?;
@@ -760,15 +899,20 @@ impl Compiler {
             Operand::Jump(loop_start as i32),
         ));
 
+        let end_pos = self.bytecode.instructions.len();
+
+        // Exit loop context and patch break/continue
+        self.exit_loop(end_pos, Some(continue_target));
+
         Ok(())
     }
 
     fn compile_switch_statement(&mut self, switch_stmt: &SwitchStatement) -> Result<(), Error> {
+        // Enter switch context for break handling
+        self.enter_loop(true);
+
         // Compile discriminant
         self.compile_expression(&switch_stmt.discriminant)?;
-
-        // Store discriminant in a temp slot by duplicating
-        let _discriminant_local = self.scope.locals.len() as u16;
 
         let mut case_jumps = Vec::new();
         let mut default_case = None;
@@ -808,7 +952,10 @@ impl Compiler {
             }
         }
 
-        let end_pos = self.bytecode.instructions.len() as i32;
+        // Pop discriminant
+        self.emit(Instruction::simple(OpCode::Pop));
+
+        let end_pos = self.bytecode.instructions.len();
 
         // Patch case jumps
         for (case_idx, jump_idx) in case_jumps {
@@ -822,11 +969,11 @@ impl Compiler {
                 Some(Operand::Jump(case_body_starts[default_idx]));
         } else {
             self.bytecode.instructions[jump_to_default_or_end].operand =
-                Some(Operand::Jump(end_pos));
+                Some(Operand::Jump(end_pos as i32));
         }
 
-        // Pop discriminant
-        self.emit(Instruction::simple(OpCode::Pop));
+        // Exit switch context and patch break jumps to end
+        self.exit_loop(end_pos, None);
 
         Ok(())
     }
@@ -878,9 +1025,9 @@ impl Compiler {
         }
 
         // Compile function body
-        for (i, stmt) in func_decl.body.iter().enumerate() {
-            let is_last = i == func_decl.body.len() - 1;
-            func_compiler.compile_statement(stmt, is_last)?;
+        // Note: Don't use keep_value=true here - the implicit return handles the return value
+        for stmt in &func_decl.body {
+            func_compiler.compile_statement(stmt, false)?;
         }
 
         // Implicit return undefined if no explicit return
@@ -891,8 +1038,10 @@ impl Compiler {
         func_compiler.scope.end_scope();
 
         // Create the function object
+        // Note: For function declarations, we DON'T set the name as it's not a local binding
+        // The name is stored in globals, not as a local inside the function
         let func_obj = crate::runtime::function::Function::new(
-            Some(func_decl.id.name.clone()),
+            None, // No local binding for function declarations
             param_names,
             std::mem::take(&mut func_compiler.bytecode),
             local_count,
@@ -1479,6 +1628,16 @@ impl Compiler {
         let mut func_compiler = Compiler::new();
         func_compiler.scope.begin_scope();
 
+        // For named function expressions, the name is available inside the function for recursion
+        // We reserve slot 0 for the function reference itself
+        let func_name_slot = if let Some(id) = &func.id {
+            let slot = func_compiler.scope.declare(id.name.clone(), false)?;
+            func_compiler.scope.mark_initialized(slot);
+            Some(slot)
+        } else {
+            None
+        };
+
         // Declare parameters as locals
         let param_names: Vec<String> = func.params.iter().map(|p| p.name.clone()).collect();
         for param in &param_names {
@@ -1486,9 +1645,9 @@ impl Compiler {
         }
 
         // Compile function body
-        for (i, stmt) in func.body.iter().enumerate() {
-            let is_last = i == func.body.len() - 1;
-            func_compiler.compile_statement(stmt, is_last)?;
+        // Note: Don't use keep_value=true here - the implicit return handles the return value
+        for stmt in &func.body {
+            func_compiler.compile_statement(stmt, false)?;
         }
 
         // Implicit return undefined if no explicit return
@@ -1514,6 +1673,10 @@ impl Compiler {
             OpCode::LoadConst,
             Operand::Constant(idx),
         ));
+
+        // Store info about the function name slot for the VM to use
+        // The VM will need to set local[func_name_slot] = the function when calling
+        let _ = func_name_slot; // Mark as used for now
 
         Ok(())
     }

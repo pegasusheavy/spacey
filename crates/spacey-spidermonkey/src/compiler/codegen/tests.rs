@@ -199,3 +199,56 @@ fn test_compile_complex_expression() {
     compile_ok("(1 < 2) === true;");
 }
 
+
+#[test]
+fn test_compile_switch_debug() {
+    let bytecode = compile_ok("var x; switch (1) { case 1: x = 'yes'; break; default: x = 'no'; }");
+    println!("Switch bytecode:");
+    for (i, inst) in bytecode.instructions.iter().enumerate() {
+        println!("{}: {:?}", i, inst);
+    }
+    println!("\nConstants:");
+    for (i, c) in bytecode.constants.iter().enumerate() {
+        println!("{}: {:?}", i, c);
+    }
+}
+
+#[test]
+fn test_compile_no_return_function_debug() {
+    let bytecode = compile_ok("function foo() { var x = 1; }");
+    println!("Function bytecode:");
+    for (i, inst) in bytecode.instructions.iter().enumerate() {
+        println!("{}: {:?}", i, inst);
+    }
+}
+
+#[test]
+fn test_compile_call_nested() {
+    let bytecode = compile_ok("function foo() { var x = 1; } function bar(x) { } bar(foo());");
+    println!("Main bytecode:");
+    for (i, inst) in bytecode.instructions.iter().enumerate() {
+        println!("{}: {:?}", i, inst);
+    }
+    println!("\nConstants:");
+    for (i, c) in bytecode.constants.iter().enumerate() {
+        println!("{}: {:?}", i, c);
+    }
+}
+
+#[test]
+fn test_compile_function_with_var() {
+    let bytecode = compile_ok("function foo() { var x; }");
+    println!("Main bytecode:");
+    for (i, inst) in bytecode.instructions.iter().enumerate() {
+        println!("{}: {:?}", i, inst);
+    }
+    // Get the function from constant 0
+    if let Some(crate::runtime::value::Value::Function(callable)) = bytecode.constants.get(0) {
+        if let crate::runtime::function::Callable::Function(func) = callable.as_ref() {
+            println!("\nFunction foo() bytecode:");
+            for (i, inst) in func.bytecode.instructions.iter().enumerate() {
+                println!("{}: {:?}", i, inst);
+            }
+        }
+    }
+}

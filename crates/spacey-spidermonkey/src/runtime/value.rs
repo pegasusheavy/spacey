@@ -209,7 +209,14 @@ impl Value {
             return 0;
         }
         let int = (num.signum() * num.abs().floor()) as i64;
-        (int % (1i64 << 32)) as u32
+        // Rust's modulo preserves sign, but we need modulo 2^32 with positive result
+        let modulo = 1i64 << 32;
+        let result = int % modulo;
+        if result < 0 {
+            (result + modulo) as u32
+        } else {
+            result as u32
+        }
     }
 
     /// ToUint16 (ES3 Section 9.7)

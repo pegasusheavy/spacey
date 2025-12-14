@@ -79,6 +79,26 @@ impl RuntimeObject {
         }
         self.properties.insert(name.to_string(), value);
     }
+
+    /// Get all enumerable property keys
+    fn keys(&self) -> Vec<String> {
+        if self.is_array {
+            // For arrays, return indices as strings plus property keys
+            let mut keys: Vec<String> = (0..self.array_elements.len())
+                .map(|i| i.to_string())
+                .collect();
+            // Add non-index properties (except length)
+            for key in self.properties.keys() {
+                if key != "length" && key.parse::<usize>().is_err() {
+                    keys.push(key.clone());
+                }
+            }
+            keys
+        } else {
+            // For regular objects, return all property keys
+            self.properties.keys().cloned().collect()
+        }
+    }
 }
 
 /// The virtual machine that executes bytecode.
@@ -155,6 +175,16 @@ impl VM {
 
     /// Call a user-defined function with given arguments.
     fn call_function(&mut self, func: &Function, args: &[Value]) -> Result<Value, Error> {
+        self.call_function_with_value(func, args, None)
+    }
+
+    /// Call a user-defined function with given arguments and optional function value for named expressions.
+    fn call_function_with_value(
+        &mut self,
+        func: &Function,
+        args: &[Value],
+        func_value: Option<Value>,
+    ) -> Result<Value, Error> {
         // Execute the function's bytecode
         let func_bytecode = &func.bytecode;
 
@@ -162,23 +192,41 @@ impl VM {
         let saved_ip = self.ip;
         let saved_locals_len = self.locals.len();
 
-        // Initialize locals for the function
-        // First set up parameters
-        for (i, param) in func.params.iter().enumerate() {
-            let value = args.get(i).cloned().unwrap_or(Value::Undefined);
-            // Extend locals if needed
-            while self.locals.len() <= i + saved_locals_len {
-                self.locals.push(Value::Undefined);
-            }
-            self.locals[i + saved_locals_len] = value;
-            let _ = param; // Silence unused warning
-        }
+        // For named function expressions, the function name is local[0]
+        // and parameters start at local[1]
+        let param_offset = if func.name.is_some() { 1 } else { 0 };
 
-        // Allocate remaining locals as undefined
-        let total_locals = func.local_count.max(func.params.len());
+        // Allocate locals
+        let total_locals = func.local_count.max(func.params.len() + param_offset);
         while self.locals.len() < saved_locals_len + total_locals {
             self.locals.push(Value::Undefined);
         }
+
+        // For named function expressions, set local[0] to the function itself
+        if func.name.is_some() {
+            if let Some(ref fv) = func_value {
+                self.locals[saved_locals_len] = fv.clone();
+            }
+        }
+
+        // Set up parameters
+        for (i, _param) in func.params.iter().enumerate() {
+            let value = args.get(i).cloned().unwrap_or(Value::Undefined);
+            self.locals[saved_locals_len + param_offset + i] = value;
+        }
+
+        // Create the arguments object (ES3 Section 10.1.8)
+        let arguments_obj_idx = self.alloc_object(RuntimeObject::new_array(args.to_vec()));
+        // Also set callee property (the function itself)
+        if let Some(ref fv) = func_value {
+            if let Some(obj) = self.heap.get_mut(arguments_obj_idx) {
+                obj.set("callee", fv.clone());
+            }
+        }
+        // Save previous arguments if any, and set new arguments
+        let prev_arguments = self.globals.remove("arguments");
+        self.globals
+            .insert("arguments".to_string(), Value::Object(arguments_obj_idx));
 
         // Execute function
         self.ip = 0;
@@ -397,6 +445,7 @@ impl VM {
                         call_args.reverse();
 
                         let callee = self.pop()?;
+                        let callee_for_named = callee.clone(); // Clone for named function expressions
                         match callee {
                             Value::Function(callable) => {
                                 match callable.as_ref() {
@@ -409,7 +458,12 @@ impl VM {
                                         }
                                     }
                                     crate::runtime::function::Callable::Function(inner_func) => {
-                                        let res = self.call_function(inner_func, &call_args)?;
+                                        // Pass the function value for named function expressions
+                                        let res = self.call_function_with_value(
+                                            inner_func,
+                                            &call_args,
+                                            Some(callee_for_named),
+                                        )?;
                                         self.stack.push(res);
                                     }
                                 }
@@ -429,6 +483,13 @@ impl VM {
         // Restore state
         self.ip = saved_ip;
         self.locals.truncate(saved_locals_len);
+
+        // Restore previous arguments object
+        if let Some(prev) = prev_arguments {
+            self.globals.insert("arguments".to_string(), prev);
+        } else {
+            self.globals.remove("arguments");
+        }
 
         Ok(result)
     }
@@ -569,12 +630,11 @@ impl VM {
                 OpCode::Ushr => {
                     let b = self.pop()?;
                     let a = self.pop()?;
-                    if let (Value::Number(a), Value::Number(b)) = (a, b) {
-                        let result = (a as u32) >> ((b as u32) & 0x1f);
-                        self.stack.push(Value::Number(result as f64));
-                    } else {
-                        return Err(Error::TypeError("Expected numbers".into()));
-                    }
+                    // Use ToUint32 for proper unsigned right shift semantics
+                    let a_u32 = a.to_uint32();
+                    let b_u32 = b.to_uint32();
+                    let result = a_u32 >> (b_u32 & 0x1f);
+                    self.stack.push(Value::Number(result as f64));
                 }
 
                 // Control flow
@@ -749,6 +809,7 @@ impl VM {
 
                         // Get callee
                         let callee = self.pop()?;
+                        let callee_for_named = callee.clone(); // Clone for named function expressions
 
                         match callee {
                             Value::Function(callable) => {
@@ -767,7 +828,12 @@ impl VM {
                                     }
                                     Callable::Function(func) => {
                                         // Execute the user-defined function
-                                        let result = self.call_function(func, &args)?;
+                                        // Pass the function value for named function expressions
+                                        let result = self.call_function_with_value(
+                                            func,
+                                            &args,
+                                            Some(callee_for_named),
+                                        )?;
                                         self.stack.push(result);
                                     }
                                 }
@@ -786,64 +852,101 @@ impl VM {
                 OpCode::Nop => {}
 
                 OpCode::ForInInit => {
-                    // Pop object to iterate, push keys array and index 0
+                    // Pop object to iterate, collect keys, push iteration state
                     let obj = self.stack.pop().unwrap_or(Value::Undefined);
 
                     // Get enumerable keys from the object
-                    // In a full impl, would use Object.keys or iterate prototype chain
-                    let keys = match &obj {
-                        Value::Object(_) => {
-                            // Placeholder - in full impl would get actual keys
-                            vec![]
+                    let keys: Vec<String> = match &obj {
+                        Value::Object(idx) => {
+                            // Get keys from heap object
+                            if let Some(heap_obj) = self.heap.get(*idx) {
+                                heap_obj.keys()
+                            } else {
+                                vec![]
+                            }
+                        }
+                        Value::NativeObject(props) => {
+                            // Get keys from native object
+                            props.keys().cloned().collect()
                         }
                         Value::String(s) => {
-                            // String indices
-                            (0..s.len()).map(|i| Value::String(i.to_string())).collect()
+                            // String indices as keys
+                            (0..s.len()).map(|i| i.to_string()).collect()
                         }
                         _ => vec![],
                     };
 
-                    // Push keys and index onto stack for iteration
-                    // We use a special representation: index as Number, followed by the obj
-                    self.stack.push(obj); // Keep object for reference
+                    // Store keys in a new heap object for iteration
+                    let keys_obj_idx = self.alloc_object(RuntimeObject::new());
+                    if let Some(keys_obj) = self.heap.get_mut(keys_obj_idx) {
+                        for (i, key) in keys.iter().enumerate() {
+                            keys_obj.set(&i.to_string(), Value::String(key.clone()));
+                        }
+                        keys_obj.set("length", Value::Number(keys.len() as f64));
+                    }
+
+                    // Push iteration state: keys object, current index
+                    self.stack.push(Value::Object(keys_obj_idx));
                     self.stack.push(Value::Number(0.0)); // Current index
-                    self.stack.push(Value::Object(keys.len())); // Keys count
                 }
 
                 OpCode::ForInNext => {
                     // Check if there are more keys
-                    // Stack: [obj, index, count]
+                    // Stack: [keys_obj, index]
                     if let Some(Operand::Jump(target)) = instruction.operand {
-                        let count = match self.stack.pop() {
-                            Some(Value::Object(n)) => n,
-                            _ => 0,
-                        };
                         let index = match self.stack.pop() {
                             Some(Value::Number(n)) => n as usize,
                             _ => 0,
                         };
-                        let obj = self.stack.pop().unwrap_or(Value::Undefined);
+                        let keys_obj = self.stack.pop().unwrap_or(Value::Undefined);
+
+                        let count = match &keys_obj {
+                            Value::Object(idx) => {
+                                if let Some(obj) = self.heap.get(*idx) {
+                                    match obj.get("length") {
+                                        Value::Number(n) => n as usize,
+                                        _ => 0,
+                                    }
+                                } else {
+                                    0
+                                }
+                            }
+                            _ => 0,
+                        };
 
                         if index >= count {
                             // No more keys, jump to end
                             self.ip = target as usize;
+                            // Push dummy values to keep stack balanced for ForInDone
+                            self.stack.push(keys_obj);
+                            self.stack.push(Value::Number(index as f64));
                         } else {
-                            // Push next key and restore iteration state
-                            self.stack.push(obj.clone());
+                            // Get the key at current index
+                            let key = match &keys_obj {
+                                Value::Object(idx) => {
+                                    if let Some(obj) = self.heap.get(*idx) {
+                                        obj.get(&index.to_string())
+                                    } else {
+                                        Value::Undefined
+                                    }
+                                }
+                                _ => Value::Undefined,
+                            };
+
+                            // Restore iteration state with incremented index
+                            self.stack.push(keys_obj);
                             self.stack.push(Value::Number((index + 1) as f64));
-                            self.stack.push(Value::Object(count));
-                            // Push the key value (index as string for now)
-                            self.stack.push(Value::String(index.to_string()));
+                            // Push the key value for the loop body to use
+                            self.stack.push(key);
                         }
                     }
                 }
 
                 OpCode::ForInDone => {
                     // Clean up iteration state
-                    // Stack should have: [obj, index, count] - pop them all
-                    self.stack.pop(); // count
+                    // Stack should have: [keys_obj, index]
                     self.stack.pop(); // index
-                    self.stack.pop(); // obj
+                    self.stack.pop(); // keys_obj
                 }
 
                 OpCode::LogicalAnd => {
@@ -1274,3 +1377,4 @@ mod tests {
         assert!(matches!(result, Value::Number(n) if n == 17.0));
     }
 }
+
