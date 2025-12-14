@@ -1,0 +1,231 @@
+# Test Coverage Requirements
+
+All code must achieve **90% test coverage** for both unit tests and documentation tests.
+
+## Coverage Targets
+
+| Metric | Minimum |
+|--------|---------|
+| Line coverage | 90% |
+| Branch coverage | 85% |
+| Function coverage | 90% |
+| Doc-test coverage | 90% of public APIs |
+
+## Running Coverage
+
+Use `cargo-llvm-cov` for accurate coverage measurement:
+
+```bash
+# Install (once)
+cargo install cargo-llvm-cov
+
+# Run with coverage report
+cargo llvm-cov --all-features --workspace
+
+# Generate HTML report
+cargo llvm-cov --all-features --workspace --html
+
+# Check coverage threshold (CI)
+cargo llvm-cov --all-features --workspace --fail-under-lines 90
+```
+
+## Unit Testing Requirements
+
+### Every module must have tests
+
+```rust
+// At the bottom of each module
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_function_name() {
+        // Arrange
+        let input = setup();
+
+        // Act  
+        let result = function_under_test(input);
+
+        // Assert
+        assert_eq!(result, expected);
+    }
+}
+```
+
+### Test naming conventions
+
+```rust
+#[test]
+fn test_<function>_<scenario>_<expected_behavior>() { }
+
+// Examples:
+fn test_parse_valid_number_returns_value() { }
+fn test_parse_empty_string_returns_error() { }
+fn test_gc_collect_removes_unreachable_objects() { }
+```
+
+### Edge cases to always test
+
+- Empty inputs
+- Null/None values
+- Boundary conditions (0, MAX, MIN)
+- Error conditions
+- Concurrent access (for async/parallel code)
+
+## Documentation Testing Requirements
+
+### All public items must have doc tests
+
+```rust
+/// Parses a JavaScript expression from source code.
+///
+/// # Arguments
+///
+/// * `source` - The JavaScript source code to parse
+///
+/// # Returns
+///
+/// The parsed AST expression, or an error if parsing fails.
+///
+/// # Examples
+///
+/// ```
+/// use spacey_spidermonkey::Parser;
+///
+/// let mut parser = Parser::new("1 + 2");
+/// let expr = parser.parse_expression().unwrap();
+/// ```
+///
+/// # Errors
+///
+/// Returns `ParseError` if the source contains invalid syntax:
+///
+/// ```
+/// use spacey_spidermonkey::Parser;
+///
+/// let mut parser = Parser::new("1 +");
+/// assert!(parser.parse_expression().is_err());
+/// ```
+pub fn parse_expression(&mut self) -> Result<Expression, ParseError> { }
+```
+
+### Doc test patterns
+
+```rust
+/// # Examples
+///
+/// Basic usage:
+/// ```
+/// let result = my_function(42);
+/// assert_eq!(result, 84);
+/// ```
+///
+/// Error handling:
+/// ```
+/// let result = my_function(-1);
+/// assert!(result.is_err());
+/// ```
+///
+/// With async (requires tokio):
+/// ```
+/// # tokio_test::block_on(async {
+/// let result = async_function().await;
+/// assert!(result.is_ok());
+/// # });
+/// ```
+```
+
+### Hiding setup code in doc tests
+
+```rust
+/// ```
+/// # use spacey_spidermonkey::Engine;
+/// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+/// let engine = Engine::new();
+/// let result = engine.eval("1 + 1")?;
+/// assert_eq!(result.to_string(), "2");
+/// # Ok(())
+/// # }
+/// ```
+```
+
+## Coverage Exceptions
+
+Some code legitimately cannot be tested:
+
+```rust
+// Mark unreachable code
+#[cfg(not(tarpaulin_include))]
+fn unreachable_in_tests() { }
+
+// Or use coverage attribute
+#[coverage(off)]
+fn platform_specific_code() { }
+```
+
+Valid exceptions:
+- Platform-specific code not available in CI
+- Panic handlers (tested via `#[should_panic]`)
+- FFI bindings (tested via integration tests)
+- Debug-only code
+
+## CI Integration
+
+Add to `.github/workflows/ci.yml`:
+
+```yaml
+coverage:
+  runs-on: ubuntu-latest
+  steps:
+    - uses: actions/checkout@v4
+    - uses: dtolnay/rust-toolchain@stable
+      with:
+        components: llvm-tools-preview
+    - uses: taiki-e/install-action@cargo-llvm-cov
+    - name: Generate coverage
+      run: cargo llvm-cov --all-features --workspace --lcov --output-path lcov.info
+    - name: Check coverage threshold
+      run: cargo llvm-cov --all-features --workspace --fail-under-lines 90
+    - name: Upload coverage
+      uses: codecov/codecov-action@v3
+      with:
+        files: lcov.info
+```
+
+## Pre-commit Hook
+
+Add coverage check to `.husky/pre-push`:
+
+```bash
+#!/bin/bash
+# Check test coverage before push
+if command -v cargo-llvm-cov &> /dev/null; then
+    cargo llvm-cov --all-features --workspace --fail-under-lines 90 || {
+        echo "Coverage below 90%. Please add more tests."
+        exit 1
+    }
+fi
+```
+
+## Improving Coverage
+
+When coverage is below 90%:
+
+1. Run `cargo llvm-cov --html` and open `target/llvm-cov/html/index.html`
+2. Identify uncovered lines (highlighted in red)
+3. Add tests for:
+   - Uncovered functions
+   - Uncovered branches (if/else, match arms)
+   - Error paths
+   - Edge cases
+
+### Common coverage gaps
+
+| Gap | Solution |
+|-----|----------|
+| Error handling | Test error conditions explicitly |
+| Match arms | Test each variant |
+| Early returns | Test conditions that trigger them |
+| Default trait impls | Test `Default::default()` |
+| Debug/Display | Test formatting output |
