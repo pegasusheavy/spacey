@@ -15,6 +15,8 @@ repository = "https://github.com/pegasusheavy/spacey"
 [workspace.dependencies]
 # Shared dependencies across workspace
 spacey-spidermonkey = { path = "crates/spacey-spidermonkey" }
+tokio = { version = "1.42", features = ["rt-multi-thread", "fs", "sync", "macros"] }
+rayon = "1.10"
 
 [package]
 name = "spacey"
@@ -23,6 +25,12 @@ edition.workspace = true
 
 [dependencies]
 spacey-spidermonkey = { workspace = true }
+
+# Async runtime
+tokio = { workspace = true }
+
+# CLI argument parsing
+clap = { version = "4.5", features = ["derive"] }
 
 # REPL dependencies
 rustyline = { version = "14.0", features = ["derive"] }

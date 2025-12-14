@@ -4,6 +4,11 @@ description = "A JavaScript engine inspired by SpiderMonkey, implemented in Rust
 version.workspace = true
 edition.workspace = true
 
+[features]
+default = ["async", "parallel"]
+async = ["tokio", "futures"]
+parallel = ["rayon"]
+
 [dependencies]
 # Unicode support for identifier parsing
 unicode-xid = "0.2"
@@ -18,8 +23,22 @@ rustc-hash = "2.0"
 # Arena allocation for AST nodes
 bumpalo = "3.16"
 
+# Async runtime
+tokio = { version = "1.42", features = ["rt-multi-thread", "fs", "sync", "macros"], optional = true }
+futures = { version = "0.3", optional = true }
+
+# Parallelization
+rayon = { version = "1.10", optional = true }
+
+# Crossbeam for lock-free data structures
+crossbeam = "0.8"
+
+# Parking lot for faster mutexes
+parking_lot = "0.12"
+
 [dev-dependencies]
 criterion = "0.5"
+tokio = { version = "1.42", features = ["rt-multi-thread", "macros", "test-util"] }
 
 # Uncomment when benchmarks are ready
 # [[bench]]

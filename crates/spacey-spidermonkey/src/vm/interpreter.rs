@@ -1,7 +1,7 @@
 //! The bytecode interpreter.
 
 use std::collections::HashMap;
-use std::rc::Rc;
+use std::sync::Arc;
 
 use crate::Error;
 use crate::compiler::{Bytecode, OpCode, Operand};
@@ -9,6 +9,7 @@ use crate::runtime::function::{CallFrame, Callable, Function};
 use crate::runtime::value::Value;
 
 /// A saved call frame for restoring after return.
+#[derive(Clone)]
 struct SavedFrame {
     /// Saved instruction pointer
     ip: usize,
@@ -19,6 +20,7 @@ struct SavedFrame {
 }
 
 /// The virtual machine that executes bytecode.
+#[derive(Clone)]
 pub struct VM {
     /// The value stack
     stack: Vec<Value>,
@@ -31,7 +33,7 @@ pub struct VM {
     /// Call stack for function calls
     call_stack: Vec<SavedFrame>,
     /// Native functions
-    native_functions: HashMap<String, Rc<Callable>>,
+    native_functions: HashMap<String, Arc<Callable>>,
 }
 
 impl VM {
@@ -71,11 +73,11 @@ impl VM {
             func,
         };
         self.native_functions
-            .insert(name.to_string(), Rc::new(callable));
+            .insert(name.to_string(), Arc::new(callable));
     }
 
     /// Get a native function by name.
-    pub fn get_native(&self, name: &str) -> Option<Rc<Callable>> {
+    pub fn get_native(&self, name: &str) -> Option<Arc<Callable>> {
         self.native_functions.get(name).cloned()
     }
 

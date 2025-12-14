@@ -7,16 +7,24 @@
 //! Spacey - A JavaScript engine inspired by SpiderMonkey, written in Rust
 //!
 //! This is the main entry point for the spacey CLI/REPL.
+//!
+//! ## Features
+//!
+//! - Interactive REPL with syntax highlighting and history
+//! - Async file execution with tokio
+//! - Parallel compilation support
 
 mod repl;
 
 use owo_colors::OwoColorize;
-use spacey_spidermonkey::Engine;
+use spacey_spidermonkey::AsyncEngine;
 use std::env;
 use std::path::Path;
 use std::process::ExitCode;
 
-fn main() -> ExitCode {
+/// Main entry point - uses tokio runtime for async operations.
+#[tokio::main]
+async fn main() -> ExitCode {
     let args: Vec<String> = env::args().collect();
 
     match args.len() {
@@ -45,7 +53,7 @@ fn main() -> ExitCode {
                         );
                         ExitCode::FAILURE
                     } else {
-                        run_eval(&args[2])
+                        run_eval(&args[2]).await
                     }
                 }
                 _ if arg.starts_with('-') => {
@@ -53,7 +61,7 @@ fn main() -> ExitCode {
                     eprintln!("Use {} for usage information", "--help".cyan());
                     ExitCode::FAILURE
                 }
-                _ => run_file(arg),
+                _ => run_file(arg).await,
             }
         }
     }
@@ -80,8 +88,8 @@ fn run_repl() -> ExitCode {
     }
 }
 
-/// Execute a JavaScript file
-fn run_file(path: &str) -> ExitCode {
+/// Execute a JavaScript file asynchronously.
+async fn run_file(path: &str) -> ExitCode {
     let path = Path::new(path);
 
     if !path.exists() {
@@ -93,9 +101,9 @@ fn run_file(path: &str) -> ExitCode {
         return ExitCode::FAILURE;
     }
 
-    let mut engine = Engine::new();
+    let engine = AsyncEngine::new();
 
-    match engine.eval_file(path) {
+    match engine.eval_file(path).await {
         Ok(_) => ExitCode::SUCCESS,
         Err(e) => {
             eprintln!("{}", e);
@@ -104,11 +112,11 @@ fn run_file(path: &str) -> ExitCode {
     }
 }
 
-/// Evaluate JavaScript code from command line
-fn run_eval(code: &str) -> ExitCode {
-    let mut engine = Engine::new();
+/// Evaluate JavaScript code from command line asynchronously.
+async fn run_eval(code: &str) -> ExitCode {
+    let engine = AsyncEngine::new();
 
-    match engine.eval(code) {
+    match engine.eval(code).await {
         Ok(value) => {
             if !value.is_undefined() {
                 println!("{}", value);

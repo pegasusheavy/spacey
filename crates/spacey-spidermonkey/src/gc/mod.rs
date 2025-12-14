@@ -1,6 +1,7 @@
 //! Garbage collector for the JavaScript runtime.
 //!
-//! This module implements a simple mark-and-sweep garbage collector.
+//! This module implements a mark-and-sweep garbage collector with optional
+//! parallel marking using rayon.
 //!
 //! ## Architecture
 //!
@@ -8,6 +9,7 @@
 //! - A heap of `GcObject` instances
 //! - A set of root references
 //! - Mark-and-sweep collection algorithm
+//! - Optional parallel marking for large heaps
 //!
 //! ## Usage
 //!
@@ -17,9 +19,24 @@
 //! // ... use obj_ref ...
 //! heap.collect(); // Run garbage collection
 //! ```
+//!
+//! ## Parallel Collection
+//!
+//! When the `parallel` feature is enabled and the heap is large enough,
+//! the mark phase runs in parallel using rayon:
+//!
+//! ```ignore
+//! heap.set_parallel_threshold(1000); // Enable parallel marking for heaps > 1000 objects
+//! heap.collect(); // Uses parallel marking if threshold is met
+//! ```
 
-use std::cell::Cell;
 use std::collections::HashMap;
+use std::sync::atomic::{AtomicBool, Ordering};
+
+#[cfg(feature = "parallel")]
+use rayon::prelude::*;
+
+use parking_lot::RwLock;
 
 /// A reference to a garbage-collected object.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -33,29 +50,19 @@ impl GcRef {
 }
 
 /// Trait for types that can be garbage collected.
-pub trait GcTrace {
-    /// Mark all references held by this object.
-    fn trace(&self, tracer: &mut Tracer);
-}
-
-/// Helper for tracing object references.
-pub struct Tracer<'a> {
-    heap: &'a mut Heap,
-}
-
-impl<'a> Tracer<'a> {
-    /// Mark a GC reference as reachable.
-    pub fn mark(&mut self, gc_ref: GcRef) {
-        self.heap.mark(gc_ref);
-    }
+pub trait GcTrace: Send + Sync {
+    /// Returns all GC references held by this object.
+    fn trace_refs(&self) -> Vec<GcRef>;
 }
 
 /// A garbage-collected heap object wrapper.
+///
+/// Uses atomic marking for thread-safe parallel collection.
 struct GcCell<T> {
     /// The object data
-    value: T,
-    /// Whether this object has been marked during GC
-    marked: Cell<bool>,
+    value: RwLock<T>,
+    /// Whether this object has been marked during GC (atomic for parallel marking)
+    marked: AtomicBool,
 }
 
 /// A JavaScript object stored on the heap.
@@ -125,15 +132,17 @@ impl Default for JsObject {
 }
 
 impl GcTrace for JsObject {
-    fn trace(&self, tracer: &mut Tracer) {
+    fn trace_refs(&self) -> Vec<GcRef> {
+        let mut refs = Vec::new();
         if let Some(proto) = self.prototype {
-            tracer.mark(proto);
+            refs.push(proto);
         }
         for value in self.properties.values() {
             if let PropertyValue::Object(obj_ref) = value {
-                tracer.mark(*obj_ref);
+                refs.push(*obj_ref);
             }
         }
+        refs
     }
 }
 
@@ -166,6 +175,8 @@ pub struct Heap {
     allocations_since_gc: usize,
     /// Threshold for triggering GC
     gc_threshold: usize,
+    /// Threshold for enabling parallel marking
+    parallel_threshold: usize,
     /// Statistics
     stats: GcStats,
 }
@@ -192,6 +203,7 @@ impl Heap {
             roots: Vec::new(),
             allocations_since_gc: 0,
             gc_threshold: 100,
+            parallel_threshold: 1000,
             stats: GcStats::default(),
         }
     }
@@ -208,8 +220,8 @@ impl Heap {
         }
 
         let cell = GcCell {
-            value: object,
-            marked: Cell::new(false),
+            value: RwLock::new(object),
+            marked: AtomicBool::new(false),
         };
 
         let index = if let Some(free_idx) = self.free_list.pop() {
@@ -224,20 +236,20 @@ impl Heap {
         GcRef(index)
     }
 
-    /// Gets a reference to an object.
-    pub fn get(&self, gc_ref: GcRef) -> Option<&JsObject> {
+    /// Gets a read guard to an object.
+    pub fn get(&self, gc_ref: GcRef) -> Option<parking_lot::RwLockReadGuard<'_, JsObject>> {
         self.objects
             .get(gc_ref.0)
             .and_then(|opt| opt.as_ref())
-            .map(|cell| &cell.value)
+            .map(|cell| cell.value.read())
     }
 
-    /// Gets a mutable reference to an object.
-    pub fn get_mut(&mut self, gc_ref: GcRef) -> Option<&mut JsObject> {
+    /// Gets a write guard to an object.
+    pub fn get_mut(&self, gc_ref: GcRef) -> Option<parking_lot::RwLockWriteGuard<'_, JsObject>> {
         self.objects
-            .get_mut(gc_ref.0)
-            .and_then(|opt| opt.as_mut())
-            .map(|cell| &mut cell.value)
+            .get(gc_ref.0)
+            .and_then(|opt| opt.as_ref())
+            .map(|cell| cell.value.write())
     }
 
     /// Adds a root reference.
@@ -258,56 +270,93 @@ impl Heap {
     }
 
     /// Runs garbage collection.
+    ///
+    /// Uses parallel marking if the heap size exceeds the parallel threshold.
     pub fn collect(&mut self) {
         self.stats.collections += 1;
         self.allocations_since_gc = 0;
 
-        // Mark phase
-        self.mark_phase();
+        // Choose marking strategy based on heap size
+        #[cfg(feature = "parallel")]
+        if self.objects.len() >= self.parallel_threshold {
+            self.mark_phase_parallel();
+        } else {
+            self.mark_phase_sequential();
+        }
 
-        // Sweep phase
+        #[cfg(not(feature = "parallel"))]
+        self.mark_phase_sequential();
+
+        // Sweep phase (always sequential)
         self.sweep_phase();
     }
 
-    fn mark_phase(&mut self) {
+    /// Sequential mark phase for small heaps.
+    fn mark_phase_sequential(&self) {
         // Reset all marks
         for obj in self.objects.iter().flatten() {
-            obj.marked.set(false);
+            obj.marked.store(false, Ordering::Relaxed);
         }
 
         // Mark from roots
-        let roots: Vec<GcRef> = self.roots.clone();
-        for root in roots {
-            self.mark(root);
+        for root in &self.roots {
+            self.mark_recursive(*root);
         }
     }
 
-    fn mark(&mut self, gc_ref: GcRef) {
+    /// Parallel mark phase for large heaps.
+    #[cfg(feature = "parallel")]
+    fn mark_phase_parallel(&self) {
+        // Reset all marks in parallel
+        self.objects.par_iter().flatten().for_each(|cell| {
+            cell.marked.store(false, Ordering::Relaxed);
+        });
+
+        // Initial mark from roots (parallel)
+        self.roots.par_iter().for_each(|root| {
+            self.mark_recursive(*root);
+        });
+    }
+
+    /// Recursively marks an object and its references.
+    fn mark_recursive(&self, gc_ref: GcRef) {
         if let Some(Some(cell)) = self.objects.get(gc_ref.0) {
-            if cell.marked.get() {
-                return; // Already marked
+            // Try to mark - if already marked, return early
+            if cell
+                .marked
+                .compare_exchange(false, true, Ordering::AcqRel, Ordering::Relaxed)
+                .is_err()
+            {
+                return; // Already marked by another thread or earlier
             }
-            cell.marked.set(true);
 
             // Trace references from this object
-            let object = cell.value.clone();
-            let mut tracer = Tracer { heap: self };
-            object.trace(&mut tracer);
+            let object = cell.value.read();
+            if let Some(proto) = object.prototype {
+                self.mark_recursive(proto);
+            }
+            for value in object.properties.values() {
+                if let PropertyValue::Object(obj_ref) = value {
+                    self.mark_recursive(*obj_ref);
+                }
+            }
         }
     }
 
     fn sweep_phase(&mut self) {
+        let mut freed = 0;
         for i in 0..self.objects.len() {
             if let Some(cell) = &self.objects[i] {
-                if !cell.marked.get() {
+                if !cell.marked.load(Ordering::Relaxed) {
                     // Object is unreachable, free it
                     self.objects[i] = None;
                     self.free_list.push(i);
-                    self.stats.total_freed += 1;
-                    self.stats.live_objects -= 1;
+                    freed += 1;
                 }
             }
         }
+        self.stats.total_freed += freed;
+        self.stats.live_objects -= freed;
     }
 
     /// Returns GC statistics.
@@ -318,6 +367,24 @@ impl Heap {
     /// Sets the GC threshold.
     pub fn set_threshold(&mut self, threshold: usize) {
         self.gc_threshold = threshold;
+    }
+
+    /// Sets the parallel marking threshold.
+    ///
+    /// When the heap contains more objects than this threshold,
+    /// the mark phase will run in parallel.
+    pub fn set_parallel_threshold(&mut self, threshold: usize) {
+        self.parallel_threshold = threshold;
+    }
+
+    /// Returns the number of live objects.
+    pub fn len(&self) -> usize {
+        self.stats.live_objects
+    }
+
+    /// Returns whether the heap is empty.
+    pub fn is_empty(&self) -> bool {
+        self.stats.live_objects == 0
     }
 }
 
@@ -389,5 +456,34 @@ mod tests {
         assert_eq!(heap.stats().live_objects, 2);
         assert!(heap.get(parent_ref).is_some());
         assert!(heap.get(child_ref).is_some());
+    }
+
+    #[cfg(feature = "parallel")]
+    #[test]
+    fn test_parallel_gc() {
+        let mut heap = Heap::new();
+        heap.set_threshold(10000);
+        heap.set_parallel_threshold(10); // Low threshold to test parallel path
+
+        // Create many objects
+        let mut last_ref = heap.allocate(JsObject::new());
+        heap.add_root(last_ref);
+
+        for i in 0..100 {
+            let mut obj = JsObject::new();
+            obj.set(format!("index"), PropertyValue::Number(i as f64));
+            obj.set("prev".to_string(), PropertyValue::Object(last_ref));
+            let new_ref = heap.allocate(obj);
+            heap.remove_root(last_ref);
+            heap.add_root(new_ref);
+            last_ref = new_ref;
+        }
+
+        assert_eq!(heap.stats().live_objects, 101);
+
+        heap.collect();
+
+        // Only the chain from root should survive
+        assert!(heap.stats().live_objects > 0);
     }
 }

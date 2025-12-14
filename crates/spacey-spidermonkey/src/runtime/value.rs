@@ -2,9 +2,12 @@
 
 use super::function::Callable;
 use std::fmt;
-use std::rc::Rc;
+use std::sync::Arc;
 
 /// A JavaScript value.
+///
+/// Values are designed to be thread-safe and can be safely shared
+/// between async tasks.
 #[derive(Debug, Clone)]
 pub enum Value {
     /// undefined
@@ -23,8 +26,8 @@ pub enum Value {
     BigInt(String),
     /// Object reference (placeholder - would be GC handle)
     Object(usize),
-    /// Function reference
-    Function(Rc<Callable>),
+    /// Function reference (Arc for thread safety)
+    Function(Arc<Callable>),
 }
 
 impl PartialEq for Value {
@@ -45,7 +48,7 @@ impl PartialEq for Value {
             (Value::Symbol(a), Value::Symbol(b)) => a == b,
             (Value::BigInt(a), Value::BigInt(b)) => a == b,
             (Value::Object(a), Value::Object(b)) => a == b,
-            (Value::Function(a), Value::Function(b)) => Rc::ptr_eq(a, b),
+            (Value::Function(a), Value::Function(b)) => Arc::ptr_eq(a, b),
             _ => false,
         }
     }

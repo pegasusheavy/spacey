@@ -13,11 +13,11 @@
 //! This crate provides a complete JavaScript execution environment including:
 //! - Lexer and parser for ECMAScript 2024+
 //! - Bytecode compiler and interpreter
-//! - Garbage-collected runtime
+//! - Garbage-collected runtime with parallel GC
 //! - Built-in objects and standard library
-//! - Optional JIT compilation
+//! - Async/parallel execution support
 //!
-//! ## Quick Start
+//! ## Quick Start (Sync)
 //!
 //! ```rust,ignore
 //! use spacey_spidermonkey::{Engine, Value};
@@ -26,11 +26,29 @@
 //! let result = engine.eval("1 + 2")?;
 //! assert_eq!(result, Value::Number(3.0));
 //! ```
+//!
+//! ## Async Example
+//!
+//! ```rust,ignore
+//! use spacey_spidermonkey::AsyncEngine;
+//!
+//! #[tokio::main]
+//! async fn main() {
+//!     let engine = AsyncEngine::new();
+//!     let result = engine.eval_file("script.js").await.unwrap();
+//!     println!("{}", result);
+//! }
+//! ```
+//!
+//! ## Features
+//!
+//! - `async` - Enables async engine APIs using tokio (default)
+//! - `parallel` - Enables parallel compilation and GC using rayon (default)
 
 #![warn(missing_docs)]
 #![warn(clippy::all)]
 
-// Core modules - to be implemented
+// Core modules
 pub mod ast;
 pub mod builtins;
 pub mod compiler;
@@ -40,9 +58,19 @@ pub mod parser;
 pub mod runtime;
 pub mod vm;
 
+// Async and parallel modules
+#[cfg(feature = "async")]
+pub mod async_engine;
+
 // Re-exports for convenience
 pub use runtime::context::Context;
 pub use runtime::value::Value;
+
+#[cfg(feature = "async")]
+pub use async_engine::AsyncEngine;
+
+#[cfg(all(feature = "async", feature = "parallel"))]
+pub use async_engine::ParallelExecutor;
 
 use compiler::Compiler;
 use parser::Parser;

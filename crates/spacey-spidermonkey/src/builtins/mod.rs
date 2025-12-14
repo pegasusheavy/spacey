@@ -13,7 +13,7 @@ pub mod console;
 pub mod object;
 
 use std::collections::HashMap;
-use std::rc::Rc;
+use std::sync::Arc;
 
 use crate::runtime::function::{Callable, NativeFunction};
 use crate::runtime::value::Value;
@@ -33,7 +33,7 @@ pub fn register_builtins() -> HashMap<String, Value> {
 
 /// Create a native function value.
 fn make_native(name: &str, arity: i32, func: NativeFunction) -> Value {
-    Value::Function(Rc::new(Callable::Native {
+    Value::Function(Arc::new(Callable::Native {
         name: name.to_string(),
         arity,
         func,
