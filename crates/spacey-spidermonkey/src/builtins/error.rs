@@ -125,20 +125,30 @@ pub fn uri_error_constructor(_frame: &mut CallFrame, args: &[Value]) -> Result<V
 }
 
 /// Helper to create error objects.
+/// Returns a NativeObject with name and message properties.
 fn create_error(kind: ErrorKind, args: &[Value]) -> Result<Value, String> {
-    let _message = args
+    let message = args
         .first()
         .filter(|v| !matches!(v, Value::Undefined))
         .map(|v| v.to_js_string())
         .unwrap_or_default();
 
-    // In a full implementation, would create an Error object in the heap
-    // with properties: name, message, stack
-    // For now, return an object placeholder with the error info encoded
+    // Create an error object with name and message properties
+    let mut error_obj = std::collections::HashMap::new();
+    error_obj.insert("name".to_string(), Value::String(kind.name().to_string()));
+    error_obj.insert("message".to_string(), Value::String(message.clone()));
+    error_obj.insert("__type__".to_string(), Value::String("Error".to_string()));
+    error_obj.insert("__error_kind__".to_string(), Value::Number(kind as i32 as f64));
 
-    // We could encode error info in the object ID for now
-    // In real impl, would store JsError in heap
-    Ok(Value::Object(kind as usize))
+    // toString for error objects
+    let to_string_result = if message.is_empty() {
+        kind.name().to_string()
+    } else {
+        format!("{}: {}", kind.name(), message)
+    };
+    error_obj.insert("__toString__".to_string(), Value::String(to_string_result));
+
+    Ok(Value::NativeObject(error_obj))
 }
 
 // ============================================================================
