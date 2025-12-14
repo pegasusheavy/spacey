@@ -99,6 +99,19 @@ impl RuntimeObject {
             self.properties.keys().cloned().collect()
         }
     }
+
+    /// Delete a property
+    fn delete(&mut self, name: &str) -> bool {
+        if self.is_array {
+            if let Ok(idx) = name.parse::<usize>() {
+                if idx < self.array_elements.len() {
+                    self.array_elements[idx] = Value::Undefined;
+                    return true;
+                }
+            }
+        }
+        self.properties.remove(name).is_some()
+    }
 }
 
 /// The virtual machine that executes bytecode.
@@ -802,6 +815,41 @@ impl VM {
                         self.stack.push(value);
                     } else {
                         self.stack.push(Value::Undefined);
+                    }
+                }
+
+                OpCode::DeleteProperty => {
+                    // Get property name from operand or stack
+                    let prop_name = if let Some(Operand::Property(idx)) = &instruction.operand {
+                        match bytecode.constants.get(*idx as usize) {
+                            Some(Value::String(s)) => s.clone(),
+                            _ => {
+                                self.stack.push(Value::Boolean(false));
+                                continue;
+                            }
+                        }
+                    } else {
+                        match self.stack.pop() {
+                            Some(Value::String(s)) => s,
+                            Some(Value::Number(n)) => n.to_string(),
+                            _ => {
+                                self.stack.push(Value::Boolean(false));
+                                continue;
+                            }
+                        }
+                    };
+
+                    // Get object
+                    let obj = self.stack.pop().unwrap_or(Value::Undefined);
+
+                    // Delete property from object in heap
+                    if let Value::Object(idx) = obj {
+                        if let Some(obj) = self.heap.get_mut(idx) {
+                            obj.delete(&prop_name);
+                        }
+                        self.stack.push(Value::Boolean(true));
+                    } else {
+                        self.stack.push(Value::Boolean(false));
                     }
                 }
 

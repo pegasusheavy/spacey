@@ -1475,6 +1475,11 @@ impl Compiler {
     }
 
     fn compile_unary(&mut self, un: &UnaryExpression) -> Result<(), Error> {
+        // Handle delete specially before compiling the argument
+        if let UnaryOperator::Delete = un.operator {
+            return self.compile_delete(&un.argument);
+        }
+
         self.compile_expression(&un.argument)?;
 
         let opcode = match un.operator {
@@ -1489,10 +1494,8 @@ impl Compiler {
                 return Ok(());
             }
             UnaryOperator::Delete => {
-                // Delete is complex - for now, just return true
-                self.emit(Instruction::simple(OpCode::Pop));
-                self.emit(Instruction::simple(OpCode::LoadTrue));
-                return Ok(());
+                // Handled above
+                unreachable!()
             }
             UnaryOperator::Plus => {
                 // Unary + converts to number - we'll emit a ToNumber conversion
@@ -1502,6 +1505,44 @@ impl Compiler {
         };
 
         self.emit(Instruction::simple(opcode));
+        Ok(())
+    }
+
+    /// Compile delete expression (ES3 Section 11.4.1)
+    fn compile_delete(&mut self, argument: &Expression) -> Result<(), Error> {
+        match argument {
+            Expression::Member(member) => {
+                // delete obj.prop or delete obj[expr]
+                // Compile the object
+                self.compile_expression(&member.object)?;
+
+                // Emit delete instruction with property name
+                match &member.property {
+                    MemberProperty::Identifier(prop_id) => {
+                        let name_idx = self
+                            .bytecode
+                            .add_constant(Value::String(prop_id.name.clone()));
+                        self.emit(Instruction::with_operand(
+                            OpCode::DeleteProperty,
+                            Operand::Property(name_idx),
+                        ));
+                    }
+                    MemberProperty::Expression(prop_expr) => {
+                        self.compile_expression(prop_expr)?;
+                        self.emit(Instruction::simple(OpCode::DeleteProperty));
+                    }
+                }
+            }
+            Expression::Identifier(_) => {
+                // delete on a simple variable - in non-strict mode, returns false for declared vars
+                // For simplicity, just return true (deleting global properties)
+                self.emit(Instruction::simple(OpCode::LoadTrue));
+            }
+            _ => {
+                // delete on other expressions returns true but has no effect
+                self.emit(Instruction::simple(OpCode::LoadTrue));
+            }
+        }
         Ok(())
     }
 
