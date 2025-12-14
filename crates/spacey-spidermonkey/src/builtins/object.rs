@@ -106,3 +106,222 @@ pub fn typeof_value(_frame: &mut CallFrame, args: &[Value]) -> Result<Value, Str
     }
     Ok(Value::String(args[0].type_of().to_string()))
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::compiler::Bytecode;
+    use crate::runtime::function::Function;
+
+    fn make_frame() -> CallFrame {
+        let func = Function::new(None, vec![], Bytecode::new(), 0);
+        CallFrame::new(func, 0)
+    }
+
+    #[test]
+    fn test_object_constructor_no_args() {
+        let mut frame = make_frame();
+        let result = object_constructor(&mut frame, &[]);
+        assert!(result.is_ok());
+        assert!(matches!(result.unwrap(), Value::Object(_)));
+    }
+
+    #[test]
+    fn test_object_constructor_null() {
+        let mut frame = make_frame();
+        let result = object_constructor(&mut frame, &[Value::Null]);
+        assert!(result.is_ok());
+        assert!(matches!(result.unwrap(), Value::Object(_)));
+    }
+
+    #[test]
+    fn test_object_constructor_undefined() {
+        let mut frame = make_frame();
+        let result = object_constructor(&mut frame, &[Value::Undefined]);
+        assert!(result.is_ok());
+        assert!(matches!(result.unwrap(), Value::Object(_)));
+    }
+
+    #[test]
+    fn test_object_constructor_with_value() {
+        let mut frame = make_frame();
+        let result = object_constructor(&mut frame, &[Value::Number(42.0)]);
+        assert!(result.is_ok());
+        assert!(matches!(result.unwrap(), Value::Number(n) if n == 42.0));
+    }
+
+    #[test]
+    fn test_object_keys() {
+        let mut frame = make_frame();
+        let result = object_keys(&mut frame, &[]);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_object_values() {
+        let mut frame = make_frame();
+        let result = object_values(&mut frame, &[]);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_object_entries() {
+        let mut frame = make_frame();
+        let result = object_entries(&mut frame, &[]);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_object_assign_no_args() {
+        let mut frame = make_frame();
+        let result = object_assign(&mut frame, &[]);
+        assert!(result.is_err());
+        assert!(
+            result
+                .unwrap_err()
+                .contains("requires at least one argument")
+        );
+    }
+
+    #[test]
+    fn test_object_assign_with_target() {
+        let mut frame = make_frame();
+        let result = object_assign(&mut frame, &[Value::Object(1)]);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_object_create() {
+        let mut frame = make_frame();
+        let result = object_create(&mut frame, &[]);
+        assert!(result.is_ok());
+        assert!(matches!(result.unwrap(), Value::Object(_)));
+    }
+
+    #[test]
+    fn test_object_freeze_no_args() {
+        let mut frame = make_frame();
+        let result = object_freeze(&mut frame, &[]);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("requires an argument"));
+    }
+
+    #[test]
+    fn test_object_freeze_with_object() {
+        let mut frame = make_frame();
+        let result = object_freeze(&mut frame, &[Value::Object(1)]);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_object_seal_no_args() {
+        let mut frame = make_frame();
+        let result = object_seal(&mut frame, &[]);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("requires an argument"));
+    }
+
+    #[test]
+    fn test_object_seal_with_object() {
+        let mut frame = make_frame();
+        let result = object_seal(&mut frame, &[Value::Object(1)]);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_object_is_frozen() {
+        let mut frame = make_frame();
+        let result = object_is_frozen(&mut frame, &[]);
+        assert!(result.is_ok());
+        assert!(matches!(result.unwrap(), Value::Boolean(false)));
+    }
+
+    #[test]
+    fn test_object_is_sealed() {
+        let mut frame = make_frame();
+        let result = object_is_sealed(&mut frame, &[]);
+        assert!(result.is_ok());
+        assert!(matches!(result.unwrap(), Value::Boolean(false)));
+    }
+
+    #[test]
+    fn test_object_has_own_property() {
+        let mut frame = make_frame();
+        let result = object_has_own_property(&mut frame, &[]);
+        assert!(result.is_ok());
+        assert!(matches!(result.unwrap(), Value::Boolean(false)));
+    }
+
+    #[test]
+    fn test_object_to_string() {
+        let mut frame = make_frame();
+        let result = object_to_string(&mut frame, &[]);
+        assert!(result.is_ok());
+        assert!(matches!(result.unwrap(), Value::String(s) if s == "[object Object]"));
+    }
+
+    #[test]
+    fn test_object_value_of_no_args() {
+        let mut frame = make_frame();
+        let result = object_value_of(&mut frame, &[]);
+        assert!(result.is_ok());
+        assert!(matches!(result.unwrap(), Value::Undefined));
+    }
+
+    #[test]
+    fn test_object_value_of_with_value() {
+        let mut frame = make_frame();
+        let result = object_value_of(&mut frame, &[Value::Number(42.0)]);
+        assert!(result.is_ok());
+        assert!(matches!(result.unwrap(), Value::Number(n) if n == 42.0));
+    }
+
+    #[test]
+    fn test_typeof_value_no_args() {
+        let mut frame = make_frame();
+        let result = typeof_value(&mut frame, &[]);
+        assert!(result.is_ok());
+        assert!(matches!(result.unwrap(), Value::String(s) if s == "undefined"));
+    }
+
+    #[test]
+    fn test_typeof_value_number() {
+        let mut frame = make_frame();
+        let result = typeof_value(&mut frame, &[Value::Number(42.0)]);
+        assert!(result.is_ok());
+        assert!(matches!(result.unwrap(), Value::String(s) if s == "number"));
+    }
+
+    #[test]
+    fn test_typeof_value_string() {
+        let mut frame = make_frame();
+        let result = typeof_value(&mut frame, &[Value::String("test".to_string())]);
+        assert!(result.is_ok());
+        assert!(matches!(result.unwrap(), Value::String(s) if s == "string"));
+    }
+
+    #[test]
+    fn test_typeof_value_boolean() {
+        let mut frame = make_frame();
+        let result = typeof_value(&mut frame, &[Value::Boolean(true)]);
+        assert!(result.is_ok());
+        assert!(matches!(result.unwrap(), Value::String(s) if s == "boolean"));
+    }
+
+    #[test]
+    fn test_typeof_value_object() {
+        let mut frame = make_frame();
+        let result = typeof_value(&mut frame, &[Value::Object(0)]);
+        assert!(result.is_ok());
+        assert!(matches!(result.unwrap(), Value::String(s) if s == "object"));
+    }
+
+    #[test]
+    fn test_typeof_value_null() {
+        let mut frame = make_frame();
+        let result = typeof_value(&mut frame, &[Value::Null]);
+        assert!(result.is_ok());
+        // null returns "object" (historical quirk)
+        assert!(matches!(result.unwrap(), Value::String(s) if s == "object"));
+    }
+}

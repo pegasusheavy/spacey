@@ -203,6 +203,18 @@ mod tests {
     use super::*;
 
     #[tokio::test]
+    async fn test_async_engine_new() {
+        let _engine = AsyncEngine::new();
+        // Engine should be created successfully
+    }
+
+    #[tokio::test]
+    async fn test_async_engine_default() {
+        let _engine = AsyncEngine::default();
+        // Engine should be created successfully
+    }
+
+    #[tokio::test]
     async fn test_async_eval() {
         let engine = AsyncEngine::new();
         let result = engine.eval("1 + 2;").await.unwrap();
@@ -214,5 +226,197 @@ mod tests {
         let engine = AsyncEngine::new();
         let result = engine.eval("\"hello\";").await.unwrap();
         assert!(matches!(result, Value::String(s) if s == "hello"));
+    }
+
+    #[tokio::test]
+    async fn test_async_eval_number() {
+        let engine = AsyncEngine::new();
+        let result = engine.eval("42;").await.unwrap();
+        assert!(matches!(result, Value::Number(n) if n == 42.0));
+    }
+
+    #[tokio::test]
+    async fn test_async_eval_boolean() {
+        let engine = AsyncEngine::new();
+        assert!(matches!(
+            engine.eval("true;").await.unwrap(),
+            Value::Boolean(true)
+        ));
+        assert!(matches!(
+            engine.eval("false;").await.unwrap(),
+            Value::Boolean(false)
+        ));
+    }
+
+    #[tokio::test]
+    async fn test_async_eval_null() {
+        let engine = AsyncEngine::new();
+        let result = engine.eval("null;").await.unwrap();
+        assert!(matches!(result, Value::Null));
+    }
+
+    #[tokio::test]
+    async fn test_async_eval_variable() {
+        let engine = AsyncEngine::new();
+        let result = engine.eval("let x = 5; x;").await.unwrap();
+        assert!(matches!(result, Value::Number(n) if n == 5.0));
+    }
+
+    #[tokio::test]
+    async fn test_async_eval_arithmetic() {
+        let engine = AsyncEngine::new();
+        assert!(matches!(engine.eval("10 - 3;").await.unwrap(), Value::Number(n) if n == 7.0));
+        assert!(matches!(engine.eval("4 * 5;").await.unwrap(), Value::Number(n) if n == 20.0));
+        assert!(matches!(engine.eval("15 / 3;").await.unwrap(), Value::Number(n) if n == 5.0));
+    }
+
+    #[tokio::test]
+    async fn test_async_eval_comparison() {
+        let engine = AsyncEngine::new();
+        assert!(matches!(
+            engine.eval("1 < 2;").await.unwrap(),
+            Value::Boolean(true)
+        ));
+        assert!(matches!(
+            engine.eval("2 > 1;").await.unwrap(),
+            Value::Boolean(true)
+        ));
+        assert!(matches!(
+            engine.eval("1 == 1;").await.unwrap(),
+            Value::Boolean(true)
+        ));
+    }
+
+    #[tokio::test]
+    async fn test_async_eval_empty() {
+        let engine = AsyncEngine::new();
+        let result = engine.eval("").await.unwrap();
+        assert!(matches!(result, Value::Undefined));
+    }
+
+    #[tokio::test]
+    async fn test_async_eval_multiple_statements() {
+        let engine = AsyncEngine::new();
+        let result = engine.eval("let a = 1; let b = 2; a + b;").await.unwrap();
+        assert!(matches!(result, Value::Number(n) if n == 3.0));
+    }
+
+    #[tokio::test]
+    async fn test_async_eval_syntax_error() {
+        let engine = AsyncEngine::new();
+        let result = engine.eval("let = 5;").await;
+        assert!(result.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_async_vm_clone() {
+        let engine = AsyncEngine::new();
+        engine.eval("let x = 42;").await.unwrap();
+        let vm = engine.vm().await;
+        // VM should be cloneable
+        let _ = vm.clone();
+    }
+
+    #[tokio::test]
+    async fn test_async_eval_control_flow() {
+        let engine = AsyncEngine::new();
+        let result = engine
+            .eval("let x = 0; if (true) { x = 1; } x;")
+            .await
+            .unwrap();
+        assert!(matches!(result, Value::Number(n) if n == 1.0));
+    }
+
+    #[tokio::test]
+    async fn test_async_eval_loop() {
+        let engine = AsyncEngine::new();
+        let result = engine
+            .eval("let sum = 0; let i = 0; while (i < 5) { sum = sum + i; i = i + 1; } sum;")
+            .await
+            .unwrap();
+        assert!(matches!(result, Value::Number(n) if n == 10.0));
+    }
+}
+
+#[cfg(all(test, feature = "parallel"))]
+mod parallel_tests {
+    use super::*;
+
+    #[test]
+    fn test_parallel_executor_new() {
+        let executor = ParallelExecutor::new();
+        let _ = executor.pool;
+    }
+
+    #[test]
+    fn test_parallel_executor_default() {
+        let executor = ParallelExecutor::default();
+        let _ = executor.pool;
+    }
+
+    #[test]
+    fn test_parallel_executor_with_threads() {
+        let executor = ParallelExecutor::with_threads(2);
+        let _ = executor.pool;
+    }
+
+    #[test]
+    fn test_compile_parallel_single() {
+        let executor = ParallelExecutor::new();
+        let results = executor.compile_parallel(&["let x = 1;"]);
+        assert_eq!(results.len(), 1);
+        assert!(results[0].is_ok());
+    }
+
+    #[test]
+    fn test_compile_parallel_multiple() {
+        let executor = ParallelExecutor::new();
+        let sources = ["let x = 1;", "let y = 2;", "let z = 3;"];
+        let results = executor.compile_parallel(&sources);
+        assert_eq!(results.len(), 3);
+        for result in &results {
+            assert!(result.is_ok());
+        }
+    }
+
+    #[test]
+    fn test_compile_parallel_with_error() {
+        let executor = ParallelExecutor::new();
+        let sources = ["let x = 1;", "let = 2;", "let z = 3;"]; // second has error
+        let results = executor.compile_parallel(&sources);
+        assert_eq!(results.len(), 3);
+        assert!(results[0].is_ok());
+        assert!(results[1].is_err());
+        assert!(results[2].is_ok());
+    }
+
+    #[test]
+    fn test_parse_parallel_single() {
+        let executor = ParallelExecutor::new();
+        let results = executor.parse_parallel(&["let x = 1;"]);
+        assert_eq!(results.len(), 1);
+        assert!(results[0].is_ok());
+    }
+
+    #[test]
+    fn test_parse_parallel_multiple() {
+        let executor = ParallelExecutor::new();
+        let sources = ["1 + 2;", "a * b;", "function f() {}"];
+        let results = executor.parse_parallel(&sources);
+        assert_eq!(results.len(), 3);
+        for result in &results {
+            assert!(result.is_ok());
+        }
+    }
+
+    #[test]
+    fn test_parse_parallel_with_error() {
+        let executor = ParallelExecutor::new();
+        let sources = ["1 + 2;", "let = ;", "3 * 4;"]; // second has error
+        let results = executor.parse_parallel(&sources);
+        assert_eq!(results.len(), 3);
+        assert!(results[0].is_ok());
+        assert!(results[1].is_err());
+        assert!(results[2].is_ok());
     }
 }
