@@ -872,4 +872,174 @@ mod tests {
         let stats = heap.stats();
         assert!(stats.bytes_allocated > 0);
     }
+
+    #[test]
+    fn test_heap_default() {
+        let heap = Heap::default();
+        assert!(heap.is_empty());
+    }
+
+    #[test]
+    fn test_heap_len() {
+        let heap = Heap::new();
+        assert_eq!(heap.len(), 0);
+
+        heap.allocate(JsObject::new());
+        assert!(heap.len() >= 1);
+    }
+
+    #[test]
+    fn test_heap_is_empty() {
+        let heap = Heap::new();
+        assert!(heap.is_empty());
+
+        heap.allocate(JsObject::new());
+        assert!(!heap.is_empty());
+    }
+
+    #[test]
+    fn test_gc_config_default() {
+        let config = GcConfig::default();
+        assert!(config.nursery_size > 0);
+        assert!(config.arena_block_size > 0);
+        assert!(config.tenure_threshold > 0);
+    }
+
+    #[test]
+    fn test_gc_config_custom() {
+        let config = GcConfig {
+            nursery_size: 8192,
+            arena_block_size: 4096,
+            tenure_threshold: 5,
+            ..Default::default()
+        };
+        assert_eq!(config.nursery_size, 8192);
+        assert_eq!(config.arena_block_size, 4096);
+        assert_eq!(config.tenure_threshold, 5);
+    }
+
+    #[test]
+    fn test_mark_color_from_u8() {
+        assert_eq!(MarkColor::from(0), MarkColor::White);
+        assert_eq!(MarkColor::from(1), MarkColor::Gray);
+        assert_eq!(MarkColor::from(2), MarkColor::Black);
+        assert_eq!(MarkColor::from(255), MarkColor::White); // Invalid defaults to White
+    }
+
+    #[test]
+    fn test_heap_with_config() {
+        let config = GcConfig {
+            nursery_size: 16384,
+            ..Default::default()
+        };
+        let heap = Heap::with_config(config);
+        assert!(heap.is_empty());
+    }
+
+    #[test]
+    fn test_heap_remove_root() {
+        let heap = Heap::new();
+        let gc_ref = heap.allocate(JsObject::new());
+
+        heap.add_root(gc_ref);
+        heap.remove_root(gc_ref);
+
+        // Should not panic
+    }
+
+    #[test]
+    fn test_collect_both_generations() {
+        let heap = Heap::new();
+
+        // Allocate objects
+        for _ in 0..10 {
+            let gc_ref = heap.allocate(JsObject::new());
+            heap.add_root(gc_ref);
+        }
+
+        heap.collect();
+
+        let stats = heap.stats();
+        assert!(stats.minor_collections > 0 || stats.major_collections > 0);
+    }
+
+    #[test]
+    fn test_multiple_minor_gc() {
+        let config = GcConfig {
+            nursery_size: 2048,
+            ..Default::default()
+        };
+        let heap = Heap::with_config(config);
+
+        heap.minor_gc();
+        heap.minor_gc();
+        heap.minor_gc();
+
+        assert_eq!(heap.stats().minor_collections, 3);
+    }
+
+    #[test]
+    fn test_multiple_major_gc() {
+        let config = GcConfig {
+            nursery_size: 2048,
+            ..Default::default()
+        };
+        let heap = Heap::with_config(config);
+
+        heap.major_gc();
+        heap.major_gc();
+
+        assert_eq!(heap.stats().major_collections, 2);
+    }
+
+    #[test]
+    fn test_gc_stats_reset() {
+        let heap = Heap::new();
+        let stats = heap.stats();
+
+        assert_eq!(stats.minor_collections, 0);
+        assert_eq!(stats.major_collections, 0);
+        assert_eq!(stats.bytes_freed, 0);
+    }
+
+    #[test]
+    fn test_allocate_many_objects() {
+        let heap = Heap::new();
+
+        for i in 0..100 {
+            let mut obj = JsObject::new();
+            obj.properties.insert(
+                format!("prop{}", i),
+                PropertyValue::String(format!("value{}", i)),
+            );
+            heap.allocate(obj);
+        }
+
+        assert!(heap.len() >= 100);
+    }
+
+    #[test]
+    fn test_object_with_properties() {
+        let heap = Heap::new();
+
+        let mut obj = JsObject::new();
+        obj.properties.insert(
+            "name".to_string(),
+            PropertyValue::String("test".to_string()),
+        );
+        obj.properties
+            .insert("value".to_string(), PropertyValue::Number(42.0));
+
+        let gc_ref = heap.allocate(obj);
+        heap.add_root(gc_ref);
+
+        let retrieved = heap.get(gc_ref);
+        assert!(retrieved.is_some());
+    }
+
+    #[test]
+    fn test_card_state() {
+        assert_eq!(CardState::Clean as u8, 0);
+        assert_eq!(CardState::Dirty as u8, 1);
+    }
 }
