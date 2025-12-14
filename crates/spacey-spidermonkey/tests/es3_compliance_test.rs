@@ -305,7 +305,7 @@ function assert(condition, message) {
 assert(true, "test");
 testsPassed;
 "#;
-    
+
     let result = engine.eval(code);
     println!("Result: {:?}", result);
     assert_eq!(result.unwrap().to_string(), "1");
@@ -322,7 +322,7 @@ function checkArg(x) {
 }
 checkArg(true);
 "#;
-    
+
     let result = engine.eval(code).unwrap();
     println!("checkArg(true) = {:?}", result);
     assert_eq!(result.to_string(), "true");
@@ -343,7 +343,7 @@ function increment() {
 increment();
 counter;
 "#;
-    
+
     let result = engine.eval(code).unwrap();
     println!("counter after increment() = {:?}", result);
     assert_eq!(result.to_string(), "1");
@@ -363,7 +363,7 @@ function read_x() {
 
 read_x();
 "#;
-    
+
     let result = engine.eval(code).unwrap();
     println!("read_x() = {:?}", result);
     assert_eq!(result.to_string(), "10");
@@ -372,7 +372,7 @@ read_x();
 #[test]
 fn test_parse_console_log() {
     use spacey_spidermonkey::parser::Parser;
-    
+
     let code = r#"console.log("test");"#;
     let mut parser = Parser::new(code);
     let result = parser.parse_program();
@@ -383,7 +383,7 @@ fn test_parse_console_log() {
 #[test]
 fn test_parse_string_method() {
     use spacey_spidermonkey::parser::Parser;
-    
+
     let code = r#""=".repeat(60);"#;
     let mut parser = Parser::new(code);
     let result = parser.parse_program();
@@ -394,7 +394,7 @@ fn test_parse_string_method() {
 #[test]
 fn test_parse_assertEqual() {
     use spacey_spidermonkey::parser::Parser;
-    
+
     let code = r#"
 function assertEqual(actual, expected, message) {
     if (actual === expected) {
@@ -411,7 +411,7 @@ function assertEqual(actual, expected, message) {
 #[test]
 fn test_parse_for_with_increment() {
     use spacey_spidermonkey::parser::Parser;
-    
+
     let code = r#"for (var i = 1; i <= 5; i++) { }"#;
     let mut parser = Parser::new(code);
     let result = parser.parse_program();
@@ -423,11 +423,11 @@ fn test_parse_for_with_increment() {
 fn test_parse_first_50_lines() {
     use spacey_spidermonkey::parser::Parser;
     use std::fs;
-    
+
     let source = fs::read_to_string("../../tests/es3_compliance.js").unwrap();
     let lines: Vec<&str> = source.lines().take(50).collect();
     let partial = lines.join("\n");
-    
+
     let mut parser = Parser::new(&partial);
     let result = parser.parse_program();
     println!("Parse result of first 50 lines: {:?}", result.is_ok());
@@ -441,9 +441,9 @@ fn test_parse_first_50_lines() {
 fn test_parse_progressive() {
     use spacey_spidermonkey::parser::Parser;
     use std::fs;
-    
+
     let source = fs::read_to_string("../../tests/es3_compliance.js").unwrap();
-    
+
     // Try to parse the whole file
     let mut parser = Parser::new(&source);
     match parser.parse_program() {
@@ -468,7 +468,7 @@ fn test_parse_progressive() {
 #[test]
 fn test_parse_comma_operator() {
     use spacey_spidermonkey::parser::Parser;
-    
+
     let code = r#"var commaResult = (1, 2, 3);"#;
     let mut parser = Parser::new(code);
     let result = parser.parse_program();
@@ -479,7 +479,7 @@ fn test_parse_comma_operator() {
 #[test]
 fn test_parse_in_operator() {
     use spacey_spidermonkey::parser::Parser;
-    
+
     let code = r#""x" in obj;"#;
     let mut parser = Parser::new(code);
     let result = parser.parse_program();
@@ -491,11 +491,11 @@ fn test_parse_in_operator() {
 fn test_parse_up_to_line_600() {
     use spacey_spidermonkey::parser::Parser;
     use std::fs;
-    
+
     let source = fs::read_to_string("../../tests/es3_compliance.js").unwrap();
     let lines: Vec<&str> = source.lines().take(600).collect();
     let partial = lines.join("\n");
-    
+
     let mut parser = Parser::new(&partial);
     let result = parser.parse_program();
     if let Err(e) = &result {
@@ -510,10 +510,10 @@ fn test_parse_up_to_line_600() {
 fn test_parse_around_regex() {
     use spacey_spidermonkey::parser::Parser;
     use std::fs;
-    
+
     let source = fs::read_to_string("../../tests/es3_compliance.js").unwrap();
     let lines: Vec<&str> = source.lines().collect();
-    
+
     // Try lines around the regex area
     for end in [650, 680, 685, 686, 687] {
         if end > lines.len() { break; }
@@ -532,10 +532,10 @@ fn test_parse_around_regex() {
 fn test_full_parse() {
     use spacey_spidermonkey::parser::Parser;
     use std::fs;
-    
+
     let source = fs::read_to_string("../../tests/es3_compliance.js").unwrap();
     let lines: Vec<&str> = source.lines().collect();
-    
+
     // Binary search for the error line
     for end in (600..=lines.len()).step_by(10) {
         let partial = lines[..end.min(lines.len())].join("\n");
@@ -553,7 +553,7 @@ fn test_full_parse() {
 #[test]
 fn test_parse_string_concat() {
     use spacey_spidermonkey::parser::Parser;
-    
+
     let code = r#"console.log("\n" + "=".repeat(60));"#;
     let mut parser = Parser::new(code);
     let result = parser.parse_program();
@@ -565,10 +565,10 @@ fn test_parse_string_concat() {
 fn test_find_exact_error_line() {
     use spacey_spidermonkey::parser::Parser;
     use std::fs;
-    
+
     let source = fs::read_to_string("../../tests/es3_compliance.js").unwrap();
     let lines: Vec<&str> = source.lines().collect();
-    
+
     for end in 710..=lines.len() {
         let partial = lines[..end].join("\n");
         let mut parser = Parser::new(&partial);
@@ -584,7 +584,7 @@ fn test_find_exact_error_line() {
 #[test]
 fn test_parse_paren_addition() {
     use spacey_spidermonkey::parser::Parser;
-    
+
     let code = r#""str" + (a + b);"#;
     let mut parser = Parser::new(code);
     let result = parser.parse_program();

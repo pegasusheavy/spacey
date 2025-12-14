@@ -41,9 +41,9 @@ function assertNaN(value, message) {
     }
 }
 
-console.log("=".repeat(60));
+console.log("============================================================");
 console.log("ES3 Compliance Test Suite");
-console.log("=".repeat(60));
+console.log("============================================================");
 
 // =============================================================================
 // SECTION 1: Primitive Values and Types
@@ -707,13 +707,13 @@ assertEqual("hello".search(new RegExp("xyz")), -1, "String.search not found");
 // =============================================================================
 // Final Summary
 // =============================================================================
-console.log("\n" + "=".repeat(60));
+console.log("\n============================================================");
 console.log("Test Summary");
-console.log("=".repeat(60));
+console.log("============================================================");
 console.log("Tests Passed: " + testsPassed);
 console.log("Tests Failed: " + testsFailed);
 console.log("Total Tests:  " + (testsPassed + testsFailed));
-console.log("=".repeat(60));
+console.log("============================================================");
 
 if (testsFailed === 0) {
     console.log("\nSUCCESS: All ES3 compliance tests passed!");

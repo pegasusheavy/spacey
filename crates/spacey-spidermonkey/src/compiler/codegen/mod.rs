@@ -172,7 +172,7 @@ impl Compiler {
             // Only declare if not already in scope
             if self.scope.resolve(&name).is_none() {
                 self.emit(Instruction::simple(OpCode::LoadUndefined));
-                
+
                 if is_global_scope {
                     // At global scope, store as global so functions can access
                     let name_idx = self.bytecode.add_constant(Value::String(name));
@@ -903,17 +903,31 @@ impl Compiler {
         let func_value = Value::Function(std::sync::Arc::new(callable));
         let idx = self.bytecode.add_constant(func_value);
 
-        // Store function in scope
-        let local_idx = self.scope.declare(func_decl.id.name.clone(), true)?;
+        // Load the function value
         self.emit(Instruction::with_operand(
             OpCode::LoadConst,
             Operand::Constant(idx),
         ));
-        self.emit(Instruction::with_operand(
-            OpCode::StoreLocal,
-            Operand::Local(local_idx as u16),
-        ));
-        self.scope.mark_initialized(local_idx);
+
+        // Store function - at top level (depth 0) use global, otherwise use local
+        if self.scope.depth == 0 {
+            // Store as global for top-level functions
+            let name_idx = self
+                .bytecode
+                .add_constant(Value::String(func_decl.id.name.clone()));
+            self.emit(Instruction::with_operand(
+                OpCode::StoreGlobal,
+                Operand::Property(name_idx),
+            ));
+        } else {
+            // Store as local for nested functions
+            let local_idx = self.scope.declare(func_decl.id.name.clone(), true)?;
+            self.emit(Instruction::with_operand(
+                OpCode::StoreLocal,
+                Operand::Local(local_idx as u16),
+            ));
+            self.scope.mark_initialized(local_idx);
+        }
 
         Ok(())
     }
@@ -1214,6 +1228,9 @@ impl Compiler {
             BinaryOperator::LeftShift => OpCode::Shl,
             BinaryOperator::RightShift => OpCode::Shr,
             BinaryOperator::UnsignedRightShift => OpCode::Ushr,
+            // Object operators
+            BinaryOperator::In => OpCode::In,
+            BinaryOperator::InstanceOf => OpCode::InstanceOf,
             // These are handled above
             BinaryOperator::LogicalAnd | BinaryOperator::LogicalOr => unreachable!(),
             _ => return Err(Error::InternalError("Unsupported operator".into())),

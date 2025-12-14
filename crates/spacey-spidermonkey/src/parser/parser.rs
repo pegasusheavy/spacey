@@ -993,11 +993,11 @@ impl<'a> Parser<'a> {
         if let TokenKind::Identifier(name) = &self.current.kind {
             let id = Identifier { name: name.clone() };
             self.advance();
-            
+
             // Only treat as potential arrow params if followed by , or )
             if self.check(&TokenKind::Comma) || self.check(&TokenKind::RightParen) {
                 params.push(id);
-                
+
                 // Collect more parameters
                 while self.check(&TokenKind::Comma) {
                     self.advance();
@@ -1030,7 +1030,7 @@ impl<'a> Parser<'a> {
         if !params.is_empty() {
             // We consumed identifiers as params but no arrow - treat as grouping/sequence
             let first = Expression::Identifier(params[0].clone());
-            
+
             if params.len() > 1 {
                 let mut exprs = vec![first];
                 for p in params.into_iter().skip(1) {
@@ -1039,11 +1039,11 @@ impl<'a> Parser<'a> {
                 // Already consumed RightParen above when checking for arrow
                 return Ok(Expression::Sequence(SequenceExpression { expressions: exprs }));
             }
-            
-            // Already consumed RightParen above when checking for arrow  
+
+            // Already consumed RightParen above when checking for arrow
             return Ok(first);
         }
-        
+
         // Parse as regular parenthesized expression
         // If we consumed an identifier, we need to continue parsing from there
         let expr = if let Some(id) = consumed_identifier {
@@ -1053,7 +1053,7 @@ impl<'a> Parser<'a> {
         } else {
             self.parse_assignment()?
         };
-        
+
         // Check for comma operator (sequence expression)
         if self.check(&TokenKind::Comma) {
             let mut exprs = vec![expr];
@@ -1064,18 +1064,18 @@ impl<'a> Parser<'a> {
             self.expect(&TokenKind::RightParen)?;
             return Ok(Expression::Sequence(SequenceExpression { expressions: exprs }));
         }
-        
+
         self.expect(&TokenKind::RightParen)?;
 
         Ok(expr)
     }
-    
+
     /// Continue parsing an expression that started with a given left-hand side
     fn parse_expression_continue(&mut self, left: Expression) -> Result<Expression, Error> {
         // This handles continuing after we've already parsed an identifier
         // and need to handle binary operators, member access, calls, etc.
         let mut result = left;
-        
+
         // Handle member access and calls first (highest precedence)
         loop {
             if self.check(&TokenKind::Dot) {
@@ -1106,16 +1106,16 @@ impl<'a> Parser<'a> {
                 break;
             }
         }
-        
+
         // Now handle binary operators
         self.parse_binary_with_left(result)
     }
-    
+
     /// Parse binary expression starting with given left operand
     fn parse_binary_with_left(&mut self, left: Expression) -> Result<Expression, Error> {
         // Simple binary operator handling at the additive level
         let mut result = left;
-        
+
         loop {
             let op = match &self.current.kind {
                 TokenKind::Plus => Some(BinaryOperator::Add),
@@ -1135,7 +1135,7 @@ impl<'a> Parser<'a> {
                 TokenKind::PipePipe => Some(BinaryOperator::LogicalOr),
                 _ => None,
             };
-            
+
             if let Some(operator) = op {
                 self.advance();
                 let right = self.parse_unary()?;
@@ -1148,7 +1148,7 @@ impl<'a> Parser<'a> {
                 break;
             }
         }
-        
+
         Ok(result)
     }
 

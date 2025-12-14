@@ -128,34 +128,39 @@ fn register_global_functions(globals: &mut HashMap<String, Value>) {
     globals.insert("undefined".to_string(), Value::Undefined);
 }
 
-/// Register console methods.
+/// Register console object.
+/// Note: console is not part of ES3, but is commonly used for debugging.
 fn register_console(globals: &mut HashMap<String, Value>) {
-    // For now, register console.log directly as a global
-    // In a full implementation, console would be an object with methods
-    globals.insert(
-        "console_log".to_string(),
+    // Create console object with methods
+    let mut console_obj = HashMap::new();
+    console_obj.insert(
+        "log".to_string(),
         make_native("console.log", -1, console::console_log),
     );
-    globals.insert(
-        "console_error".to_string(),
+    console_obj.insert(
+        "error".to_string(),
         make_native("console.error", -1, console::console_error),
     );
-    globals.insert(
-        "console_warn".to_string(),
+    console_obj.insert(
+        "warn".to_string(),
         make_native("console.warn", -1, console::console_warn),
     );
-    globals.insert(
-        "console_info".to_string(),
+    console_obj.insert(
+        "info".to_string(),
         make_native("console.info", -1, console::console_info),
     );
-    globals.insert(
-        "console_debug".to_string(),
+    console_obj.insert(
+        "debug".to_string(),
         make_native("console.debug", -1, console::console_debug),
     );
-    globals.insert(
-        "console_clear".to_string(),
+    console_obj.insert(
+        "clear".to_string(),
         make_native("console.clear", 0, console::console_clear),
     );
+
+    globals.insert("console".to_string(), Value::NativeObject(console_obj));
+
+    // Also register print as a standalone function (common in REPL environments)
     globals.insert(
         "print".to_string(),
         make_native("print", -1, console::console_log),

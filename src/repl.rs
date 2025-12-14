@@ -665,7 +665,7 @@ fn format_value(value: &Value) -> String {
         Value::String(s) => format!("'{}'", s).green().to_string(),
         Value::Symbol(id) => format!("Symbol({})", id).magenta().to_string(),
         Value::BigInt(n) => format!("{}n", n).yellow().to_string(),
-        Value::Object(_) => "[object Object]".cyan().to_string(),
+        Value::Object(_) | Value::NativeObject(_) => "[object Object]".cyan().to_string(),
         Value::Function(_) => "[Function]".magenta().to_string(),
     }
 }

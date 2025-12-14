@@ -335,6 +335,57 @@ impl VM {
                     self.stack.push(Value::Boolean(!value.to_boolean()));
                 }
 
+                // Property access
+                OpCode::GetProperty => {
+                    let prop_name = if let Some(Operand::Property(idx)) = &instruction.operand {
+                        match func_bytecode.constants.get(*idx as usize) {
+                            Some(Value::String(s)) => s.clone(),
+                            _ => {
+                                self.stack.push(Value::Undefined);
+                                continue;
+                            }
+                        }
+                    } else {
+                        match self.stack.pop() {
+                            Some(Value::String(s)) => s,
+                            Some(Value::Number(n)) => n.to_string(),
+                            _ => {
+                                self.stack.push(Value::Undefined);
+                                continue;
+                            }
+                        }
+                    };
+
+                    let obj = self.stack.pop().unwrap_or(Value::Undefined);
+                    let result = match &obj {
+                        Value::String(s) => match prop_name.as_str() {
+                            "length" => Value::Number(s.len() as f64),
+                            _ => {
+                                if let Ok(idx) = prop_name.parse::<usize>() {
+                                    s.chars()
+                                        .nth(idx)
+                                        .map(|c| Value::String(c.to_string()))
+                                        .unwrap_or(Value::Undefined)
+                                } else {
+                                    Value::Undefined
+                                }
+                            }
+                        },
+                        Value::Object(idx) => {
+                            if let Some(obj) = self.heap.get(*idx) {
+                                obj.get(&prop_name)
+                            } else {
+                                Value::Undefined
+                            }
+                        }
+                        Value::NativeObject(props) => {
+                            props.get(&prop_name).cloned().unwrap_or(Value::Undefined)
+                        }
+                        _ => Value::Undefined,
+                    };
+                    self.stack.push(result);
+                }
+
                 // Function calls within functions
                 OpCode::Call => {
                     if let Some(Operand::ArgCount(argc)) = &instruction.operand {
@@ -344,7 +395,7 @@ impl VM {
                             call_args.push(self.pop()?);
                         }
                         call_args.reverse();
-                        
+
                         let callee = self.pop()?;
                         match callee {
                             Value::Function(callable) => {
@@ -629,6 +680,10 @@ impl VM {
                                 Value::Undefined
                             }
                         }
+                        Value::NativeObject(props) => {
+                            // Native object property access (e.g., console.log)
+                            props.get(&prop_name).cloned().unwrap_or(Value::Undefined)
+                        }
                         _ => Value::Undefined,
                     };
 
@@ -832,9 +887,29 @@ impl VM {
                 OpCode::In => {
                     let right = self.stack.pop().unwrap_or(Value::Undefined);
                     let left = self.stack.pop().unwrap_or(Value::Undefined);
-                    // Simplified in operator - always returns false for now
-                    // In full impl, would check if property exists in object
-                    self.stack.push(Value::Boolean(false));
+
+                    // The 'in' operator checks if a property exists on an object
+                    let result = match (&left, &right) {
+                        (Value::String(prop), Value::Object(idx)) => {
+                            // Check if property exists on the object
+                            if let Some(obj) = self.heap.get(*idx) {
+                                obj.get(prop) != Value::Undefined
+                            } else {
+                                false
+                            }
+                        }
+                        (Value::Number(n), Value::Object(idx)) => {
+                            // Check numeric index
+                            let prop = n.to_string();
+                            if let Some(obj) = self.heap.get(*idx) {
+                                obj.get(&prop) != Value::Undefined
+                            } else {
+                                false
+                            }
+                        }
+                        _ => false,
+                    };
+                    self.stack.push(Value::Boolean(result));
                 }
 
                 _ => {

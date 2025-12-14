@@ -28,6 +28,8 @@ pub enum Value {
     Object(usize),
     /// Function reference (Arc for thread safety)
     Function(Arc<Callable>),
+    /// Native object with properties (for built-in objects like console, Math)
+    NativeObject(std::collections::HashMap<String, Value>),
 }
 
 impl PartialEq for Value {
@@ -49,6 +51,7 @@ impl PartialEq for Value {
             (Value::BigInt(a), Value::BigInt(b)) => a == b,
             (Value::Object(a), Value::Object(b)) => a == b,
             (Value::Function(a), Value::Function(b)) => Arc::ptr_eq(a, b),
+            (Value::NativeObject(_), Value::NativeObject(_)) => false, // Native objects are not equal by value
             _ => false,
         }
     }
@@ -82,7 +85,11 @@ impl Value {
             Value::Boolean(b) => *b,
             Value::Number(n) => !n.is_nan() && *n != 0.0,
             Value::String(s) => !s.is_empty(),
-            Value::Symbol(_) | Value::BigInt(_) | Value::Object(_) | Value::Function(_) => true,
+            Value::Symbol(_)
+            | Value::BigInt(_)
+            | Value::Object(_)
+            | Value::Function(_)
+            | Value::NativeObject(_) => true,
         }
     }
 
@@ -96,7 +103,7 @@ impl Value {
             Value::String(_) => "string",
             Value::Symbol(_) => "symbol",
             Value::BigInt(_) => "bigint",
-            Value::Object(_) => "object",
+            Value::Object(_) | Value::NativeObject(_) => "object",
             Value::Function(_) => "function",
         }
     }
@@ -123,7 +130,7 @@ impl Value {
             Value::String(s) => Self::string_to_number(s),
             Value::BigInt(_) => f64::NAN, // Would throw in real ES
             Value::Symbol(_) => f64::NAN, // Would throw in real ES
-            Value::Object(_) => f64::NAN, // Would call ToPrimitive first
+            Value::Object(_) | Value::NativeObject(_) => f64::NAN, // Would call ToPrimitive first
             Value::Function(_) => f64::NAN,
         }
     }
@@ -146,7 +153,7 @@ impl Value {
             Value::String(s) => s.clone(),
             Value::BigInt(s) => s.clone(),
             Value::Symbol(id) => format!("Symbol({})", id),
-            Value::Object(_) => "[object Object]".to_string(),
+            Value::Object(_) | Value::NativeObject(_) => "[object Object]".to_string(),
             Value::Function(callable) => match callable.as_ref() {
                 Callable::Function(func) => {
                     if let Some(name) = &func.name {
@@ -334,6 +341,7 @@ impl fmt::Display for Value {
                     write!(f, "[Function: {} (native)]", name)
                 }
             },
+            Value::NativeObject(_) => write!(f, "[object Object]"),
         }
     }
 }
