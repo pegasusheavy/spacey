@@ -1,9 +1,11 @@
 //! JavaScript value representation.
 
+use super::function::Callable;
 use std::fmt;
+use std::rc::Rc;
 
 /// A JavaScript value.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone)]
 pub enum Value {
     /// undefined
     Undefined,
@@ -21,6 +23,32 @@ pub enum Value {
     BigInt(String),
     /// Object reference (placeholder - would be GC handle)
     Object(usize),
+    /// Function reference
+    Function(Rc<Callable>),
+}
+
+impl PartialEq for Value {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (Value::Undefined, Value::Undefined) => true,
+            (Value::Null, Value::Null) => true,
+            (Value::Boolean(a), Value::Boolean(b)) => a == b,
+            (Value::Number(a), Value::Number(b)) => {
+                // Handle NaN comparisons
+                if a.is_nan() && b.is_nan() {
+                    false
+                } else {
+                    a == b
+                }
+            }
+            (Value::String(a), Value::String(b)) => a == b,
+            (Value::Symbol(a), Value::Symbol(b)) => a == b,
+            (Value::BigInt(a), Value::BigInt(b)) => a == b,
+            (Value::Object(a), Value::Object(b)) => a == b,
+            (Value::Function(a), Value::Function(b)) => Rc::ptr_eq(a, b),
+            _ => false,
+        }
+    }
 }
 
 impl Value {
@@ -39,6 +67,11 @@ impl Value {
         matches!(self, Value::Undefined | Value::Null)
     }
 
+    /// Returns true if this value is a function.
+    pub fn is_function(&self) -> bool {
+        matches!(self, Value::Function(_))
+    }
+
     /// Converts the value to a boolean (ToBoolean).
     pub fn to_boolean(&self) -> bool {
         match self {
@@ -46,7 +79,7 @@ impl Value {
             Value::Boolean(b) => *b,
             Value::Number(n) => !n.is_nan() && *n != 0.0,
             Value::String(s) => !s.is_empty(),
-            Value::Symbol(_) | Value::BigInt(_) | Value::Object(_) => true,
+            Value::Symbol(_) | Value::BigInt(_) | Value::Object(_) | Value::Function(_) => true,
         }
     }
 
@@ -61,6 +94,7 @@ impl Value {
             Value::Symbol(_) => "symbol",
             Value::BigInt(_) => "bigint",
             Value::Object(_) => "object",
+            Value::Function(_) => "function",
         }
     }
 }
@@ -82,8 +116,18 @@ impl fmt::Display for Value {
             Value::Symbol(id) => write!(f, "Symbol({})", id),
             Value::BigInt(n) => write!(f, "{}n", n),
             Value::Object(_) => write!(f, "[object Object]"),
+            Value::Function(callable) => match callable.as_ref() {
+                Callable::Function(func) => {
+                    if let Some(name) = &func.name {
+                        write!(f, "[Function: {}]", name)
+                    } else {
+                        write!(f, "[Function (anonymous)]")
+                    }
+                }
+                Callable::Native { name, .. } => {
+                    write!(f, "[Function: {} (native)]", name)
+                }
+            },
         }
     }
 }
-
-

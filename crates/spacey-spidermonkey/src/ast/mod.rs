@@ -29,10 +29,18 @@ pub enum Statement {
     Block(BlockStatement),
     /// If statement
     If(IfStatement),
+    /// Switch statement
+    Switch(SwitchStatement),
     /// While statement
     While(WhileStatement),
+    /// Do-while statement
+    DoWhile(DoWhileStatement),
     /// For statement
     For(ForStatement),
+    /// For-in statement
+    ForIn(ForInStatement),
+    /// For-of statement
+    ForOf(ForOfStatement),
     /// Return statement
     Return(ReturnStatement),
     /// Break statement
@@ -144,6 +152,66 @@ pub enum ForInit {
     /// Variable declaration
     Declaration(Box<VariableDeclaration>),
     /// Expression
+    Expression(Expression),
+}
+
+/// A switch statement.
+#[derive(Debug, Clone, PartialEq)]
+pub struct SwitchStatement {
+    /// The discriminant expression
+    pub discriminant: Expression,
+    /// The case clauses
+    pub cases: Vec<SwitchCase>,
+}
+
+/// A switch case clause.
+#[derive(Debug, Clone, PartialEq)]
+pub struct SwitchCase {
+    /// The test expression (None for default)
+    pub test: Option<Expression>,
+    /// The consequent statements
+    pub consequent: Vec<Statement>,
+}
+
+/// A do-while statement.
+#[derive(Debug, Clone, PartialEq)]
+pub struct DoWhileStatement {
+    /// The loop body
+    pub body: Box<Statement>,
+    /// The condition
+    pub test: Expression,
+}
+
+/// A for-in statement.
+#[derive(Debug, Clone, PartialEq)]
+pub struct ForInStatement {
+    /// The left-hand side
+    pub left: ForInLeft,
+    /// The object to iterate over
+    pub right: Expression,
+    /// The loop body
+    pub body: Box<Statement>,
+}
+
+/// A for-of statement.
+#[derive(Debug, Clone, PartialEq)]
+pub struct ForOfStatement {
+    /// The left-hand side
+    pub left: ForInLeft,
+    /// The iterable
+    pub right: Expression,
+    /// The loop body
+    pub body: Box<Statement>,
+    /// Whether this is an async for-of
+    pub is_await: bool,
+}
+
+/// Left-hand side of for-in/for-of.
+#[derive(Debug, Clone, PartialEq)]
+pub enum ForInLeft {
+    /// Variable declaration
+    Declaration(Box<VariableDeclaration>),
+    /// Expression (identifier or member)
     Expression(Expression),
 }
 
@@ -489,5 +557,3 @@ pub struct SequenceExpression {
     /// The expressions
     pub expressions: Vec<Expression>,
 }
-
-

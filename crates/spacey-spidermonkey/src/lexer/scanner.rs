@@ -1,6 +1,6 @@
 //! The scanner that produces tokens from source text.
 
-use super::{Token, TokenKind, Span};
+use super::{Span, Token, TokenKind};
 
 /// A scanner that tokenizes JavaScript source code.
 pub struct Scanner<'a> {
@@ -91,6 +91,12 @@ impl<'a> Scanner<'a> {
         self.chars.peek().map(|(_, ch)| *ch)
     }
 
+    fn peek_next(&self) -> Option<char> {
+        let mut iter = self.chars.clone();
+        iter.next();
+        iter.next().map(|(_, ch)| ch)
+    }
+
     fn skip_whitespace_and_comments(&mut self) {
         loop {
             match self.peek() {
@@ -98,9 +104,33 @@ impl<'a> Scanner<'a> {
                     self.advance();
                 }
                 Some('/') => {
-                    // Peek ahead for comment
-                    // TODO: Proper comment handling
-                    break;
+                    match self.peek_next() {
+                        Some('/') => {
+                            // Single-line comment: skip until end of line
+                            self.advance(); // consume first '/'
+                            self.advance(); // consume second '/'
+                            while let Some(ch) = self.peek() {
+                                if ch == '\n' || ch == '\r' {
+                                    break;
+                                }
+                                self.advance();
+                            }
+                        }
+                        Some('*') => {
+                            // Multi-line comment: skip until */
+                            self.advance(); // consume '/'
+                            self.advance(); // consume '*'
+                            let mut prev = ' ';
+                            while let Some(ch) = self.peek() {
+                                self.advance();
+                                if prev == '*' && ch == '/' {
+                                    break;
+                                }
+                                prev = ch;
+                            }
+                        }
+                        _ => break, // Not a comment, it's a division operator
+                    }
                 }
                 _ => break,
             }
@@ -693,6 +723,27 @@ mod tests {
         assert!(matches!(scanner.next_token().kind, TokenKind::Identifier(s) if s == "_bar"));
         assert!(matches!(scanner.next_token().kind, TokenKind::Identifier(s) if s == "$baz"));
     }
+
+    #[test]
+    fn test_single_line_comments() {
+        let mut scanner = Scanner::new("42 // this is a comment\n43");
+        assert!(matches!(scanner.next_token().kind, TokenKind::Number(n) if n == 42.0));
+        assert!(matches!(scanner.next_token().kind, TokenKind::Number(n) if n == 43.0));
+    }
+
+    #[test]
+    fn test_multi_line_comments() {
+        let mut scanner = Scanner::new("1 /* comment */ 2 /* multi\nline\ncomment */ 3");
+        assert!(matches!(scanner.next_token().kind, TokenKind::Number(n) if n == 1.0));
+        assert!(matches!(scanner.next_token().kind, TokenKind::Number(n) if n == 2.0));
+        assert!(matches!(scanner.next_token().kind, TokenKind::Number(n) if n == 3.0));
+    }
+
+    #[test]
+    fn test_division_vs_comment() {
+        let mut scanner = Scanner::new("6 / 2");
+        assert!(matches!(scanner.next_token().kind, TokenKind::Number(n) if n == 6.0));
+        assert!(matches!(scanner.next_token().kind, TokenKind::Slash));
+        assert!(matches!(scanner.next_token().kind, TokenKind::Number(n) if n == 2.0));
+    }
 }
-
-

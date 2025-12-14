@@ -31,18 +31,22 @@
 #![warn(clippy::all)]
 
 // Core modules - to be implemented
+pub mod ast;
+pub mod builtins;
+pub mod compiler;
+pub mod gc;
 pub mod lexer;
 pub mod parser;
-pub mod ast;
-pub mod compiler;
 pub mod runtime;
 pub mod vm;
-pub mod builtins;
-pub mod gc;
 
 // Re-exports for convenience
-pub use runtime::value::Value;
 pub use runtime::context::Context;
+pub use runtime::value::Value;
+
+use compiler::Compiler;
+use parser::Parser;
+use vm::VM;
 
 /// The main JavaScript engine instance.
 ///
@@ -50,6 +54,7 @@ pub use runtime::context::Context;
 /// the heap, global object, and execution state.
 pub struct Engine {
     context: Context,
+    vm: VM,
 }
 
 impl Engine {
@@ -57,6 +62,7 @@ impl Engine {
     pub fn new() -> Self {
         Self {
             context: Context::new(),
+            vm: VM::new(),
         }
     }
 
@@ -78,19 +84,21 @@ impl Engine {
     /// let result = engine.eval("2 + 2")?;
     /// ```
     pub fn eval(&mut self, source: &str) -> Result<Value, Error> {
-        // TODO: Implement evaluation pipeline
-        // 1. Lex source into tokens
-        // 2. Parse tokens into AST
-        // 3. Compile AST to bytecode
-        // 4. Execute bytecode in VM
-        let _ = source;
-        Ok(Value::Undefined)
+        // 1. Parse source into AST (lexer is used internally by parser)
+        let mut parser = Parser::new(source);
+        let ast = parser.parse_program()?;
+
+        // 2. Compile AST to bytecode
+        let mut compiler = Compiler::new();
+        let bytecode = compiler.compile(&ast)?;
+
+        // 3. Execute bytecode in VM
+        self.vm.execute(&bytecode)
     }
 
     /// Evaluates JavaScript source code from a file.
     pub fn eval_file(&mut self, path: &std::path::Path) -> Result<Value, Error> {
-        let source = std::fs::read_to_string(path)
-            .map_err(|e| Error::Io(e.to_string()))?;
+        let source = std::fs::read_to_string(path).map_err(|e| Error::Io(e.to_string()))?;
         self.eval(&source)
     }
 }
@@ -144,11 +152,73 @@ mod tests {
     }
 
     #[test]
-    fn test_default_eval_returns_undefined() {
+    fn test_eval_number_literal() {
         let mut engine = Engine::new();
-        let result = engine.eval("test").unwrap();
+        let result = engine.eval("42;").unwrap();
+        assert!(matches!(result, Value::Number(n) if n == 42.0));
+    }
+
+    #[test]
+    fn test_eval_arithmetic() {
+        let mut engine = Engine::new();
+        let result = engine.eval("1 + 2 * 3;").unwrap();
+        assert!(matches!(result, Value::Number(n) if n == 7.0));
+    }
+
+    #[test]
+    fn test_eval_comparison() {
+        let mut engine = Engine::new();
+        let result = engine.eval("5 > 3;").unwrap();
+        assert!(matches!(result, Value::Boolean(true)));
+    }
+
+    #[test]
+    fn test_eval_string_literal() {
+        let mut engine = Engine::new();
+        let result = engine.eval("\"hello\";").unwrap();
+        assert!(matches!(result, Value::String(s) if s == "hello"));
+    }
+
+    #[test]
+    fn test_eval_boolean_literal() {
+        let mut engine = Engine::new();
+        let result = engine.eval("true;").unwrap();
+        assert!(matches!(result, Value::Boolean(true)));
+    }
+
+    #[test]
+    fn test_eval_with_comments() {
+        let mut engine = Engine::new();
+        // Single line comment
+        let result = engine.eval("1 + 2; // this is ignored").unwrap();
+        assert!(matches!(result, Value::Number(n) if n == 3.0));
+
+        // Multi-line comment
+        let result = engine.eval("/* add numbers */ 5 * 3;").unwrap();
+        assert!(matches!(result, Value::Number(n) if n == 15.0));
+    }
+
+    #[test]
+    fn test_eval_variable_declaration() {
+        let mut engine = Engine::new();
+        // Simple variable declaration and use
+        let result = engine.eval("let x = 10; x;").unwrap();
+        assert!(matches!(result, Value::Number(n) if n == 10.0));
+
+        // Multiple declarations
+        let result = engine.eval("let a = 5; let b = 3; a + b;").unwrap();
+        assert!(matches!(result, Value::Number(n) if n == 8.0));
+
+        // Variable assignment
+        let result = engine.eval("let x = 1; x = 2; x;").unwrap();
+        assert!(matches!(result, Value::Number(n) if n == 2.0));
+    }
+
+    #[test]
+    fn test_builtin_print() {
+        let mut engine = Engine::new();
+        // print() should be available and return undefined
+        let result = engine.eval("print(\"hello\");").unwrap();
         assert!(matches!(result, Value::Undefined));
     }
 }
-
-

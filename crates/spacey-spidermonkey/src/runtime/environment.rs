@@ -1,7 +1,7 @@
 //! Lexical environments for variable binding.
 
-use rustc_hash::FxHashMap;
 use super::value::Value;
+use rustc_hash::FxHashMap;
 
 /// A lexical environment for variable bindings.
 #[derive(Debug, Clone, Default)]
@@ -87,5 +87,3 @@ struct Binding {
     /// Whether the binding has been initialized
     initialized: bool,
 }
-
-

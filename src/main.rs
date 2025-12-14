@@ -70,7 +70,11 @@ fn run_repl() -> ExitCode {
             ExitCode::SUCCESS
         }
         Err(e) => {
-            eprintln!("{}: Failed to initialize REPL: {:?}", "Error".red().bold(), e);
+            eprintln!(
+                "{}: Failed to initialize REPL: {:?}",
+                "Error".red().bold(),
+                e
+            );
             ExitCode::FAILURE
         }
     }
@@ -172,7 +176,10 @@ fn print_help() {
     println!();
 
     println!("{}", "EXAMPLES:".white().bold());
-    println!("    {}                       # Start interactive REPL", "spacey".green());
+    println!(
+        "    {}                       # Start interactive REPL",
+        "spacey".green()
+    );
     println!(
         "    {} {}           # Execute a file",
         "spacey".green(),

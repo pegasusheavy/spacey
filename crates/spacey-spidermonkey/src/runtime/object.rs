@@ -1,7 +1,7 @@
 //! JavaScript object representation.
 
-use rustc_hash::FxHashMap;
 use super::value::Value;
+use rustc_hash::FxHashMap;
 
 /// A JavaScript object.
 #[derive(Debug, Clone)]
@@ -77,5 +77,3 @@ pub struct Property {
     /// Whether the property is configurable
     pub configurable: bool,
 }
-
-

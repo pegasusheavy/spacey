@@ -295,27 +295,19 @@ fn highlight_word(word: &str) -> String {
         "yield",
     ];
 
-    const LITERALS: &[&str] = &["true", "false", "null", "undefined", "NaN", "Infinity", "this"];
+    const LITERALS: &[&str] = &[
+        "true",
+        "false",
+        "null",
+        "undefined",
+        "NaN",
+        "Infinity",
+        "this",
+    ];
 
     const BUILTINS: &[&str] = &[
-        "Array",
-        "Boolean",
-        "console",
-        "Date",
-        "Error",
-        "Function",
-        "JSON",
-        "Math",
-        "Number",
-        "Object",
-        "Promise",
-        "RegExp",
-        "String",
-        "Symbol",
-        "Map",
-        "Set",
-        "WeakMap",
-        "WeakSet",
+        "Array", "Boolean", "console", "Date", "Error", "Function", "JSON", "Math", "Number",
+        "Object", "Promise", "RegExp", "String", "Symbol", "Map", "Set", "WeakMap", "WeakSet",
     ];
 
     if KEYWORDS.contains(&word) {
@@ -594,7 +586,11 @@ impl Repl {
         println!();
         println!("{}", "Keyboard Shortcuts:".white().bold());
         println!();
-        println!("  {:16} {}", "Ctrl+C".yellow(), "Cancel current input".dimmed());
+        println!(
+            "  {:16} {}",
+            "Ctrl+C".yellow(),
+            "Cancel current input".dimmed()
+        );
         println!("  {:16} {}", "Ctrl+D".yellow(), "Exit REPL".dimmed());
         println!("  {:16} {}", "Ctrl+L".yellow(), "Clear screen".dimmed());
         println!("  {:16} {}", "Tab".yellow(), "Autocomplete".dimmed());
@@ -670,6 +666,7 @@ fn format_value(value: &Value) -> String {
         Value::Symbol(id) => format!("Symbol({})", id).magenta().to_string(),
         Value::BigInt(n) => format!("{}n", n).yellow().to_string(),
         Value::Object(_) => "[object Object]".cyan().to_string(),
+        Value::Function(_) => "[Function]".magenta().to_string(),
     }
 }
 
@@ -717,4 +714,3 @@ mod tests {
         assert!(is_balanced("'string with (unbalanced'"));
     }
 }
-

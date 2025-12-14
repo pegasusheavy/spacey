@@ -55,7 +55,10 @@ pub enum TokenKind {
     /// Template literal part
     Template(String),
     /// Regular expression literal
-    RegExp { pattern: String, flags: String },
+    RegExp {
+        pattern: String,
+        flags: String,
+    },
     /// Boolean true
     True,
     /// Boolean false
@@ -293,5 +296,3 @@ impl TokenKind {
         )
     }
 }
-
-

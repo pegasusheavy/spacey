@@ -1,8 +1,8 @@
 //! The main parser implementation.
 
+use crate::Error;
 use crate::ast::*;
 use crate::lexer::{Scanner, Token, TokenKind};
-use crate::Error;
 
 /// A recursive descent parser for JavaScript.
 pub struct Parser<'a> {
@@ -37,15 +37,31 @@ impl<'a> Parser<'a> {
     /// Parses a single statement.
     pub fn parse_statement(&mut self) -> Result<Statement, Error> {
         match &self.current.kind {
-            TokenKind::Var | TokenKind::Let | TokenKind::Const => {
-                self.parse_variable_declaration()
-            }
+            TokenKind::Var | TokenKind::Let | TokenKind::Const => self.parse_variable_declaration(),
             TokenKind::Function => self.parse_function_declaration(),
             TokenKind::If => self.parse_if_statement(),
+            TokenKind::Switch => self.parse_switch_statement(),
             TokenKind::While => self.parse_while_statement(),
+            TokenKind::Do => self.parse_do_while_statement(),
             TokenKind::For => self.parse_for_statement(),
             TokenKind::Return => self.parse_return_statement(),
+            TokenKind::Break => {
+                self.advance();
+                self.expect(&TokenKind::Semicolon)?;
+                Ok(Statement::Break)
+            }
+            TokenKind::Continue => {
+                self.advance();
+                self.expect(&TokenKind::Semicolon)?;
+                Ok(Statement::Continue)
+            }
+            TokenKind::Throw => self.parse_throw_statement(),
+            TokenKind::Try => self.parse_try_statement(),
             TokenKind::LeftBrace => self.parse_block_statement(),
+            TokenKind::Semicolon => {
+                self.advance();
+                Ok(Statement::Empty)
+            }
             _ => self.parse_expression_statement(),
         }
     }
@@ -156,6 +172,49 @@ impl<'a> Parser<'a> {
         }))
     }
 
+    fn parse_switch_statement(&mut self) -> Result<Statement, Error> {
+        self.advance(); // consume 'switch'
+        self.expect(&TokenKind::LeftParen)?;
+        let discriminant = self.parse_expression()?;
+        self.expect(&TokenKind::RightParen)?;
+        self.expect(&TokenKind::LeftBrace)?;
+
+        let mut cases = Vec::new();
+
+        while !self.check(&TokenKind::RightBrace) && !self.is_at_end() {
+            let test = if self.check(&TokenKind::Case) {
+                self.advance();
+                let expr = self.parse_expression()?;
+                self.expect(&TokenKind::Colon)?;
+                Some(expr)
+            } else if self.check(&TokenKind::Default) {
+                self.advance();
+                self.expect(&TokenKind::Colon)?;
+                None
+            } else {
+                return Err(Error::SyntaxError("Expected 'case' or 'default'".into()));
+            };
+
+            let mut consequent = Vec::new();
+            while !self.check(&TokenKind::Case)
+                && !self.check(&TokenKind::Default)
+                && !self.check(&TokenKind::RightBrace)
+                && !self.is_at_end()
+            {
+                consequent.push(self.parse_statement()?);
+            }
+
+            cases.push(SwitchCase { test, consequent });
+        }
+
+        self.expect(&TokenKind::RightBrace)?;
+
+        Ok(Statement::Switch(SwitchStatement {
+            discriminant,
+            cases,
+        }))
+    }
+
     fn parse_while_statement(&mut self) -> Result<Statement, Error> {
         self.advance(); // consume 'while'
         self.expect(&TokenKind::LeftParen)?;
@@ -166,23 +225,110 @@ impl<'a> Parser<'a> {
         Ok(Statement::While(WhileStatement { test, body }))
     }
 
+    fn parse_do_while_statement(&mut self) -> Result<Statement, Error> {
+        self.advance(); // consume 'do'
+        let body = Box::new(self.parse_statement()?);
+        self.expect(&TokenKind::While)?;
+        self.expect(&TokenKind::LeftParen)?;
+        let test = self.parse_expression()?;
+        self.expect(&TokenKind::RightParen)?;
+        self.expect(&TokenKind::Semicolon)?;
+
+        Ok(Statement::DoWhile(DoWhileStatement { body, test }))
+    }
+
     fn parse_for_statement(&mut self) -> Result<Statement, Error> {
         self.advance(); // consume 'for'
         self.expect(&TokenKind::LeftParen)?;
 
-        // Parse init
-        let init = if self.check(&TokenKind::Semicolon) {
-            None
-        } else if matches!(
+        // Check for for-in/for-of with variable declaration
+        if matches!(
             self.current.kind,
             TokenKind::Var | TokenKind::Let | TokenKind::Const
         ) {
-            Some(ForInit::Declaration(Box::new(
-                self.parse_variable_declaration_no_semi()?,
-            )))
+            let decl = self.parse_variable_declaration_no_semi()?;
+
+            // Check if this is for-in or for-of
+            if self.check(&TokenKind::In) {
+                self.advance();
+                let right = self.parse_expression()?;
+                self.expect(&TokenKind::RightParen)?;
+                let body = Box::new(self.parse_statement()?);
+                return Ok(Statement::ForIn(ForInStatement {
+                    left: ForInLeft::Declaration(Box::new(decl)),
+                    right,
+                    body,
+                }));
+            } else if self.check_identifier("of") {
+                self.advance();
+                let right = self.parse_expression()?;
+                self.expect(&TokenKind::RightParen)?;
+                let body = Box::new(self.parse_statement()?);
+                return Ok(Statement::ForOf(ForOfStatement {
+                    left: ForInLeft::Declaration(Box::new(decl)),
+                    right,
+                    body,
+                    is_await: false,
+                }));
+            }
+
+            // Regular for loop with declaration
+            self.expect(&TokenKind::Semicolon)?;
+            let test = if self.check(&TokenKind::Semicolon) {
+                None
+            } else {
+                Some(self.parse_expression()?)
+            };
+            self.expect(&TokenKind::Semicolon)?;
+            let update = if self.check(&TokenKind::RightParen) {
+                None
+            } else {
+                Some(self.parse_expression()?)
+            };
+            self.expect(&TokenKind::RightParen)?;
+            let body = Box::new(self.parse_statement()?);
+
+            return Ok(Statement::For(ForStatement {
+                init: Some(ForInit::Declaration(Box::new(decl))),
+                test,
+                update,
+                body,
+            }));
+        }
+
+        // Check for empty init or expression
+        let init = if self.check(&TokenKind::Semicolon) {
+            None
         } else {
-            Some(ForInit::Expression(self.parse_expression()?))
+            let expr = self.parse_expression()?;
+
+            // Check if this is for-in or for-of with expression
+            if self.check(&TokenKind::In) {
+                self.advance();
+                let right = self.parse_expression()?;
+                self.expect(&TokenKind::RightParen)?;
+                let body = Box::new(self.parse_statement()?);
+                return Ok(Statement::ForIn(ForInStatement {
+                    left: ForInLeft::Expression(expr),
+                    right,
+                    body,
+                }));
+            } else if self.check_identifier("of") {
+                self.advance();
+                let right = self.parse_expression()?;
+                self.expect(&TokenKind::RightParen)?;
+                let body = Box::new(self.parse_statement()?);
+                return Ok(Statement::ForOf(ForOfStatement {
+                    left: ForInLeft::Expression(expr),
+                    right,
+                    body,
+                    is_await: false,
+                }));
+            }
+
+            Some(ForInit::Expression(expr))
         };
+
         self.expect(&TokenKind::Semicolon)?;
 
         // Parse test
@@ -209,6 +355,69 @@ impl<'a> Parser<'a> {
             update,
             body,
         }))
+    }
+
+    fn parse_throw_statement(&mut self) -> Result<Statement, Error> {
+        self.advance(); // consume 'throw'
+        let argument = self.parse_expression()?;
+        self.expect(&TokenKind::Semicolon)?;
+        Ok(Statement::Throw(ThrowStatement { argument }))
+    }
+
+    fn parse_try_statement(&mut self) -> Result<Statement, Error> {
+        self.advance(); // consume 'try'
+        self.expect(&TokenKind::LeftBrace)?;
+        let block = self.parse_block_body()?;
+
+        let handler = if self.check(&TokenKind::Catch) {
+            self.advance();
+            let param = if self.check(&TokenKind::LeftParen) {
+                self.advance();
+                let id = self.expect_identifier()?;
+                self.expect(&TokenKind::RightParen)?;
+                Some(id)
+            } else {
+                None
+            };
+            self.expect(&TokenKind::LeftBrace)?;
+            let body = self.parse_block_body()?;
+            Some(CatchClause { param, body })
+        } else {
+            None
+        };
+
+        let finalizer = if self.check(&TokenKind::Finally) {
+            self.advance();
+            self.expect(&TokenKind::LeftBrace)?;
+            Some(self.parse_block_body()?)
+        } else {
+            None
+        };
+
+        if handler.is_none() && finalizer.is_none() {
+            return Err(Error::SyntaxError(
+                "Try statement must have catch or finally".into(),
+            ));
+        }
+
+        Ok(Statement::Try(TryStatement {
+            block,
+            handler,
+            finalizer,
+        }))
+    }
+
+    fn parse_block_body(&mut self) -> Result<BlockStatement, Error> {
+        let mut body = Vec::new();
+        while !self.check(&TokenKind::RightBrace) && !self.is_at_end() {
+            body.push(self.parse_statement()?);
+        }
+        self.expect(&TokenKind::RightBrace)?;
+        Ok(BlockStatement { body })
+    }
+
+    fn check_identifier(&self, name: &str) -> bool {
+        matches!(&self.current.kind, TokenKind::Identifier(s) if s == name)
     }
 
     fn parse_variable_declaration_no_semi(&mut self) -> Result<VariableDeclaration, Error> {
@@ -518,25 +727,177 @@ impl<'a> Parser<'a> {
             TokenKind::Identifier(name) => {
                 let id = Identifier { name: name.clone() };
                 self.advance();
+                // Check for arrow function: identifier => ...
+                if self.check(&TokenKind::Arrow) {
+                    return self.parse_arrow_function_body(vec![id], false);
+                }
                 Ok(Expression::Identifier(id))
             }
             TokenKind::This => {
                 self.advance();
                 Ok(Expression::This)
             }
-            TokenKind::LeftParen => {
-                self.advance();
-                let expr = self.parse_expression()?;
-                self.expect(&TokenKind::RightParen)?;
-                Ok(expr)
-            }
+            TokenKind::Function => self.parse_function_expression(),
+            TokenKind::LeftParen => self.parse_parenthesized_or_arrow(),
             TokenKind::LeftBracket => self.parse_array_literal(),
             TokenKind::LeftBrace => self.parse_object_literal(),
+            TokenKind::New => self.parse_new_expression(),
             _ => Err(Error::SyntaxError(format!(
                 "Unexpected token: {:?}",
                 self.current.kind
             ))),
         }
+    }
+
+    fn parse_function_expression(&mut self) -> Result<Expression, Error> {
+        self.advance(); // consume 'function'
+
+        // Optional function name
+        let id = if let TokenKind::Identifier(name) = &self.current.kind {
+            let id = Identifier { name: name.clone() };
+            self.advance();
+            Some(id)
+        } else {
+            None
+        };
+
+        self.expect(&TokenKind::LeftParen)?;
+        let params = self.parse_parameters()?;
+        self.expect(&TokenKind::RightParen)?;
+        self.expect(&TokenKind::LeftBrace)?;
+        let body = self.parse_function_body()?;
+        self.expect(&TokenKind::RightBrace)?;
+
+        Ok(Expression::Function(FunctionExpression {
+            id,
+            params,
+            body,
+            is_async: false,
+            is_generator: false,
+        }))
+    }
+
+    fn parse_parenthesized_or_arrow(&mut self) -> Result<Expression, Error> {
+        self.advance(); // consume '('
+
+        // Empty parentheses - must be arrow function
+        if self.check(&TokenKind::RightParen) {
+            self.advance();
+            if !self.check(&TokenKind::Arrow) {
+                return Err(Error::SyntaxError("Expected '=>'".into()));
+            }
+            return self.parse_arrow_function_body(vec![], false);
+        }
+
+        // Try to parse as parameter list for arrow function
+        // If we see identifier followed by comma or ), it's likely an arrow function
+        let mut params = Vec::new();
+        let mut is_arrow = false;
+
+        // First element
+        if let TokenKind::Identifier(name) = &self.current.kind {
+            let id = Identifier { name: name.clone() };
+            self.advance();
+            params.push(id);
+
+            if self.check(&TokenKind::Comma) || self.check(&TokenKind::RightParen) {
+                // Looks like parameter list
+                while self.check(&TokenKind::Comma) {
+                    self.advance();
+                    if let TokenKind::Identifier(name) = &self.current.kind {
+                        params.push(Identifier { name: name.clone() });
+                        self.advance();
+                    } else {
+                        // Not a simple parameter list, fall back to expression
+                        break;
+                    }
+                }
+
+                if self.check(&TokenKind::RightParen) {
+                    self.advance();
+                    if self.check(&TokenKind::Arrow) {
+                        is_arrow = true;
+                    }
+                }
+            }
+        }
+
+        if is_arrow {
+            return self.parse_arrow_function_body(params, false);
+        }
+
+        // Not an arrow function, re-parse as expression
+        // This is a simplification - in production you'd want proper backtracking
+        // For now, if we have params, convert the first one back to an identifier
+        if !params.is_empty() {
+            let first = Expression::Identifier(params[0].clone());
+
+            // If there were multiple "params", this was actually a sequence expression
+            if params.len() > 1 {
+                let mut exprs = vec![first];
+                for p in params.into_iter().skip(1) {
+                    exprs.push(Expression::Identifier(p));
+                }
+                self.expect(&TokenKind::RightParen)?;
+                return Ok(Expression::Sequence(SequenceExpression {
+                    expressions: exprs,
+                }));
+            }
+
+            self.expect(&TokenKind::RightParen)?;
+            return Ok(first);
+        }
+
+        // Parse as regular parenthesized expression
+        let expr = self.parse_expression()?;
+        self.expect(&TokenKind::RightParen)?;
+
+        // Check for arrow after complex expression (not supported for now)
+        Ok(expr)
+    }
+
+    fn parse_arrow_function_body(
+        &mut self,
+        params: Vec<Identifier>,
+        is_async: bool,
+    ) -> Result<Expression, Error> {
+        self.advance(); // consume '=>'
+
+        let body = if self.check(&TokenKind::LeftBrace) {
+            // Block body
+            self.advance();
+            let stmts = self.parse_function_body()?;
+            self.expect(&TokenKind::RightBrace)?;
+            ArrowBody::Block(stmts)
+        } else {
+            // Expression body
+            let expr = self.parse_assignment()?;
+            ArrowBody::Expression(Box::new(expr))
+        };
+
+        Ok(Expression::Arrow(ArrowFunctionExpression {
+            params,
+            body,
+            is_async,
+        }))
+    }
+
+    fn parse_new_expression(&mut self) -> Result<Expression, Error> {
+        self.advance(); // consume 'new'
+
+        let callee = Box::new(self.parse_call()?);
+
+        // Arguments are optional with 'new'
+        let arguments = if self.check(&TokenKind::LeftParen) {
+            self.advance();
+            let args = self.parse_arguments()?;
+            self.expect(&TokenKind::RightParen)?;
+            args
+        } else {
+            vec![]
+        };
+
+        Ok(Expression::New(NewExpression { callee, arguments }))
     }
 
     fn parse_array_literal(&mut self) -> Result<Expression, Error> {
@@ -650,5 +1011,3 @@ mod tests {
         assert_eq!(program.body.len(), 1);
     }
 }
-
-
