@@ -19,6 +19,73 @@ struct SavedFrame {
     locals_base: usize,
 }
 
+/// Call a Date method
+fn call_date_method(timestamp: f64, method: &str, _args: &[Value]) -> Value {
+    if timestamp.is_nan() || timestamp.is_infinite() {
+        return Value::Number(f64::NAN);
+    }
+
+    // Helper to extract date components from timestamp
+    // Timestamp is milliseconds since Unix epoch (Jan 1, 1970)
+    let ms = timestamp as i64;
+    let secs = ms / 1000;
+    let millis = (ms % 1000) as f64;
+
+    // Days since epoch
+    let days_since_epoch = secs / 86400;
+
+    // Calculate year, month, day
+    let (year, month, day, day_of_week) = days_to_ymd(days_since_epoch);
+
+    // Calculate hours, minutes, seconds
+    let day_secs = secs % 86400;
+    let hours = day_secs / 3600;
+    let minutes = (day_secs % 3600) / 60;
+    let seconds = day_secs % 60;
+
+    match method {
+        "getTime" | "valueOf" => Value::Number(timestamp),
+        "getFullYear" => Value::Number(year as f64),
+        "getMonth" => Value::Number(month as f64), // 0-indexed
+        "getDate" => Value::Number(day as f64),
+        "getDay" => Value::Number(day_of_week as f64),
+        "getHours" => Value::Number(hours as f64),
+        "getMinutes" => Value::Number(minutes as f64),
+        "getSeconds" => Value::Number(seconds as f64),
+        "getMilliseconds" => Value::Number(millis),
+        "toString" => Value::String(format!(
+            "{:04}-{:02}-{:02}T{:02}:{:02}:{:02}.{:03}Z",
+            year, month + 1, day, hours, minutes, seconds, millis as i64
+        )),
+        "toDateString" => Value::String(format!("{:04}-{:02}-{:02}", year, month + 1, day)),
+        "toTimeString" => Value::String(format!("{:02}:{:02}:{:02}", hours, minutes, seconds)),
+        _ => Value::Undefined,
+    }
+}
+
+/// Convert days since Unix epoch to (year, month, day, day_of_week)
+fn days_to_ymd(days: i64) -> (i32, i32, i32, i32) {
+    // Simplified date calculation
+    // Note: This is a basic implementation, may have edge cases
+    let mut remaining_days = days + 719468; // Days from year 0 to 1970
+
+    // Calculate year
+    let era = if remaining_days >= 0 { remaining_days } else { remaining_days - 146096 } / 146097;
+    let doe = (remaining_days - era * 146097) as i32; // Day of era
+    let yoe = (doe - doe / 1460 + doe / 36524 - doe / 146096) / 365; // Year of era
+    let year = yoe + (era as i32) * 400;
+    let doy = doe - (365 * yoe + yoe / 4 - yoe / 100); // Day of year
+    let mp = (5 * doy + 2) / 153;
+    let day = doy - (153 * mp + 2) / 5 + 1;
+    let month = if mp < 10 { mp + 3 } else { mp - 9 };
+    let year = if month <= 2 { year + 1 } else { year };
+
+    // Day of week (0 = Sunday)
+    let day_of_week = ((days + 4) % 7 + 7) % 7;
+
+    (year, month - 1, day, day_of_week as i32) // month is 0-indexed
+}
+
 /// Call a number method
 fn call_number_method(n: f64, method: &str, args: &[Value]) -> Value {
     match method {
@@ -772,7 +839,29 @@ impl VM {
                                         _ => heap_obj.get(&prop_name)
                                     }
                                 } else {
-                                    heap_obj.get(&prop_name)
+                                    // Check if this is a Date object
+                                    if let Value::String(type_str) = heap_obj.get("__type__") {
+                                        if type_str == "Date" {
+                                            match prop_name.as_str() {
+                                                "getTime" | "getFullYear" | "getMonth" | "getDate" |
+                                                "getDay" | "getHours" | "getMinutes" | "getSeconds" |
+                                                "getMilliseconds" | "toString" | "toDateString" |
+                                                "toTimeString" | "valueOf" => {
+                                                    let timestamp = if let Value::Number(ts) = heap_obj.get("__timestamp__") {
+                                                        ts
+                                                    } else {
+                                                        f64::NAN
+                                                    };
+                                                    Value::String(format!("__date_method__{}:{}", prop_name, timestamp))
+                                                }
+                                                _ => heap_obj.get(&prop_name)
+                                            }
+                                        } else {
+                                            heap_obj.get(&prop_name)
+                                        }
+                                    } else {
+                                        heap_obj.get(&prop_name)
+                                    }
                                 }
                             } else {
                                 Value::Undefined
@@ -838,6 +927,16 @@ impl VM {
                                     let method = &rest[..colon_pos];
                                     let num_val: f64 = rest[colon_pos + 1..].parse().unwrap_or(f64::NAN);
                                     let result = call_number_method(num_val, method, &call_args);
+                                    self.stack.push(result);
+                                    continue;
+                                }
+                            }
+                            // Check for date method marker (__date_method__METHOD:TIMESTAMP)
+                            if let Some(rest) = s.strip_prefix("__date_method__") {
+                                if let Some(colon_pos) = rest.find(':') {
+                                    let method = &rest[..colon_pos];
+                                    let timestamp: f64 = rest[colon_pos + 1..].parse().unwrap_or(f64::NAN);
+                                    let result = call_date_method(timestamp, method, &call_args);
                                     self.stack.push(result);
                                     continue;
                                 }
@@ -1399,7 +1498,30 @@ impl VM {
                                         _ => obj.get(&prop_name)
                                     }
                                 } else {
-                                    obj.get(&prop_name)
+                                    // Check if this is a Date object
+                                    if let Value::String(type_str) = obj.get("__type__") {
+                                        if type_str == "Date" {
+                                            match prop_name.as_str() {
+                                                "getTime" | "getFullYear" | "getMonth" | "getDate" |
+                                                "getDay" | "getHours" | "getMinutes" | "getSeconds" |
+                                                "getMilliseconds" | "toString" | "toDateString" |
+                                                "toTimeString" | "valueOf" => {
+                                                    // Return a marker for Date method
+                                                    let timestamp = if let Value::Number(ts) = obj.get("__timestamp__") {
+                                                        ts
+                                                    } else {
+                                                        f64::NAN
+                                                    };
+                                                    Value::String(format!("__date_method__{}:{}", prop_name, timestamp))
+                                                }
+                                                _ => obj.get(&prop_name)
+                                            }
+                                        } else {
+                                            obj.get(&prop_name)
+                                        }
+                                    } else {
+                                        obj.get(&prop_name)
+                                    }
                                 }
                             } else {
                                 Value::Undefined
@@ -1554,6 +1676,16 @@ impl VM {
                                     continue;
                                 }
                             }
+                            // Check for date method marker (__date_method__METHOD:TIMESTAMP)
+                            if let Some(rest) = s.strip_prefix("__date_method__") {
+                                if let Some(colon_pos) = rest.find(':') {
+                                    let method = &rest[..colon_pos];
+                                    let timestamp: f64 = rest[colon_pos + 1..].parse().unwrap_or(f64::NAN);
+                                    let result = call_date_method(timestamp, method, &args);
+                                    self.stack.push(result);
+                                    continue;
+                                }
+                            }
                         }
 
                         match callee {
@@ -1561,13 +1693,22 @@ impl VM {
                                 // NativeObject being called as constructor (e.g., new Date())
                                 // Check for known constructors
                                 if props.contains_key("now") {
-                                    // This is likely Date, call the Date constructor
+                                    // This is Date, call the Date constructor
                                     if let Some(constructor_fn) = self.globals.get("Date_constructor") {
                                         if let Value::Function(callable) = constructor_fn {
                                             if let Callable::Native { func, .. } = callable.as_ref() {
                                                 let temp_func = Function::new(None, vec![], Bytecode::new(), 0);
                                                 let mut frame = CallFrame::new(temp_func, 0);
                                                 match func(&mut frame, &args) {
+                                                    Ok(Value::Number(timestamp)) => {
+                                                        // Create a Date object with the timestamp
+                                                        let mut date_obj = RuntimeObject::new();
+                                                        date_obj.set("__type__", Value::String("Date".to_string()));
+                                                        date_obj.set("__timestamp__", Value::Number(timestamp));
+                                                        let idx = self.alloc_object(date_obj);
+                                                        self.stack.push(Value::Object(idx));
+                                                        continue;
+                                                    }
                                                     Ok(result) => self.stack.push(result),
                                                     Err(e) => return Err(Error::TypeError(e)),
                                                 }

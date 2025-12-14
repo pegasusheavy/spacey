@@ -25,11 +25,17 @@ pub fn eval(_frame: &mut CallFrame, args: &[Value]) -> Result<Value, String> {
         None => return Ok(Value::Undefined),
     };
 
-    // Parse the code
+    // Try parsing as-is first, if that fails try adding a semicolon
     let mut parser = Parser::new(&code);
-    let program = parser
-        .parse_program()
-        .map_err(|e| format!("SyntaxError: {}", e))?;
+    let program = match parser.parse_program() {
+        Ok(p) => p,
+        Err(_) => {
+            // Try adding a semicolon for bare expressions
+            let code_with_semi = format!("{};", code.trim());
+            let mut parser2 = Parser::new(&code_with_semi);
+            parser2.parse_program().map_err(|e| format!("SyntaxError: {}", e))?
+        }
+    };
 
     // Compile the program
     let mut compiler = Compiler::new();
