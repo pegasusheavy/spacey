@@ -43,14 +43,24 @@ pub enum Statement {
     ForOf(ForOfStatement),
     /// Return statement
     Return(ReturnStatement),
-    /// Break statement
+    /// Break statement (with optional label)
     Break,
+    /// Break with label
+    BreakLabel(String),
     /// Continue statement
     Continue,
+    /// Continue with label
+    ContinueLabel(String),
     /// Throw statement
     Throw(ThrowStatement),
     /// Try statement
     Try(TryStatement),
+    /// With statement (ES3, deprecated in strict mode)
+    With(WithStatement),
+    /// Labeled statement
+    Labeled(LabeledStatement),
+    /// Debugger statement
+    Debugger,
     /// Empty statement (;)
     Empty,
 }
@@ -247,6 +257,25 @@ pub struct CatchClause {
     pub param: Option<Identifier>,
     /// The catch body
     pub body: BlockStatement,
+}
+
+/// A with statement (ES3 Section 12.10).
+/// Note: Deprecated in ES5 strict mode but required for ES3 compatibility.
+#[derive(Debug, Clone, PartialEq)]
+pub struct WithStatement {
+    /// The object expression
+    pub object: Expression,
+    /// The body statement
+    pub body: Box<Statement>,
+}
+
+/// A labeled statement (ES3 Section 12.12).
+#[derive(Debug, Clone, PartialEq)]
+pub struct LabeledStatement {
+    /// The label identifier
+    pub label: Identifier,
+    /// The labeled body
+    pub body: Box<Statement>,
 }
 
 /// A JavaScript expression.

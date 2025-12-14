@@ -86,7 +86,10 @@ fn make_native(name: &str, arity: i32, func: NativeFunction) -> Value {
 
 /// Register global functions.
 fn register_global_functions(globals: &mut HashMap<String, Value>) {
-    // ES3 Section 15.1.2
+    // ES3 Section 15.1.2.1 - eval
+    globals.insert("eval".to_string(), make_native("eval", 1, global::eval));
+
+    // ES3 Section 15.1.2.2 - parseInt
     globals.insert(
         "parseInt".to_string(),
         make_native("parseInt", 2, global::parse_int),

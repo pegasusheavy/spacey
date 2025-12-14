@@ -2,8 +2,49 @@
 //!
 //! These are top-level functions available globally.
 
+use crate::compiler::Compiler;
+use crate::parser::Parser;
 use crate::runtime::function::CallFrame;
 use crate::runtime::value::Value;
+use crate::vm::VM;
+
+// ============================================================================
+// eval() (ES3 Section 15.1.2.1)
+// ============================================================================
+
+/// eval(x) - Evaluates JavaScript code represented as a string.
+///
+/// ES3 Section 15.1.2.1
+pub fn eval(_frame: &mut CallFrame, args: &[Value]) -> Result<Value, String> {
+    let code = match args.first() {
+        Some(Value::String(s)) => s.clone(),
+        Some(other) => {
+            // If argument is not a string, return it unchanged
+            return Ok(other.clone());
+        }
+        None => return Ok(Value::Undefined),
+    };
+
+    // Parse the code
+    let mut parser = Parser::new(&code);
+    let program = parser
+        .parse_program()
+        .map_err(|e| format!("SyntaxError: {}", e))?;
+
+    // Compile the program
+    let mut compiler = Compiler::new();
+    let bytecode = compiler
+        .compile(&program)
+        .map_err(|e| format!("SyntaxError: {}", e))?;
+
+    // Execute the bytecode
+    let mut vm = VM::new();
+    vm.execute(&bytecode).map_err(|e| format!("Error: {}", e))
+}
+
+// ============================================================================
+// parseInt, parseFloat, isNaN, isFinite (ES3 Section 15.1.2)
+// ============================================================================
 
 /// parseInt(string, radix) - Parses a string and returns an integer.
 ///

@@ -387,12 +387,71 @@ impl Compiler {
                 // In full impl, would emit jump to loop end
                 self.emit(Instruction::simple(OpCode::Nop));
             }
+            Statement::BreakLabel(label) => {
+                // Break with label - jumps to labeled statement
+                // In full impl, would track labels and emit jump
+                self.emit(Instruction::simple(OpCode::Nop));
+            }
             Statement::Continue => {
                 // Continue is handled by the enclosing loop
                 // In full impl, would emit jump to loop start
                 self.emit(Instruction::simple(OpCode::Nop));
             }
+            Statement::ContinueLabel(label) => {
+                // Continue with label - jumps to labeled loop
+                // In full impl, would track labels and emit jump
+                self.emit(Instruction::simple(OpCode::Nop));
+            }
+            Statement::With(with_stmt) => {
+                self.compile_with_statement(with_stmt)?;
+                if keep_value {
+                    self.emit(Instruction::simple(OpCode::LoadUndefined));
+                }
+            }
+            Statement::Labeled(labeled) => {
+                self.compile_labeled_statement(labeled)?;
+                if keep_value {
+                    self.emit(Instruction::simple(OpCode::LoadUndefined));
+                }
+            }
+            Statement::Debugger => {
+                // Debugger statement - emit a nop (no-op)
+                // In a full impl, would trigger debugger breakpoint
+                self.emit(Instruction::simple(OpCode::Nop));
+                if keep_value {
+                    self.emit(Instruction::simple(OpCode::LoadUndefined));
+                }
+            }
         }
+        Ok(())
+    }
+
+    /// Compile with statement (ES3 Section 12.10).
+    fn compile_with_statement(&mut self, with_stmt: &WithStatement) -> Result<(), Error> {
+        // Compile the object expression
+        self.compile_expression(&with_stmt.object)?;
+
+        // In a full implementation:
+        // 1. Push the object onto the scope chain
+        // 2. Compile the body with the modified scope
+        // 3. Pop the object from the scope chain
+        //
+        // For now, we just pop the object and compile the body normally
+        // This is not fully compliant but avoids scope chain complexity
+        self.emit(Instruction::simple(OpCode::Pop));
+
+        // Compile the body
+        self.compile_statement(&with_stmt.body, false)?;
+
+        Ok(())
+    }
+
+    /// Compile labeled statement (ES3 Section 12.12).
+    fn compile_labeled_statement(&mut self, labeled: &LabeledStatement) -> Result<(), Error> {
+        // Labels are used for break/continue targets
+        // In a full implementation, would track label positions
+        // For now, just compile the body
+        self.compile_statement(&labeled.body, false)?;
         Ok(())
     }
 

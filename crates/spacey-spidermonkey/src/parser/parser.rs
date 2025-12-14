@@ -45,18 +45,16 @@ impl<'a> Parser<'a> {
             TokenKind::Do => self.parse_do_while_statement(),
             TokenKind::For => self.parse_for_statement(),
             TokenKind::Return => self.parse_return_statement(),
-            TokenKind::Break => {
-                self.advance();
-                self.expect(&TokenKind::Semicolon)?;
-                Ok(Statement::Break)
-            }
-            TokenKind::Continue => {
-                self.advance();
-                self.expect(&TokenKind::Semicolon)?;
-                Ok(Statement::Continue)
-            }
+            TokenKind::Break => self.parse_break_statement(),
+            TokenKind::Continue => self.parse_continue_statement(),
             TokenKind::Throw => self.parse_throw_statement(),
             TokenKind::Try => self.parse_try_statement(),
+            TokenKind::With => self.parse_with_statement(),
+            TokenKind::Debugger => {
+                self.advance();
+                self.expect(&TokenKind::Semicolon)?;
+                Ok(Statement::Debugger)
+            }
             TokenKind::LeftBrace => self.parse_block_statement(),
             TokenKind::Semicolon => {
                 self.advance();
@@ -64,6 +62,55 @@ impl<'a> Parser<'a> {
             }
             _ => self.parse_expression_statement(),
         }
+    }
+
+    /// Parse break statement with optional label.
+    fn parse_break_statement(&mut self) -> Result<Statement, Error> {
+        self.advance(); // consume 'break'
+
+        // Check for label (no line terminator before label)
+        if !self.check(&TokenKind::Semicolon) && !self.is_at_end() {
+            if let TokenKind::Identifier(label) = &self.current.kind {
+                let label = label.clone();
+                self.advance();
+                self.expect(&TokenKind::Semicolon)?;
+                return Ok(Statement::BreakLabel(label));
+            }
+        }
+
+        self.expect(&TokenKind::Semicolon)?;
+        Ok(Statement::Break)
+    }
+
+    /// Parse continue statement with optional label.
+    fn parse_continue_statement(&mut self) -> Result<Statement, Error> {
+        self.advance(); // consume 'continue'
+
+        // Check for label (no line terminator before label)
+        if !self.check(&TokenKind::Semicolon) && !self.is_at_end() {
+            if let TokenKind::Identifier(label) = &self.current.kind {
+                let label = label.clone();
+                self.advance();
+                self.expect(&TokenKind::Semicolon)?;
+                return Ok(Statement::ContinueLabel(label));
+            }
+        }
+
+        self.expect(&TokenKind::Semicolon)?;
+        Ok(Statement::Continue)
+    }
+
+    /// Parse with statement (ES3 Section 12.10).
+    fn parse_with_statement(&mut self) -> Result<Statement, Error> {
+        self.advance(); // consume 'with'
+        self.expect(&TokenKind::LeftParen)?;
+        let object = self.parse_expression()?;
+        self.expect(&TokenKind::RightParen)?;
+        let body = self.parse_statement()?;
+        Ok(Statement::With(WithStatement {
+            object,
+            body: Box::new(body),
+        }))
     }
 
     fn parse_variable_declaration(&mut self) -> Result<Statement, Error> {
@@ -477,6 +524,23 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_expression_statement(&mut self) -> Result<Statement, Error> {
+        // Check for labeled statement: identifier followed by colon
+        if let TokenKind::Identifier(name) = &self.current.kind {
+            let label_name = name.clone();
+            // Peek ahead to see if next token is colon
+            let next = self.scanner.peek_token();
+            if next.kind == TokenKind::Colon {
+                // This is a labeled statement
+                self.advance(); // consume identifier
+                self.advance(); // consume colon
+                let body = self.parse_statement()?;
+                return Ok(Statement::Labeled(LabeledStatement {
+                    label: Identifier { name: label_name },
+                    body: Box::new(body),
+                }));
+            }
+        }
+
         let expression = self.parse_expression()?;
         self.expect(&TokenKind::Semicolon)?;
         Ok(Statement::Expression(ExpressionStatement { expression }))

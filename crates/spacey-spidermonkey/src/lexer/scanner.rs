@@ -19,6 +19,17 @@ impl<'a> Scanner<'a> {
         }
     }
 
+    /// Peeks at the next token without consuming it.
+    /// Note: This is relatively expensive as it clones internal state.
+    pub fn peek_token(&self) -> Token {
+        // Create a copy of the scanner state
+        let mut scanner_copy = Scanner::new(self.source);
+        scanner_copy.current_pos = self.current_pos;
+        scanner_copy.chars = self.source[self.current_pos..].char_indices().peekable();
+        // Adjust positions in the cloned iterator
+        scanner_copy.next_token()
+    }
+
     /// Returns the next token from the source.
     pub fn next_token(&mut self) -> Token {
         self.skip_whitespace_and_comments();
