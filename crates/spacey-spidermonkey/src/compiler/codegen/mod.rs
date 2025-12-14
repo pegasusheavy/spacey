@@ -38,6 +38,10 @@ pub struct Compiler {
     loop_stack: Vec<LoopContext>,
     /// Pending label to apply to the next loop/switch
     pending_label: Option<String>,
+    /// Variables available from enclosing function scope (for closures)
+    enclosing_locals: Vec<String>,
+    /// Variables captured from enclosing scope (tracked during compilation)
+    captured_vars: Vec<String>,
 }
 
 impl Compiler {
@@ -48,6 +52,20 @@ impl Compiler {
             scope: Scope::new(),
             loop_stack: Vec::new(),
             pending_label: None,
+            enclosing_locals: Vec::new(),
+            captured_vars: Vec::new(),
+        }
+    }
+
+    /// Creates a new compiler with enclosing scope information for closures.
+    fn new_with_enclosing(enclosing_locals: Vec<String>) -> Self {
+        Self {
+            bytecode: Bytecode::new(),
+            scope: Scope::new(),
+            loop_stack: Vec::new(),
+            pending_label: None,
+            enclosing_locals,
+            captured_vars: Vec::new(),
         }
     }
 
@@ -1116,6 +1134,17 @@ impl Compiler {
                 OpCode::LoadLocal,
                 Operand::Local(index as u16),
             ));
+        } else if self.enclosing_locals.contains(&id.name) {
+            // Captured variable from enclosing scope
+            if !self.captured_vars.contains(&id.name) {
+                self.captured_vars.push(id.name.clone());
+            }
+            // Captured variables are injected into globals by the closure mechanism
+            let name_idx = self.bytecode.add_constant(Value::String(id.name.clone()));
+            self.emit(Instruction::with_operand(
+                OpCode::LoadGlobal,
+                Operand::Property(name_idx),
+            ));
         } else {
             // Global variable
             let name_idx = self.bytecode.add_constant(Value::String(id.name.clone()));
@@ -1140,6 +1169,18 @@ impl Compiler {
                     self.emit(Instruction::with_operand(
                         OpCode::StoreLocal,
                         Operand::Local(index as u16),
+                    ));
+                } else if self.enclosing_locals.contains(&id.name) {
+                    // Captured variable from enclosing scope
+                    if !self.captured_vars.contains(&id.name) {
+                        self.captured_vars.push(id.name.clone());
+                    }
+                    // Captured variables are stored in globals by the closure mechanism
+                    self.emit(Instruction::simple(OpCode::Dup)); // Keep value on stack
+                    let name_idx = self.bytecode.add_constant(Value::String(id.name.clone()));
+                    self.emit(Instruction::with_operand(
+                        OpCode::StoreGlobal,
+                        Operand::Property(name_idx),
                     ));
                 } else {
                     // Global variable
@@ -1680,8 +1721,16 @@ impl Compiler {
 
     /// Compile function expressions
     fn compile_function_expr(&mut self, func: &FunctionExpression) -> Result<(), Error> {
-        // Create a new compiler for the function body
-        let mut func_compiler = Compiler::new();
+        // Collect enclosing scope's local variable names for closure support
+        let enclosing_locals: Vec<String> = self
+            .scope
+            .locals
+            .iter()
+            .map(|l| l.name.clone())
+            .collect();
+
+        // Create a new compiler for the function body with enclosing scope info
+        let mut func_compiler = Compiler::new_with_enclosing(enclosing_locals);
         func_compiler.scope.begin_scope();
 
         // For named function expressions, the name is available inside the function for recursion
@@ -1711,6 +1760,7 @@ impl Compiler {
         func_compiler.emit(Instruction::simple(OpCode::Return));
 
         let local_count = func_compiler.scope.locals.len();
+        let captured_vars = func_compiler.captured_vars.clone();
         func_compiler.scope.end_scope();
 
         // Create the function object
@@ -1725,13 +1775,51 @@ impl Compiler {
         let callable = crate::runtime::function::Callable::Function(func_obj);
         let func_value = Value::Function(std::sync::Arc::new(callable));
         let idx = self.bytecode.add_constant(func_value);
-        self.emit(Instruction::with_operand(
-            OpCode::LoadConst,
-            Operand::Constant(idx),
-        ));
+
+        // If the function captures variables, emit code to copy locals to globals first
+        // then emit MakeClosure
+        if !captured_vars.is_empty() {
+            // For each captured variable, copy its local value to a global
+            // so MakeClosure can find it
+            for var_name in &captured_vars {
+                if let Some(local_idx) = self.scope.resolve(var_name) {
+                    // Load the local value
+                    self.emit(Instruction::with_operand(
+                        OpCode::LoadLocal,
+                        Operand::Local(local_idx as u16),
+                    ));
+                    // Store it as a global (so MakeClosure can capture it)
+                    let name_idx = self.bytecode.add_constant(Value::String(var_name.clone()));
+                    self.emit(Instruction::with_operand(
+                        OpCode::StoreGlobal,
+                        Operand::Property(name_idx),
+                    ));
+                }
+            }
+
+            // Load the base function
+            self.emit(Instruction::with_operand(
+                OpCode::LoadConst,
+                Operand::Constant(idx),
+            ));
+            // Load the captured variable names
+            let captured_names_idx = self
+                .bytecode
+                .add_constant(Value::String(captured_vars.join(",")));
+            self.emit(Instruction::with_operand(
+                OpCode::LoadConst,
+                Operand::Constant(captured_names_idx),
+            ));
+            // Create closure at runtime
+            self.emit(Instruction::simple(OpCode::MakeClosure));
+        } else {
+            self.emit(Instruction::with_operand(
+                OpCode::LoadConst,
+                Operand::Constant(idx),
+            ));
+        }
 
         // Store info about the function name slot for the VM to use
-        // The VM will need to set local[func_name_slot] = the function when calling
         let _ = func_name_slot; // Mark as used for now
 
         Ok(())

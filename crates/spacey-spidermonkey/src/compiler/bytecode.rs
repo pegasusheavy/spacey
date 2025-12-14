@@ -185,6 +185,10 @@ pub enum OpCode {
     Call,
     /// Return from function
     Return,
+    /// Create a closure by capturing variables from the current scope
+    /// Operand: Constant index of base function
+    /// Top of stack should have a string with comma-separated variable names to capture
+    MakeClosure,
     /// Create a closure
     Closure,
 

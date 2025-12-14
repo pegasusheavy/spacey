@@ -336,51 +336,24 @@ fn register_string(globals: &mut HashMap<String, Value>) {
 
 /// Register Number constructor and methods.
 fn register_number(globals: &mut HashMap<String, Value>) {
-    // Number constructor
+    let mut number_obj = HashMap::new();
+
+    // Number constants
+    number_obj.insert("MAX_VALUE".to_string(), Value::Number(number::MAX_VALUE));
+    number_obj.insert("MIN_VALUE".to_string(), Value::Number(number::MIN_VALUE));
+    number_obj.insert("NaN".to_string(), Value::Number(number::NAN));
+    number_obj.insert("NEGATIVE_INFINITY".to_string(), Value::Number(number::NEGATIVE_INFINITY));
+    number_obj.insert("POSITIVE_INFINITY".to_string(), Value::Number(number::POSITIVE_INFINITY));
+
+    // Number constructor function
+    // Note: In a full implementation, this would be a callable that creates Number objects
+    // For now, we'll include it as part of the object
+    globals.insert("Number".to_string(), Value::NativeObject(number_obj));
+
+    // Also register the constructor as a callable for Number(value) syntax
     globals.insert(
-        "Number".to_string(),
+        "Number_constructor".to_string(),
         make_native("Number", 1, number::number_constructor),
-    );
-
-    // Number constants (would be properties of Number in full impl)
-    globals.insert(
-        "Number_MAX_VALUE".to_string(),
-        Value::Number(number::MAX_VALUE),
-    );
-    globals.insert(
-        "Number_MIN_VALUE".to_string(),
-        Value::Number(number::MIN_VALUE),
-    );
-    globals.insert("Number_NaN".to_string(), Value::Number(number::NAN));
-    globals.insert(
-        "Number_NEGATIVE_INFINITY".to_string(),
-        Value::Number(number::NEGATIVE_INFINITY),
-    );
-    globals.insert(
-        "Number_POSITIVE_INFINITY".to_string(),
-        Value::Number(number::POSITIVE_INFINITY),
-    );
-
-    // Number.prototype methods
-    globals.insert(
-        "Number_toString".to_string(),
-        make_native("Number.prototype.toString", 1, number::to_string),
-    );
-    globals.insert(
-        "Number_valueOf".to_string(),
-        make_native("Number.prototype.valueOf", 0, number::value_of),
-    );
-    globals.insert(
-        "Number_toFixed".to_string(),
-        make_native("Number.prototype.toFixed", 1, number::to_fixed),
-    );
-    globals.insert(
-        "Number_toExponential".to_string(),
-        make_native("Number.prototype.toExponential", 1, number::to_exponential),
-    );
-    globals.insert(
-        "Number_toPrecision".to_string(),
-        make_native("Number.prototype.toPrecision", 1, number::to_precision),
     );
 }
 
@@ -402,89 +375,39 @@ fn register_boolean(globals: &mut HashMap<String, Value>) {
 
 /// Register Math object methods.
 fn register_math(globals: &mut HashMap<String, Value>) {
+    let mut math_obj = HashMap::new();
+
     // Math constants
-    globals.insert("Math_E".to_string(), Value::Number(math::E));
-    globals.insert("Math_LN10".to_string(), Value::Number(math::LN10));
-    globals.insert("Math_LN2".to_string(), Value::Number(math::LN2));
-    globals.insert("Math_LOG2E".to_string(), Value::Number(math::LOG2E));
-    globals.insert("Math_LOG10E".to_string(), Value::Number(math::LOG10E));
-    globals.insert("Math_PI".to_string(), Value::Number(math::PI));
-    globals.insert("Math_SQRT1_2".to_string(), Value::Number(math::SQRT1_2));
-    globals.insert("Math_SQRT2".to_string(), Value::Number(math::SQRT2));
+    math_obj.insert("E".to_string(), Value::Number(math::E));
+    math_obj.insert("LN10".to_string(), Value::Number(math::LN10));
+    math_obj.insert("LN2".to_string(), Value::Number(math::LN2));
+    math_obj.insert("LOG2E".to_string(), Value::Number(math::LOG2E));
+    math_obj.insert("LOG10E".to_string(), Value::Number(math::LOG10E));
+    math_obj.insert("PI".to_string(), Value::Number(math::PI));
+    math_obj.insert("SQRT1_2".to_string(), Value::Number(math::SQRT1_2));
+    math_obj.insert("SQRT2".to_string(), Value::Number(math::SQRT2));
 
     // Math methods
-    globals.insert(
-        "Math_abs".to_string(),
-        make_native("Math.abs", 1, math::abs),
-    );
-    globals.insert(
-        "Math_acos".to_string(),
-        make_native("Math.acos", 1, math::acos),
-    );
-    globals.insert(
-        "Math_asin".to_string(),
-        make_native("Math.asin", 1, math::asin),
-    );
-    globals.insert(
-        "Math_atan".to_string(),
-        make_native("Math.atan", 1, math::atan),
-    );
-    globals.insert(
-        "Math_atan2".to_string(),
-        make_native("Math.atan2", 2, math::atan2),
-    );
-    globals.insert(
-        "Math_ceil".to_string(),
-        make_native("Math.ceil", 1, math::ceil),
-    );
-    globals.insert(
-        "Math_cos".to_string(),
-        make_native("Math.cos", 1, math::cos),
-    );
-    globals.insert(
-        "Math_exp".to_string(),
-        make_native("Math.exp", 1, math::exp),
-    );
-    globals.insert(
-        "Math_floor".to_string(),
-        make_native("Math.floor", 1, math::floor),
-    );
-    globals.insert(
-        "Math_log".to_string(),
-        make_native("Math.log", 1, math::log),
-    );
-    globals.insert(
-        "Math_max".to_string(),
-        make_native("Math.max", -1, math::max),
-    );
-    globals.insert(
-        "Math_min".to_string(),
-        make_native("Math.min", -1, math::min),
-    );
-    globals.insert(
-        "Math_pow".to_string(),
-        make_native("Math.pow", 2, math::pow),
-    );
-    globals.insert(
-        "Math_random".to_string(),
-        make_native("Math.random", 0, math::random),
-    );
-    globals.insert(
-        "Math_round".to_string(),
-        make_native("Math.round", 1, math::round),
-    );
-    globals.insert(
-        "Math_sin".to_string(),
-        make_native("Math.sin", 1, math::sin),
-    );
-    globals.insert(
-        "Math_sqrt".to_string(),
-        make_native("Math.sqrt", 1, math::sqrt),
-    );
-    globals.insert(
-        "Math_tan".to_string(),
-        make_native("Math.tan", 1, math::tan),
-    );
+    math_obj.insert("abs".to_string(), make_native("Math.abs", 1, math::abs));
+    math_obj.insert("acos".to_string(), make_native("Math.acos", 1, math::acos));
+    math_obj.insert("asin".to_string(), make_native("Math.asin", 1, math::asin));
+    math_obj.insert("atan".to_string(), make_native("Math.atan", 1, math::atan));
+    math_obj.insert("atan2".to_string(), make_native("Math.atan2", 2, math::atan2));
+    math_obj.insert("ceil".to_string(), make_native("Math.ceil", 1, math::ceil));
+    math_obj.insert("cos".to_string(), make_native("Math.cos", 1, math::cos));
+    math_obj.insert("exp".to_string(), make_native("Math.exp", 1, math::exp));
+    math_obj.insert("floor".to_string(), make_native("Math.floor", 1, math::floor));
+    math_obj.insert("log".to_string(), make_native("Math.log", 1, math::log));
+    math_obj.insert("max".to_string(), make_native("Math.max", -1, math::max));
+    math_obj.insert("min".to_string(), make_native("Math.min", -1, math::min));
+    math_obj.insert("pow".to_string(), make_native("Math.pow", 2, math::pow));
+    math_obj.insert("random".to_string(), make_native("Math.random", 0, math::random));
+    math_obj.insert("round".to_string(), make_native("Math.round", 1, math::round));
+    math_obj.insert("sin".to_string(), make_native("Math.sin", 1, math::sin));
+    math_obj.insert("sqrt".to_string(), make_native("Math.sqrt", 1, math::sqrt));
+    math_obj.insert("tan".to_string(), make_native("Math.tan", 1, math::tan));
+
+    globals.insert("Math".to_string(), Value::NativeObject(math_obj));
 }
 
 /// Register Error constructors.
@@ -558,24 +481,19 @@ fn register_function(globals: &mut HashMap<String, Value>) {
 
 /// Register Date constructor and methods.
 fn register_date(globals: &mut HashMap<String, Value>) {
-    // Date constructor
-    globals.insert(
-        "Date".to_string(),
-        make_native("Date", -1, date::date_constructor),
-    );
+    let mut date_obj = HashMap::new();
 
     // Date static methods
+    date_obj.insert("parse".to_string(), make_native("Date.parse", 1, date::parse));
+    date_obj.insert("UTC".to_string(), make_native("Date.UTC", -1, date::utc));
+    date_obj.insert("now".to_string(), make_native("Date.now", 0, date::now));
+
+    globals.insert("Date".to_string(), Value::NativeObject(date_obj));
+
+    // Also register constructor for new Date() syntax
     globals.insert(
-        "Date_parse".to_string(),
-        make_native("Date.parse", 1, date::parse),
-    );
-    globals.insert(
-        "Date_UTC".to_string(),
-        make_native("Date.UTC", -1, date::utc),
-    );
-    globals.insert(
-        "Date_now".to_string(),
-        make_native("Date.now", 0, date::now),
+        "Date_constructor".to_string(),
+        make_native("Date", -1, date::date_constructor),
     );
 
     // Date.prototype methods

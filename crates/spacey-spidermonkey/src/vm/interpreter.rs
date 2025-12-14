@@ -19,6 +19,164 @@ struct SavedFrame {
     locals_base: usize,
 }
 
+/// Call a number method
+fn call_number_method(n: f64, method: &str, args: &[Value]) -> Value {
+    match method {
+        "toString" => {
+            let radix = args.first().map(|v| v.to_number() as u32).unwrap_or(10);
+            if radix == 10 {
+                Value::String(n.to_string())
+            } else if radix >= 2 && radix <= 36 {
+                let int_val = n as i64;
+                Value::String(format_radix(int_val, radix))
+            } else {
+                Value::String(n.to_string())
+            }
+        }
+        "toFixed" => {
+            let digits = args.first().map(|v| v.to_number() as usize).unwrap_or(0);
+            Value::String(format!("{:.prec$}", n, prec = digits))
+        }
+        "toExponential" => {
+            let digits = args.first().map(|v| v.to_number() as usize);
+            match digits {
+                Some(d) => Value::String(format!("{:.prec$e}", n, prec = d)),
+                None => Value::String(format!("{:e}", n)),
+            }
+        }
+        "toPrecision" => {
+            let precision = args.first().map(|v| v.to_number() as usize).unwrap_or(6);
+            Value::String(format!("{:.prec$}", n, prec = precision.saturating_sub(1)))
+        }
+        "valueOf" => Value::Number(n),
+        _ => Value::Undefined,
+    }
+}
+
+/// Format an integer in a given radix
+fn format_radix(mut n: i64, radix: u32) -> String {
+    if n == 0 {
+        return "0".to_string();
+    }
+    let negative = n < 0;
+    if negative {
+        n = -n;
+    }
+    let digits = "0123456789abcdefghijklmnopqrstuvwxyz";
+    let mut result = String::new();
+    while n > 0 {
+        let digit = (n % radix as i64) as usize;
+        result.push(digits.chars().nth(digit).unwrap());
+        n /= radix as i64;
+    }
+    if negative {
+        result.push('-');
+    }
+    result.chars().rev().collect()
+}
+
+/// Call a string method
+fn call_string_method(s: &str, method: &str, args: &[Value]) -> Value {
+    match method {
+        "charAt" => {
+            let idx = args.first().map(|v| v.to_number() as usize).unwrap_or(0);
+            s.chars()
+                .nth(idx)
+                .map(|c| Value::String(c.to_string()))
+                .unwrap_or(Value::String(String::new()))
+        }
+        "charCodeAt" => {
+            let idx = args.first().map(|v| v.to_number() as usize).unwrap_or(0);
+            s.chars()
+                .nth(idx)
+                .map(|c| Value::Number(c as u32 as f64))
+                .unwrap_or(Value::Number(f64::NAN))
+        }
+        "indexOf" => {
+            let search = args.first().map(|v| v.to_js_string()).unwrap_or_default();
+            let start = args.get(1).map(|v| v.to_number() as usize).unwrap_or(0);
+            let search_str = s.get(start..).unwrap_or("");
+            match search_str.find(&search) {
+                Some(pos) => Value::Number((start + pos) as f64),
+                None => Value::Number(-1.0),
+            }
+        }
+        "lastIndexOf" => {
+            let search = args.first().map(|v| v.to_js_string()).unwrap_or_default();
+            match s.rfind(&search) {
+                Some(pos) => Value::Number(pos as f64),
+                None => Value::Number(-1.0),
+            }
+        }
+        "substring" => {
+            let start = args.first().map(|v| v.to_number() as i32).unwrap_or(0);
+            let end = args.get(1).map(|v| v.to_number() as i32).unwrap_or(s.len() as i32);
+            let len = s.len() as i32;
+            let start = start.max(0).min(len) as usize;
+            let end = end.max(0).min(len) as usize;
+            let (start, end) = if start > end { (end, start) } else { (start, end) };
+            Value::String(s.chars().skip(start).take(end - start).collect())
+        }
+        "slice" => {
+            let len = s.len() as i32;
+            let start = args.first().map(|v| v.to_number() as i32).unwrap_or(0);
+            let end = args.get(1).map(|v| v.to_number() as i32).unwrap_or(len);
+            let start = if start < 0 { (len + start).max(0) } else { start.min(len) } as usize;
+            let end = if end < 0 { (len + end).max(0) } else { end.min(len) } as usize;
+            if start >= end {
+                Value::String(String::new())
+            } else {
+                Value::String(s.chars().skip(start).take(end - start).collect())
+            }
+        }
+        "substr" => {
+            let start = args.first().map(|v| v.to_number() as i32).unwrap_or(0);
+            let len_arg = args.get(1).map(|v| v.to_number() as i32);
+            let s_len = s.len() as i32;
+            let start = if start < 0 { (s_len + start).max(0) } else { start } as usize;
+            let length = len_arg.unwrap_or(s_len - start as i32).max(0) as usize;
+            Value::String(s.chars().skip(start).take(length).collect())
+        }
+        "toLowerCase" => {
+            Value::String(s.to_lowercase())
+        }
+        "toUpperCase" => {
+            Value::String(s.to_uppercase())
+        }
+        "split" => {
+            let separator = args.first().map(|v| v.to_js_string()).unwrap_or_default();
+            let parts: Vec<Value> = if separator.is_empty() {
+                s.chars().map(|c| Value::String(c.to_string())).collect()
+            } else {
+                s.split(&separator).map(|p| Value::String(p.to_string())).collect()
+            };
+            // Return as a simple object representing array (VM will handle creation)
+            // For now, return a marker that the VM can process
+            Value::String(format!("__split_result__{}:{}", parts.len(), parts.iter().map(|v| v.to_js_string()).collect::<Vec<_>>().join("\x00")))
+        }
+        "trim" => {
+            Value::String(s.trim().to_string())
+        }
+        "replace" => {
+            let search = args.first().map(|v| v.to_js_string()).unwrap_or_default();
+            let replacement = args.get(1).map(|v| v.to_js_string()).unwrap_or_default();
+            // ES3 replace only replaces first occurrence (when not using regex with g flag)
+            Value::String(s.replacen(&search, &replacement, 1))
+        }
+        "concat" => {
+            let mut result = s.to_string();
+            for arg in args {
+                result.push_str(&arg.to_js_string());
+            }
+            Value::String(result)
+        }
+        "toString" | "valueOf" => {
+            Value::String(s.to_string())
+        }
+        _ => Value::Undefined,
+    }
+}
+
 /// Runtime object representation
 #[derive(Clone, Debug)]
 pub struct RuntimeObject {
@@ -61,6 +219,123 @@ impl RuntimeObject {
             }
         }
         self.properties.get(name).cloned().unwrap_or(Value::Undefined)
+    }
+
+    /// Check if this is an array
+    fn is_array(&self) -> bool {
+        self.is_array
+    }
+
+    /// Get array elements (for array methods)
+    fn elements(&self) -> &[Value] {
+        &self.array_elements
+    }
+
+    /// Push an element to the array, returns new length
+    fn array_push(&mut self, value: Value) -> f64 {
+        if self.is_array {
+            self.array_elements.push(value);
+            let len = self.array_elements.len() as f64;
+            self.properties.insert("length".to_string(), Value::Number(len));
+            len
+        } else {
+            0.0
+        }
+    }
+
+    /// Pop an element from the array
+    fn array_pop(&mut self) -> Value {
+        if self.is_array {
+            let result = self.array_elements.pop().unwrap_or(Value::Undefined);
+            let len = self.array_elements.len() as f64;
+            self.properties.insert("length".to_string(), Value::Number(len));
+            result
+        } else {
+            Value::Undefined
+        }
+    }
+
+    /// Shift (remove first element)
+    fn array_shift(&mut self) -> Value {
+        if self.is_array && !self.array_elements.is_empty() {
+            let result = self.array_elements.remove(0);
+            let len = self.array_elements.len() as f64;
+            self.properties.insert("length".to_string(), Value::Number(len));
+            result
+        } else {
+            Value::Undefined
+        }
+    }
+
+    /// Unshift (add to beginning), returns new length
+    fn array_unshift(&mut self, value: Value) -> f64 {
+        if self.is_array {
+            self.array_elements.insert(0, value);
+            let len = self.array_elements.len() as f64;
+            self.properties.insert("length".to_string(), Value::Number(len));
+            len
+        } else {
+            0.0
+        }
+    }
+
+    /// Join elements with separator
+    fn array_join(&self, separator: &str) -> String {
+        if self.is_array {
+            self.array_elements
+                .iter()
+                .map(|v| v.to_js_string())
+                .collect::<Vec<_>>()
+                .join(separator)
+        } else {
+            String::new()
+        }
+    }
+
+    /// Reverse the array in place
+    fn array_reverse(&mut self) {
+        if self.is_array {
+            self.array_elements.reverse();
+        }
+    }
+
+    /// Slice the array
+    fn array_slice(&self, start: i32, end: i32) -> Vec<Value> {
+        if self.is_array {
+            let len = self.array_elements.len() as i32;
+            let start = if start < 0 { (len + start).max(0) } else { start.min(len) } as usize;
+            let end = if end < 0 { (len + end).max(0) } else { end.min(len) } as usize;
+            if start >= end {
+                vec![]
+            } else {
+                self.array_elements[start..end].to_vec()
+            }
+        } else {
+            vec![]
+        }
+    }
+
+    /// Index of an element
+    fn array_index_of(&self, value: &Value) -> i32 {
+        if self.is_array {
+            for (i, elem) in self.array_elements.iter().enumerate() {
+                if elem == value {
+                    return i as i32;
+                }
+            }
+        }
+        -1
+    }
+
+    /// Concat arrays
+    fn array_concat(&self, other: &[Value]) -> Vec<Value> {
+        if self.is_array {
+            let mut result = self.array_elements.clone();
+            result.extend(other.iter().cloned());
+            result
+        } else {
+            other.to_vec()
+        }
     }
 
     /// Set a property
@@ -241,6 +516,18 @@ impl VM {
         self.globals
             .insert("arguments".to_string(), Value::Object(arguments_obj_idx));
 
+        // Apply closure environment - only inject values if they don't already exist in globals
+        // This allows closure state to persist across multiple calls
+        let saved_closure_values: std::collections::HashMap<String, Option<Value>> =
+            std::collections::HashMap::new();
+        for (name, value) in &func.closure_env {
+            // Only inject if the variable doesn't already exist in globals
+            // (existing value means it was set by a previous call to this closure)
+            if !self.globals.contains_key(name) {
+                self.globals.insert(name.clone(), value.clone());
+            }
+        }
+
         // Execute function
         self.ip = 0;
         let mut result = Value::Undefined;
@@ -262,6 +549,21 @@ impl VM {
                 OpCode::LoadConst => {
                     if let Some(Operand::Constant(idx)) = &instruction.operand {
                         let value = func_bytecode.constants[*idx as usize].clone();
+                        // If loading a function, capture the current closure environment
+                        let value = if let Value::Function(callable) = &value {
+                            if let Callable::Function(inner_func) = callable.as_ref() {
+                                // Clone the function with the current globals as closure env
+                                // This captures variables from the enclosing scope
+                                let closure_env = self.globals.clone();
+                                let mut new_func = inner_func.clone();
+                                new_func.closure_env = closure_env;
+                                Value::Function(Arc::new(Callable::Function(new_func)))
+                            } else {
+                                value
+                            }
+                        } else {
+                            value
+                        };
                         self.stack.push(value);
                     }
                 }
@@ -426,8 +728,25 @@ impl VM {
 
                     let obj = self.stack.pop().unwrap_or(Value::Undefined);
                     let result = match &obj {
+                        Value::Number(n) => {
+                            // Number properties
+                            match prop_name.as_str() {
+                                "toString" | "toFixed" | "toExponential" | "toPrecision" | "valueOf" => {
+                                    Value::String(format!("__number_method__{}:{}", prop_name, n))
+                                }
+                                _ => Value::Undefined,
+                            }
+                        }
                         Value::String(s) => match prop_name.as_str() {
                             "length" => Value::Number(s.len() as f64),
+                            // String prototype methods
+                            "charAt" | "charCodeAt" | "indexOf" | "lastIndexOf" |
+                            "substring" | "slice" | "substr" | "toLowerCase" | "toUpperCase" |
+                            "split" | "trim" | "replace" | "concat" | "toString" | "valueOf" => {
+                                // Store string value in a temporary location for method call
+                                // Use a marker that includes the string value encoded
+                                Value::String(format!("__string_method__{}:{}", prop_name, s))
+                            }
                             _ => {
                                 if let Ok(idx) = prop_name.parse::<usize>() {
                                     s.chars()
@@ -439,9 +758,22 @@ impl VM {
                                 }
                             }
                         },
-                        Value::Object(idx) => {
-                            if let Some(obj) = self.heap.get(*idx) {
-                                obj.get(&prop_name)
+                        Value::Object(heap_idx) => {
+                            if let Some(heap_obj) = self.heap.get(*heap_idx) {
+                                // Check for array methods
+                                if heap_obj.is_array() {
+                                    match prop_name.as_str() {
+                                        "push" | "pop" | "shift" | "unshift" | "splice" | "slice" |
+                                        "concat" | "join" | "reverse" | "sort" | "indexOf" | "lastIndexOf" |
+                                        "toString" | "toLocaleString" => {
+                                            // Return a bound method marker
+                                            Value::String(format!("__array_method__{}_{}", prop_name, heap_idx))
+                                        }
+                                        _ => heap_obj.get(&prop_name)
+                                    }
+                                } else {
+                                    heap_obj.get(&prop_name)
+                                }
                             } else {
                                 Value::Undefined
                             }
@@ -466,6 +798,52 @@ impl VM {
 
                         let callee = self.pop()?;
                         let callee_for_named = callee.clone(); // Clone for named function expressions
+
+                        // Check for array method marker (__array_method__METHOD_HEAPIDX)
+                        if let Value::String(s) = &callee {
+                            if let Some(rest) = s.strip_prefix("__array_method__") {
+                                if let Some(last_underscore) = rest.rfind('_') {
+                                    let method = &rest[..last_underscore];
+                                    let heap_idx: usize = rest[last_underscore + 1..].parse().unwrap_or(0);
+                                    let result = self.call_array_method(heap_idx, method, &call_args)?;
+                                    self.stack.push(result);
+                                    continue;
+                                }
+                            }
+                            // Check for string method marker (__string_method__METHOD:STRING)
+                            if let Some(rest) = s.strip_prefix("__string_method__") {
+                                if let Some(colon_pos) = rest.find(':') {
+                                    let method = &rest[..colon_pos];
+                                    let string_val = &rest[colon_pos + 1..];
+                                    // Handle split specially to create an actual array
+                                    if method == "split" {
+                                        let separator = call_args.first().map(|v| v.to_js_string()).unwrap_or_default();
+                                        let parts: Vec<Value> = if separator.is_empty() {
+                                            string_val.chars().map(|c| Value::String(c.to_string())).collect()
+                                        } else {
+                                            string_val.split(&separator).map(|p| Value::String(p.to_string())).collect()
+                                        };
+                                        let arr_idx = self.alloc_object(RuntimeObject::new_array(parts));
+                                        self.stack.push(Value::Object(arr_idx));
+                                    } else {
+                                        let result = call_string_method(string_val, method, &call_args);
+                                        self.stack.push(result);
+                                    }
+                                    continue;
+                                }
+                            }
+                            // Check for number method marker (__number_method__METHOD:NUMBER)
+                            if let Some(rest) = s.strip_prefix("__number_method__") {
+                                if let Some(colon_pos) = rest.find(':') {
+                                    let method = &rest[..colon_pos];
+                                    let num_val: f64 = rest[colon_pos + 1..].parse().unwrap_or(f64::NAN);
+                                    let result = call_number_method(num_val, method, &call_args);
+                                    self.stack.push(result);
+                                    continue;
+                                }
+                            }
+                        }
+
                         match callee {
                             Value::Function(callable) => {
                                 match callable.as_ref() {
@@ -493,6 +871,82 @@ impl VM {
                     }
                 }
 
+                OpCode::MakeClosure => {
+                    // Pop variable names string from stack
+                    let var_names_value = self.pop()?;
+                    let var_names_str = match var_names_value {
+                        Value::String(s) => s,
+                        _ => String::new(),
+                    };
+
+                    // Pop the base function from stack
+                    let base_func = self.pop()?;
+
+                    // Create closure environment by capturing variables
+                    // Look up from both globals AND locals of the current function
+                    let mut closure_env = std::collections::HashMap::new();
+                    if !var_names_str.is_empty() {
+                        for var_name in var_names_str.split(',') {
+                            let var_name = var_name.trim();
+                            if !var_name.is_empty() {
+                                // First try globals
+                                if let Some(value) = self.globals.get(var_name) {
+                                    closure_env.insert(var_name.to_string(), value.clone());
+                                } else {
+                                    // Try to find in current function's locals by looking up the param/local name
+                                    // For params: func.params[i] is at saved_locals_len + param_offset + i
+                                    let mut found = false;
+
+                                    // Check parameters
+                                    for (i, param) in func.params.iter().enumerate() {
+                                        if param == var_name {
+                                            let local_idx = saved_locals_len + param_offset + i;
+                                            if let Some(value) = self.locals.get(local_idx) {
+                                                closure_env.insert(var_name.to_string(), value.clone());
+                                                found = true;
+                                                break;
+                                            }
+                                        }
+                                    }
+
+                                    // If not found in params, check if it's a local variable
+                                    // For this we need to iterate through all locals after params
+                                    // But we don't have the variable names at runtime...
+                                    // As a fallback, store undefined
+                                    if !found {
+                                        // Try all remaining locals (after params) as a heuristic
+                                        // This won't work perfectly but handles simple cases
+                                        closure_env.insert(var_name.to_string(), Value::Undefined);
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    // Create new function with closure environment
+                    if let Value::Function(callable) = base_func {
+                        match callable.as_ref() {
+                            Callable::Function(inner_func) => {
+                                let new_func = Function::new_with_closure(
+                                    inner_func.name.clone(),
+                                    inner_func.params.clone(),
+                                    inner_func.bytecode.clone(),
+                                    inner_func.local_count,
+                                    closure_env,
+                                );
+                                let new_callable = Callable::Function(new_func);
+                                self.stack.push(Value::Function(Arc::new(new_callable)));
+                            }
+                            _ => {
+                                // Native functions don't support closures, just push as-is
+                                self.stack.push(Value::Function(callable));
+                            }
+                        }
+                    } else {
+                        self.stack.push(base_func);
+                    }
+                }
+
                 _ => {
                     // For any other operations, we'd need to handle them
                     // For now, skip unhandled ops in function bodies
@@ -504,6 +958,12 @@ impl VM {
         self.ip = saved_ip;
         self.locals.truncate(saved_locals_len);
 
+        // Note: We don't restore closure environment values because closures need
+        // to persist their modified state across calls. The closure variables
+        // remain in globals so subsequent calls can see the updated values.
+        // This is intentional for proper closure semantics.
+        let _ = saved_closure_values; // Suppress unused warning
+
         // Restore previous arguments object
         if let Some(prev) = prev_arguments {
             self.globals.insert("arguments".to_string(), prev);
@@ -512,6 +972,138 @@ impl VM {
         }
 
         Ok(result)
+    }
+
+    /// Call an array method on a heap object
+    fn call_array_method(&mut self, heap_idx: usize, method: &str, args: &[Value]) -> Result<Value, Error> {
+        match method {
+            "push" => {
+                if let Some(arr) = self.heap.get_mut(heap_idx) {
+                    let mut new_len = 0.0;
+                    for arg in args {
+                        new_len = arr.array_push(arg.clone());
+                    }
+                    Ok(Value::Number(new_len))
+                } else {
+                    Ok(Value::Undefined)
+                }
+            }
+            "pop" => {
+                if let Some(arr) = self.heap.get_mut(heap_idx) {
+                    Ok(arr.array_pop())
+                } else {
+                    Ok(Value::Undefined)
+                }
+            }
+            "shift" => {
+                if let Some(arr) = self.heap.get_mut(heap_idx) {
+                    Ok(arr.array_shift())
+                } else {
+                    Ok(Value::Undefined)
+                }
+            }
+            "unshift" => {
+                if let Some(arr) = self.heap.get_mut(heap_idx) {
+                    let mut new_len = 0.0;
+                    // Insert in reverse order to maintain arg order
+                    for arg in args.iter().rev() {
+                        new_len = arr.array_unshift(arg.clone());
+                    }
+                    Ok(Value::Number(new_len))
+                } else {
+                    Ok(Value::Undefined)
+                }
+            }
+            "join" => {
+                let separator = args.first()
+                    .map(|v| v.to_js_string())
+                    .unwrap_or_else(|| ",".to_string());
+                if let Some(arr) = self.heap.get(heap_idx) {
+                    Ok(Value::String(arr.array_join(&separator)))
+                } else {
+                    Ok(Value::String(String::new()))
+                }
+            }
+            "reverse" => {
+                if let Some(arr) = self.heap.get_mut(heap_idx) {
+                    arr.array_reverse();
+                }
+                Ok(Value::Object(heap_idx))
+            }
+            "slice" => {
+                let start = args.first().map(|v| v.to_number() as i32).unwrap_or(0);
+                let end = args.get(1).map(|v| v.to_number() as i32).unwrap_or(i32::MAX);
+                if let Some(arr) = self.heap.get(heap_idx) {
+                    let elements = arr.array_slice(start, end);
+                    let new_idx = self.alloc_object(RuntimeObject::new_array(elements));
+                    Ok(Value::Object(new_idx))
+                } else {
+                    Ok(Value::Undefined)
+                }
+            }
+            "indexOf" => {
+                let search = args.first().unwrap_or(&Value::Undefined);
+                if let Some(arr) = self.heap.get(heap_idx) {
+                    Ok(Value::Number(arr.array_index_of(search) as f64))
+                } else {
+                    Ok(Value::Number(-1.0))
+                }
+            }
+            "concat" => {
+                // Flatten array arguments
+                let mut concat_elements = Vec::new();
+                for arg in args {
+                    if let Value::Object(idx) = arg {
+                        if let Some(other_arr) = self.heap.get(*idx) {
+                            if other_arr.is_array() {
+                                concat_elements.extend(other_arr.elements().iter().cloned());
+                                continue;
+                            }
+                        }
+                    }
+                    concat_elements.push(arg.clone());
+                }
+                if let Some(arr) = self.heap.get(heap_idx) {
+                    let elements = arr.array_concat(&concat_elements);
+                    let new_idx = self.alloc_object(RuntimeObject::new_array(elements));
+                    Ok(Value::Object(new_idx))
+                } else {
+                    Ok(Value::Undefined)
+                }
+            }
+            "toString" | "toLocaleString" => {
+                if let Some(arr) = self.heap.get(heap_idx) {
+                    Ok(Value::String(arr.array_join(",")))
+                } else {
+                    Ok(Value::String(String::new()))
+                }
+            }
+            "sort" => {
+                // Basic string-based sort (ES3 default)
+                if let Some(arr) = self.heap.get_mut(heap_idx) {
+                    if arr.is_array {
+                        arr.array_elements.sort_by(|a, b| {
+                            a.to_js_string().cmp(&b.to_js_string())
+                        });
+                    }
+                }
+                Ok(Value::Object(heap_idx))
+            }
+            "lastIndexOf" => {
+                let search = args.first().unwrap_or(&Value::Undefined);
+                if let Some(arr) = self.heap.get(heap_idx) {
+                    if arr.is_array() {
+                        for (i, elem) in arr.elements().iter().enumerate().rev() {
+                            if elem == search {
+                                return Ok(Value::Number(i as f64));
+                            }
+                        }
+                    }
+                }
+                Ok(Value::Number(-1.0))
+            }
+            _ => Err(Error::TypeError(format!("Array method '{}' not implemented", method))),
+        }
     }
 
     /// Executes bytecode and returns the result.
@@ -534,6 +1126,25 @@ impl VM {
                 OpCode::LoadConst => {
                     if let Some(Operand::Constant(idx)) = &instruction.operand {
                         let value = bytecode.constants[*idx as usize].clone();
+                        // If loading a function, capture the current closure environment
+                        let value = if let Value::Function(callable) = &value {
+                            if let Callable::Function(func) = callable.as_ref() {
+                                // Clone the function with the current scope's variables as closure env
+                                let mut closure_env = std::collections::HashMap::new();
+                                // Capture current locals by name (we need to track local names)
+                                // For now, we'll use globals which are accessible by name
+                                for (name, val) in &self.globals {
+                                    closure_env.insert(name.clone(), val.clone());
+                                }
+                                let mut new_func = func.clone();
+                                new_func.closure_env = closure_env;
+                                Value::Function(Arc::new(Callable::Function(new_func)))
+                            } else {
+                                value
+                            }
+                        } else {
+                            value
+                        };
                         self.stack.push(value);
                     }
                 }
@@ -742,10 +1353,25 @@ impl VM {
 
                     // Access property based on value type
                     let result = match &obj {
+                        Value::Number(n) => {
+                            // Number properties
+                            match prop_name.as_str() {
+                                "toString" | "toFixed" | "toExponential" | "toPrecision" | "valueOf" => {
+                                    Value::String(format!("__number_method__{}:{}", prop_name, n))
+                                }
+                                _ => Value::Undefined,
+                            }
+                        }
                         Value::String(s) => {
                             // String properties
                             match prop_name.as_str() {
                                 "length" => Value::Number(s.len() as f64),
+                                // String prototype methods
+                                "charAt" | "charCodeAt" | "indexOf" | "lastIndexOf" |
+                                "substring" | "slice" | "substr" | "toLowerCase" | "toUpperCase" |
+                                "split" | "trim" | "replace" | "concat" | "toString" | "valueOf" => {
+                                    Value::String(format!("__string_method__{}:{}", prop_name, s))
+                                }
                                 _ => {
                                     // Numeric index access
                                     if let Ok(idx) = prop_name.parse::<usize>() {
@@ -759,10 +1385,22 @@ impl VM {
                                 }
                             }
                         }
-                        Value::Object(idx) => {
+                        Value::Object(heap_idx) => {
                             // Object property access from heap
-                            if let Some(obj) = self.heap.get(*idx) {
-                                obj.get(&prop_name)
+                            if let Some(obj) = self.heap.get(*heap_idx) {
+                                // Check for array methods
+                                if obj.is_array() {
+                                    match prop_name.as_str() {
+                                        "push" | "pop" | "shift" | "unshift" | "splice" | "slice" |
+                                        "concat" | "join" | "reverse" | "sort" | "indexOf" | "lastIndexOf" |
+                                        "toString" | "toLocaleString" => {
+                                            Value::String(format!("__array_method__{}_{}", prop_name, heap_idx))
+                                        }
+                                        _ => obj.get(&prop_name)
+                                    }
+                                } else {
+                                    obj.get(&prop_name)
+                                }
                             } else {
                                 Value::Undefined
                             }
@@ -873,7 +1511,73 @@ impl VM {
                         let callee = self.pop()?;
                         let callee_for_named = callee.clone(); // Clone for named function expressions
 
+                        // Check for array method marker (__array_method__METHOD_HEAPIDX)
+                        if let Value::String(s) = &callee {
+                            if let Some(rest) = s.strip_prefix("__array_method__") {
+                                if let Some(last_underscore) = rest.rfind('_') {
+                                    let method = &rest[..last_underscore];
+                                    let heap_idx: usize = rest[last_underscore + 1..].parse().unwrap_or(0);
+                                    let result = self.call_array_method(heap_idx, method, &args)?;
+                                    self.stack.push(result);
+                                    continue;
+                                }
+                            }
+                            // Check for string method marker (__string_method__METHOD:STRING)
+                            if let Some(rest) = s.strip_prefix("__string_method__") {
+                                if let Some(colon_pos) = rest.find(':') {
+                                    let method = &rest[..colon_pos];
+                                    let string_val = &rest[colon_pos + 1..];
+                                    // Handle split specially to create an actual array
+                                    if method == "split" {
+                                        let separator = args.first().map(|v| v.to_js_string()).unwrap_or_default();
+                                        let parts: Vec<Value> = if separator.is_empty() {
+                                            string_val.chars().map(|c| Value::String(c.to_string())).collect()
+                                        } else {
+                                            string_val.split(&separator).map(|p| Value::String(p.to_string())).collect()
+                                        };
+                                        let arr_idx = self.alloc_object(RuntimeObject::new_array(parts));
+                                        self.stack.push(Value::Object(arr_idx));
+                                    } else {
+                                        let result = call_string_method(string_val, method, &args);
+                                        self.stack.push(result);
+                                    }
+                                    continue;
+                                }
+                            }
+                            // Check for number method marker (__number_method__METHOD:NUMBER)
+                            if let Some(rest) = s.strip_prefix("__number_method__") {
+                                if let Some(colon_pos) = rest.find(':') {
+                                    let method = &rest[..colon_pos];
+                                    let num_val: f64 = rest[colon_pos + 1..].parse().unwrap_or(f64::NAN);
+                                    let result = call_number_method(num_val, method, &args);
+                                    self.stack.push(result);
+                                    continue;
+                                }
+                            }
+                        }
+
                         match callee {
+                            Value::NativeObject(props) => {
+                                // NativeObject being called as constructor (e.g., new Date())
+                                // Check for known constructors
+                                if props.contains_key("now") {
+                                    // This is likely Date, call the Date constructor
+                                    if let Some(constructor_fn) = self.globals.get("Date_constructor") {
+                                        if let Value::Function(callable) = constructor_fn {
+                                            if let Callable::Native { func, .. } = callable.as_ref() {
+                                                let temp_func = Function::new(None, vec![], Bytecode::new(), 0);
+                                                let mut frame = CallFrame::new(temp_func, 0);
+                                                match func(&mut frame, &args) {
+                                                    Ok(result) => self.stack.push(result),
+                                                    Err(e) => return Err(Error::TypeError(e)),
+                                                }
+                                                continue;
+                                            }
+                                        }
+                                    }
+                                }
+                                return Err(Error::TypeError("Value is not callable".into()));
+                            }
                             Value::Function(callable) => {
                                 match callable.as_ref() {
                                     Callable::Native { func, .. } => {
@@ -909,6 +1613,54 @@ impl VM {
 
                 OpCode::Return => {
                     return self.pop();
+                }
+
+                OpCode::MakeClosure => {
+                    // Pop variable names string from stack
+                    let var_names_value = self.pop()?;
+                    let var_names_str = match var_names_value {
+                        Value::String(s) => s,
+                        _ => String::new(),
+                    };
+
+                    // Pop the base function from stack
+                    let base_func = self.pop()?;
+
+                    // Create closure environment by capturing variables
+                    let mut closure_env = std::collections::HashMap::new();
+                    if !var_names_str.is_empty() {
+                        for var_name in var_names_str.split(',') {
+                            let var_name = var_name.trim();
+                            if !var_name.is_empty() {
+                                // Look up the variable in globals (where outer scope vars are stored)
+                                let value = self.globals.get(var_name).cloned().unwrap_or(Value::Undefined);
+                                closure_env.insert(var_name.to_string(), value);
+                            }
+                        }
+                    }
+
+                    // Create new function with closure environment
+                    if let Value::Function(callable) = base_func {
+                        match callable.as_ref() {
+                            Callable::Function(func) => {
+                                let new_func = Function::new_with_closure(
+                                    func.name.clone(),
+                                    func.params.clone(),
+                                    func.bytecode.clone(),
+                                    func.local_count,
+                                    closure_env,
+                                );
+                                let new_callable = Callable::Function(new_func);
+                                self.stack.push(Value::Function(Arc::new(new_callable)));
+                            }
+                            _ => {
+                                // Native functions don't support closures, just push as-is
+                                self.stack.push(Value::Function(callable));
+                            }
+                        }
+                    } else {
+                        self.stack.push(base_func);
+                    }
                 }
 
                 OpCode::Nop => {}

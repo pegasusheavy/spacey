@@ -23,6 +23,8 @@ pub struct Function {
     pub upvalues: Vec<Upvalue>,
     /// Whether this is a strict mode function
     pub strict: bool,
+    /// Captured closure environment (variable name -> value)
+    pub closure_env: std::collections::HashMap<String, Value>,
 }
 
 impl Function {
@@ -40,6 +42,26 @@ impl Function {
             local_count,
             upvalues: Vec::new(),
             strict: false,
+            closure_env: std::collections::HashMap::new(),
+        }
+    }
+
+    /// Creates a new function with a closure environment.
+    pub fn new_with_closure(
+        name: Option<String>,
+        params: Vec<String>,
+        bytecode: Bytecode,
+        local_count: usize,
+        closure_env: std::collections::HashMap<String, Value>,
+    ) -> Self {
+        Self {
+            name,
+            params,
+            bytecode,
+            local_count,
+            upvalues: Vec::new(),
+            strict: false,
+            closure_env,
         }
     }
 
@@ -57,6 +79,7 @@ impl Function {
             local_count,
             upvalues: Vec::new(),
             strict: true,
+            closure_env: std::collections::HashMap::new(),
         }
     }
 

@@ -265,3 +265,28 @@ fn test_compile_obj_assign() {
         println!("{}: {:?}", i, c);
     }
 }
+
+#[test]
+fn test_compile_closure_inner_function() {
+    let bytecode = compile_ok("function makeCounter() { var count = 0; return function() { count = count + 1; return count; }; }");
+    // Get the makeCounter function
+    if let Some(crate::runtime::value::Value::Function(callable)) = bytecode.constants.get(0) {
+        if let crate::runtime::function::Callable::Function(make_counter) = callable.as_ref() {
+            println!("makeCounter bytecode:");
+            for (i, inst) in make_counter.bytecode.instructions.iter().enumerate() {
+                println!("{}: {:?}", i, inst);
+            }
+            // Find the inner function in makeCounter's constants
+            for (i, c) in make_counter.bytecode.constants.iter().enumerate() {
+                if let crate::runtime::value::Value::Function(inner_callable) = c {
+                    if let crate::runtime::function::Callable::Function(inner) = inner_callable.as_ref() {
+                        println!("\nInner function bytecode:");
+                        for (j, inst) in inner.bytecode.instructions.iter().enumerate() {
+                            println!("{}: {:?}", j, inst);
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
