@@ -114,10 +114,164 @@ impl Compiler {
         }
     }
 
+    // ========================================================================
+    // Hoisting (ES3 Section 10.1.3)
+    // ========================================================================
+
+    /// Performs hoisting for a list of statements.
+    /// Returns var_names (function declarations handled in-place)
+    fn collect_hoisted_var_names(&self, statements: &[Statement]) -> Vec<String> {
+        let mut var_names = Vec::new();
+        let mut func_decls: Vec<&FunctionDeclaration> = Vec::new();
+
+        for stmt in statements {
+            self.collect_hoisted_from_statement(stmt, &mut var_names, &mut func_decls);
+        }
+
+        var_names
+    }
+
+    /// Recursively collect hoisted declarations from a statement.
+    fn collect_hoisted_from_statement<'a>(
+        &self,
+        stmt: &'a Statement,
+        var_names: &mut Vec<String>,
+        func_decls: &mut Vec<&'a FunctionDeclaration>,
+    ) {
+        match stmt {
+            Statement::VariableDeclaration(decl) => {
+                // Only hoist 'var' declarations, not 'let' or 'const'
+                if decl.kind == VariableKind::Var {
+                    for declarator in &decl.declarations {
+                        let name = &declarator.id.name;
+                        if !var_names.contains(name) {
+                            var_names.push(name.clone());
+                        }
+                    }
+                }
+            }
+            Statement::FunctionDeclaration(func) => {
+                func_decls.push(func);
+            }
+            Statement::Block(block) => {
+                // var hoists out of blocks
+                for s in &block.body {
+                    self.collect_hoisted_from_statement(s, var_names, func_decls);
+                }
+            }
+            Statement::If(if_stmt) => {
+                self.collect_hoisted_from_statement(&if_stmt.consequent, var_names, func_decls);
+                if let Some(alt) = &if_stmt.alternate {
+                    self.collect_hoisted_from_statement(alt, var_names, func_decls);
+                }
+            }
+            Statement::While(while_stmt) => {
+                self.collect_hoisted_from_statement(&while_stmt.body, var_names, func_decls);
+            }
+            Statement::DoWhile(do_while) => {
+                self.collect_hoisted_from_statement(&do_while.body, var_names, func_decls);
+            }
+            Statement::For(for_stmt) => {
+                // Hoist var in init
+                if let Some(ForInit::Declaration(decl)) = &for_stmt.init {
+                    if decl.kind == VariableKind::Var {
+                        for declarator in &decl.declarations {
+                            let name = &declarator.id.name;
+                            if !var_names.contains(name) {
+                                var_names.push(name.clone());
+                            }
+                        }
+                    }
+                }
+                self.collect_hoisted_from_statement(&for_stmt.body, var_names, func_decls);
+            }
+            Statement::ForIn(for_in) => {
+                if let ForInLeft::Declaration(decl) = &for_in.left {
+                    if decl.kind == VariableKind::Var {
+                        for declarator in &decl.declarations {
+                            let name = &declarator.id.name;
+                            if !var_names.contains(name) {
+                                var_names.push(name.clone());
+                            }
+                        }
+                    }
+                }
+                self.collect_hoisted_from_statement(&for_in.body, var_names, func_decls);
+            }
+            Statement::ForOf(for_of) => {
+                if let ForInLeft::Declaration(decl) = &for_of.left {
+                    if decl.kind == VariableKind::Var {
+                        for declarator in &decl.declarations {
+                            let name = &declarator.id.name;
+                            if !var_names.contains(name) {
+                                var_names.push(name.clone());
+                            }
+                        }
+                    }
+                }
+                self.collect_hoisted_from_statement(&for_of.body, var_names, func_decls);
+            }
+            Statement::Switch(switch_stmt) => {
+                for case in &switch_stmt.cases {
+                    for s in &case.consequent {
+                        self.collect_hoisted_from_statement(s, var_names, func_decls);
+                    }
+                }
+            }
+            Statement::Try(try_stmt) => {
+                for s in &try_stmt.block.body {
+                    self.collect_hoisted_from_statement(s, var_names, func_decls);
+                }
+                if let Some(handler) = &try_stmt.handler {
+                    for s in &handler.body.body {
+                        self.collect_hoisted_from_statement(s, var_names, func_decls);
+                    }
+                }
+                if let Some(finalizer) = &try_stmt.finalizer {
+                    for s in &finalizer.body {
+                        self.collect_hoisted_from_statement(s, var_names, func_decls);
+                    }
+                }
+            }
+            _ => {}
+        }
+    }
+
+    /// Hoists variable declarations by pre-declaring them.
+    fn hoist_declarations(&mut self, statements: &[Statement]) -> Result<(), Error> {
+        let var_names = self.collect_hoisted_var_names(statements);
+
+        // Declare all hoisted vars (initialized to undefined)
+        for name in var_names {
+            if self.scope.resolve(&name).is_none() {
+                let index = self.scope.declare(name, true)?;
+                // Initialize to undefined
+                self.emit(Instruction::simple(OpCode::LoadUndefined));
+                self.emit(Instruction::with_operand(
+                    OpCode::StoreLocal,
+                    Operand::Local(index as u16),
+                ));
+                self.scope.mark_initialized(index);
+            }
+        }
+
+        // Function declarations are hoisted completely - compile them first
+        // Note: In a full implementation, this would compile the function body
+        // and store the function object. For now, we just declare them.
+
+        Ok(())
+    }
+
+    // ========================================================================
+    // Main Compilation Entry Point
+    // ========================================================================
+
     /// Compiles a program to bytecode.
     ///
     /// For REPL/eval, keeps the last expression value on the stack.
     pub fn compile(&mut self, program: &Program) -> Result<Bytecode, Error> {
+        // Hoist declarations first
+        self.hoist_declarations(&program.body)?;
         let len = program.body.len();
 
         for (i, statement) in program.body.iter().enumerate() {
@@ -244,16 +398,33 @@ impl Compiler {
 
     fn compile_variable_declaration(&mut self, decl: &VariableDeclaration) -> Result<(), Error> {
         let mutable = decl.kind != VariableKind::Const;
+        let is_var = decl.kind == VariableKind::Var;
 
         for declarator in &decl.declarations {
-            // Declare the variable
-            let index = self.scope.declare(declarator.id.name.clone(), mutable)?;
+            // Check if already hoisted (for var declarations)
+            let index = if is_var {
+                if let Some(existing) = self.scope.resolve(&declarator.id.name) {
+                    // Variable was already hoisted, just use existing slot
+                    existing
+                } else {
+                    // Not hoisted yet (shouldn't happen with hoisting, but handle it)
+                    self.scope.declare(declarator.id.name.clone(), mutable)?
+                }
+            } else {
+                // let/const: always declare fresh (may shadow)
+                self.scope.declare(declarator.id.name.clone(), mutable)?
+            };
 
             // Compile initializer if present
             if let Some(init) = &declarator.init {
                 self.compile_expression(init)?;
-            } else {
+            } else if !is_var {
+                // let/const without initializer gets undefined
                 self.emit(Instruction::simple(OpCode::LoadUndefined));
+            } else {
+                // var without initializer - already initialized to undefined by hoisting
+                // Skip storing undefined again
+                continue;
             }
 
             // Store to local
