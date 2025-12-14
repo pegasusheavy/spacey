@@ -422,3 +422,269 @@ impl Default for VM {
         Self::new()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::compiler::Compiler;
+    use crate::parser::Parser;
+
+    fn eval(src: &str) -> Result<Value, Error> {
+        let mut parser = Parser::new(src);
+        let program = parser.parse_program()?;
+        let mut compiler = Compiler::new();
+        let bytecode = compiler.compile(&program)?;
+        let mut vm = VM::new();
+        vm.execute(&bytecode)
+    }
+
+    fn eval_ok(src: &str) -> Value {
+        eval(src).expect("Evaluation should succeed")
+    }
+
+    #[test]
+    fn test_vm_new() {
+        let vm = VM::new();
+        assert!(vm.stack.is_empty());
+        assert!(vm.locals.is_empty());
+    }
+
+    #[test]
+    fn test_vm_default() {
+        let vm = VM::default();
+        assert!(vm.stack.is_empty());
+    }
+
+    #[test]
+    fn test_eval_number() {
+        let result = eval_ok("42;");
+        assert!(matches!(result, Value::Number(n) if n == 42.0));
+    }
+
+    #[test]
+    fn test_eval_float() {
+        let result = eval_ok("3.14;");
+        assert!(matches!(result, Value::Number(n) if (n - 3.14).abs() < 0.001));
+    }
+
+    #[test]
+    fn test_eval_string() {
+        let result = eval_ok("'hello';");
+        assert!(matches!(result, Value::String(s) if s == "hello"));
+    }
+
+    #[test]
+    fn test_eval_boolean_true() {
+        let result = eval_ok("true;");
+        assert!(matches!(result, Value::Boolean(true)));
+    }
+
+    #[test]
+    fn test_eval_boolean_false() {
+        let result = eval_ok("false;");
+        assert!(matches!(result, Value::Boolean(false)));
+    }
+
+    #[test]
+    fn test_eval_null() {
+        let result = eval_ok("null;");
+        assert!(matches!(result, Value::Null));
+    }
+
+    #[test]
+    fn test_eval_add_numbers() {
+        let result = eval_ok("1 + 2;");
+        assert!(matches!(result, Value::Number(n) if n == 3.0));
+    }
+
+    #[test]
+    fn test_eval_subtract() {
+        let result = eval_ok("5 - 3;");
+        assert!(matches!(result, Value::Number(n) if n == 2.0));
+    }
+
+    #[test]
+    fn test_eval_multiply() {
+        let result = eval_ok("4 * 5;");
+        assert!(matches!(result, Value::Number(n) if n == 20.0));
+    }
+
+    #[test]
+    fn test_eval_divide() {
+        let result = eval_ok("10 / 2;");
+        assert!(matches!(result, Value::Number(n) if n == 5.0));
+    }
+
+    #[test]
+    fn test_eval_modulo() {
+        let result = eval_ok("7 % 3;");
+        assert!(matches!(result, Value::Number(n) if n == 1.0));
+    }
+
+    #[test]
+    fn test_eval_string_concat() {
+        let result = eval_ok("'hello' + ' ' + 'world';");
+        assert!(matches!(result, Value::String(s) if s == "hello world"));
+    }
+
+    #[test]
+    fn test_eval_string_number_concat() {
+        let result = eval_ok("'count: ' + 42;");
+        assert!(matches!(result, Value::String(s) if s == "count: 42"));
+    }
+
+    #[test]
+    fn test_eval_less_than() {
+        assert!(matches!(eval_ok("1 < 2;"), Value::Boolean(true)));
+        assert!(matches!(eval_ok("2 < 1;"), Value::Boolean(false)));
+    }
+
+    #[test]
+    fn test_eval_greater_than() {
+        assert!(matches!(eval_ok("2 > 1;"), Value::Boolean(true)));
+        assert!(matches!(eval_ok("1 > 2;"), Value::Boolean(false)));
+    }
+
+    #[test]
+    fn test_eval_less_than_equal() {
+        assert!(matches!(eval_ok("1 <= 2;"), Value::Boolean(true)));
+        assert!(matches!(eval_ok("2 <= 2;"), Value::Boolean(true)));
+        assert!(matches!(eval_ok("3 <= 2;"), Value::Boolean(false)));
+    }
+
+    #[test]
+    fn test_eval_greater_than_equal() {
+        assert!(matches!(eval_ok("2 >= 1;"), Value::Boolean(true)));
+        assert!(matches!(eval_ok("2 >= 2;"), Value::Boolean(true)));
+        assert!(matches!(eval_ok("1 >= 2;"), Value::Boolean(false)));
+    }
+
+    #[test]
+    fn test_eval_equal() {
+        assert!(matches!(eval_ok("1 == 1;"), Value::Boolean(true)));
+        assert!(matches!(eval_ok("1 == 2;"), Value::Boolean(false)));
+    }
+
+    #[test]
+    fn test_eval_not_equal() {
+        assert!(matches!(eval_ok("1 != 2;"), Value::Boolean(true)));
+        assert!(matches!(eval_ok("1 != 1;"), Value::Boolean(false)));
+    }
+
+    #[test]
+    fn test_eval_strict_equal() {
+        assert!(matches!(eval_ok("1 === 1;"), Value::Boolean(true)));
+        assert!(matches!(eval_ok("1 === 2;"), Value::Boolean(false)));
+    }
+
+    #[test]
+    fn test_eval_strict_not_equal() {
+        assert!(matches!(eval_ok("1 !== 2;"), Value::Boolean(true)));
+        assert!(matches!(eval_ok("1 !== 1;"), Value::Boolean(false)));
+    }
+
+    #[test]
+    fn test_eval_negate() {
+        let result = eval_ok("-42;");
+        assert!(matches!(result, Value::Number(n) if n == -42.0));
+    }
+
+    #[test]
+    fn test_eval_not() {
+        assert!(matches!(eval_ok("!true;"), Value::Boolean(false)));
+        assert!(matches!(eval_ok("!false;"), Value::Boolean(true)));
+    }
+
+    #[test]
+    fn test_eval_variable() {
+        let result = eval_ok("let x = 42; x;");
+        assert!(matches!(result, Value::Number(n) if n == 42.0));
+    }
+
+    #[test]
+    fn test_eval_variable_assignment() {
+        let result = eval_ok("let x = 1; x = 2; x;");
+        assert!(matches!(result, Value::Number(n) if n == 2.0));
+    }
+
+    #[test]
+    fn test_eval_multiple_variables() {
+        let result = eval_ok("let a = 1; let b = 2; a + b;");
+        assert!(matches!(result, Value::Number(n) if n == 3.0));
+    }
+
+    #[test]
+    fn test_eval_if_true() {
+        let result = eval_ok("let x = 0; if (true) { x = 1; } x;");
+        assert!(matches!(result, Value::Number(n) if n == 1.0));
+    }
+
+    #[test]
+    fn test_eval_if_false() {
+        let result = eval_ok("let x = 0; if (false) { x = 1; } x;");
+        assert!(matches!(result, Value::Number(n) if n == 0.0));
+    }
+
+    #[test]
+    fn test_eval_if_else() {
+        let result = eval_ok("let x = 0; if (false) { x = 1; } else { x = 2; } x;");
+        assert!(matches!(result, Value::Number(n) if n == 2.0));
+    }
+
+    #[test]
+    fn test_eval_while_loop() {
+        let result = eval_ok("let x = 0; while (x < 3) { x = x + 1; } x;");
+        assert!(matches!(result, Value::Number(n) if n == 3.0));
+    }
+
+    #[test]
+    fn test_eval_for_loop() {
+        let result =
+            eval_ok("let sum = 0; for (let i = 0; i < 5; i = i + 1) { sum = sum + i; } sum;");
+        assert!(matches!(result, Value::Number(n) if n == 10.0)); // 0+1+2+3+4
+    }
+
+    // Note: User-defined function calls are not yet fully supported
+    // These tests are placeholders for when they are implemented
+
+    #[test]
+    fn test_eval_array_literal() {
+        let result = eval_ok("let arr = [1, 2, 3]; arr;");
+        // Array should be an object
+        assert!(matches!(result, Value::Object(_)));
+    }
+
+    #[test]
+    fn test_eval_empty_program() {
+        let result = eval_ok("");
+        assert!(matches!(result, Value::Undefined));
+    }
+
+    #[test]
+    fn test_eval_expression_precedence() {
+        let result = eval_ok("2 + 3 * 4;");
+        assert!(matches!(result, Value::Number(n) if n == 14.0)); // 2 + 12
+    }
+
+    #[test]
+    fn test_vm_register_native() {
+        let mut vm = VM::new();
+        fn custom_fn(_frame: &mut CallFrame, _args: &[Value]) -> Result<Value, String> {
+            Ok(Value::Number(999.0))
+        }
+        vm.register_native("custom", 0, custom_fn);
+        assert!(vm.get_native("custom").is_some());
+    }
+
+    #[test]
+    fn test_vm_get_native_not_found() {
+        let vm = VM::new();
+        assert!(vm.get_native("nonexistent").is_none());
+    }
+
+    #[test]
+    fn test_eval_complex_expression() {
+        let result = eval_ok("let x = 5; let y = 3; x * y + 2;");
+        assert!(matches!(result, Value::Number(n) if n == 17.0));
+    }
+}
