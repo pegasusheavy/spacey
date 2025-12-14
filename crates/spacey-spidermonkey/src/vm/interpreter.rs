@@ -243,6 +243,131 @@ impl VM {
                     self.pop()?;
                 }
 
+                OpCode::LoadGlobal => {
+                    if let Some(Operand::Property(idx)) = &instruction.operand {
+                        let name = match &func_bytecode.constants[*idx as usize] {
+                            Value::String(s) => s.clone(),
+                            _ => return Err(Error::TypeError("Property name must be a string".into())),
+                        };
+                        let value = self.globals.get(&name).cloned().unwrap_or(Value::Undefined);
+                        self.stack.push(value);
+                    }
+                }
+
+                OpCode::StoreGlobal => {
+                    if let Some(Operand::Property(idx)) = &instruction.operand {
+                        let name = match &func_bytecode.constants[*idx as usize] {
+                            Value::String(s) => s.clone(),
+                            _ => return Err(Error::TypeError("Property name must be a string".into())),
+                        };
+                        let value = self.pop()?;
+                        self.globals.insert(name, value);
+                    }
+                }
+
+                OpCode::Dup => {
+                    if let Some(value) = self.stack.last().cloned() {
+                        self.stack.push(value);
+                    }
+                }
+
+                OpCode::LoadTrue => {
+                    self.stack.push(Value::Boolean(true));
+                }
+
+                OpCode::LoadFalse => {
+                    self.stack.push(Value::Boolean(false));
+                }
+
+                OpCode::LoadNull => {
+                    self.stack.push(Value::Null);
+                }
+
+                // Comparison operations
+                OpCode::Lt => self.compare_op(|a, b| a < b)?,
+                OpCode::Le => self.compare_op(|a, b| a <= b)?,
+                OpCode::Gt => self.compare_op(|a, b| a > b)?,
+                OpCode::Ge => self.compare_op(|a, b| a >= b)?,
+                OpCode::Eq | OpCode::StrictEq => {
+                    let b = self.pop()?;
+                    let a = self.pop()?;
+                    self.stack.push(Value::Boolean(a == b));
+                }
+                OpCode::Ne | OpCode::StrictNe => {
+                    let b = self.pop()?;
+                    let a = self.pop()?;
+                    self.stack.push(Value::Boolean(a != b));
+                }
+
+                // Jump operations
+                OpCode::Jump => {
+                    if let Some(Operand::Jump(target)) = &instruction.operand {
+                        self.ip = *target as usize;
+                    }
+                }
+
+                OpCode::JumpIfFalse => {
+                    if let Some(Operand::Jump(target)) = &instruction.operand {
+                        let condition = self.pop()?;
+                        if !condition.to_boolean() {
+                            self.ip = *target as usize;
+                        }
+                    }
+                }
+
+                OpCode::JumpIfTrue => {
+                    if let Some(Operand::Jump(target)) = &instruction.operand {
+                        let condition = self.pop()?;
+                        if condition.to_boolean() {
+                            self.ip = *target as usize;
+                        }
+                    }
+                }
+
+                OpCode::Neg => {
+                    if let Some(Value::Number(n)) = self.stack.pop() {
+                        self.stack.push(Value::Number(-n));
+                    }
+                }
+
+                OpCode::Not => {
+                    let value = self.pop()?;
+                    self.stack.push(Value::Boolean(!value.to_boolean()));
+                }
+
+                // Function calls within functions
+                OpCode::Call => {
+                    if let Some(Operand::ArgCount(argc)) = &instruction.operand {
+                        let argc = *argc as usize;
+                        let mut call_args = Vec::with_capacity(argc);
+                        for _ in 0..argc {
+                            call_args.push(self.pop()?);
+                        }
+                        call_args.reverse();
+                        
+                        let callee = self.pop()?;
+                        match callee {
+                            Value::Function(callable) => {
+                                match callable.as_ref() {
+                                    crate::runtime::function::Callable::Native { func, .. } => {
+                                        let temp_func = Function::new(None, vec![], Bytecode::new(), 0);
+                                        let mut frame = CallFrame::new(temp_func, 0);
+                                        match func(&mut frame, &call_args) {
+                                            Ok(res) => self.stack.push(res),
+                                            Err(e) => return Err(Error::TypeError(e)),
+                                        }
+                                    }
+                                    crate::runtime::function::Callable::Function(inner_func) => {
+                                        let res = self.call_function(inner_func, &call_args)?;
+                                        self.stack.push(res);
+                                    }
+                                }
+                            }
+                            _ => return Err(Error::TypeError("Value is not callable".into())),
+                        }
+                    }
+                }
+
                 _ => {
                     // For any other operations, we'd need to handle them
                     // For now, skip unhandled ops in function bodies

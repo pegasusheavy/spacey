@@ -165,19 +165,30 @@ impl Compiler {
     /// Hoist variable and function declarations.
     fn hoist_declarations(&mut self, statements: &[Statement]) -> Result<(), Error> {
         let var_names = self.collect_hoisted_var_names(statements);
+        let is_global_scope = self.scope.depth == 0;
 
         // Hoist var declarations as undefined
         for name in var_names {
             // Only declare if not already in scope
             if self.scope.resolve(&name).is_none() {
-                let index = self.scope.declare(name, true)?;
-                // Initialize to undefined
                 self.emit(Instruction::simple(OpCode::LoadUndefined));
-                self.emit(Instruction::with_operand(
-                    OpCode::StoreLocal,
-                    Operand::Local(index as u16),
-                ));
-                self.scope.mark_initialized(index);
+                
+                if is_global_scope {
+                    // At global scope, store as global so functions can access
+                    let name_idx = self.bytecode.add_constant(Value::String(name));
+                    self.emit(Instruction::with_operand(
+                        OpCode::StoreGlobal,
+                        Operand::Property(name_idx),
+                    ));
+                } else {
+                    // Inside functions, use locals
+                    let index = self.scope.declare(name, true)?;
+                    self.emit(Instruction::with_operand(
+                        OpCode::StoreLocal,
+                        Operand::Local(index as u16),
+                    ));
+                    self.scope.mark_initialized(index);
+                }
             }
         }
 
@@ -384,42 +395,49 @@ impl Compiler {
     fn compile_variable_declaration(&mut self, decl: &VariableDeclaration) -> Result<(), Error> {
         let mutable = decl.kind != VariableKind::Const;
         let is_var = decl.kind == VariableKind::Var;
+        let is_global_scope = self.scope.depth == 0;
 
         for declarator in &decl.declarations {
-            // Check if already hoisted (for var declarations)
-            let index = if is_var {
-                if let Some(existing) = self.scope.resolve(&declarator.id.name) {
-                    // Variable was already hoisted, just use existing slot
-                    existing
-                } else {
-                    // Not hoisted yet (shouldn't happen with hoisting, but handle it)
-                    self.scope.declare(declarator.id.name.clone(), mutable)?
-                }
-            } else {
-                // let/const: always declare fresh (may shadow)
-                self.scope.declare(declarator.id.name.clone(), mutable)?
-            };
-
             // Compile initializer if present
             if let Some(init) = &declarator.init {
                 self.compile_expression(init)?;
             } else if !is_var {
                 // let/const without initializer gets undefined
                 self.emit(Instruction::simple(OpCode::LoadUndefined));
+            } else if is_global_scope {
+                // var without initializer at global scope - store undefined
+                self.emit(Instruction::simple(OpCode::LoadUndefined));
             } else {
-                // var without initializer - already initialized to undefined by hoisting
-                // Skip storing undefined again
+                // var without initializer in local scope - already hoisted
                 continue;
             }
 
-            // Store to local
-            self.emit(Instruction::with_operand(
-                OpCode::StoreLocal,
-                Operand::Local(index as u16),
-            ));
+            // At global scope (depth 0), use globals for var declarations
+            // This allows functions to access them via LoadGlobal
+            if is_global_scope && is_var {
+                let name_idx = self.bytecode.add_constant(Value::String(declarator.id.name.clone()));
+                self.emit(Instruction::with_operand(
+                    OpCode::StoreGlobal,
+                    Operand::Property(name_idx),
+                ));
+            } else {
+                // Use locals for let/const or var inside functions
+                let index = if is_var {
+                    if let Some(existing) = self.scope.resolve(&declarator.id.name) {
+                        existing
+                    } else {
+                        self.scope.declare(declarator.id.name.clone(), mutable)?
+                    }
+                } else {
+                    self.scope.declare(declarator.id.name.clone(), mutable)?
+                };
 
-            // Mark as initialized
-            self.scope.mark_initialized(index);
+                self.emit(Instruction::with_operand(
+                    OpCode::StoreLocal,
+                    Operand::Local(index as u16),
+                ));
+                self.scope.mark_initialized(index);
+            }
         }
 
         Ok(())

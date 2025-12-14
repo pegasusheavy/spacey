@@ -287,3 +287,307 @@ fn test_es3_bitwise() {
     assert_eq!(engine.eval("4 << 1;").unwrap().to_string(), "8");
     assert_eq!(engine.eval("8 >> 1;").unwrap().to_string(), "4");
 }
+
+#[test]
+fn test_es3_multi_param_function() {
+    let mut engine = Engine::new();
+
+    // Test a function with multiple parameters and compound assignment
+    let code = r#"
+var testsPassed = 0;
+
+function assert(condition, message) {
+    if (condition) {
+        testsPassed = testsPassed + 1;
+    }
+}
+
+assert(true, "test");
+testsPassed;
+"#;
+    
+    let result = engine.eval(code);
+    println!("Result: {:?}", result);
+    assert_eq!(result.unwrap().to_string(), "1");
+}
+
+#[test]
+fn test_es3_function_arg_passing() {
+    let mut engine = Engine::new();
+
+    // Test basic function parameter passing
+    let code = r#"
+function checkArg(x) {
+    return x;
+}
+checkArg(true);
+"#;
+    
+    let result = engine.eval(code).unwrap();
+    println!("checkArg(true) = {:?}", result);
+    assert_eq!(result.to_string(), "true");
+}
+
+#[test]
+fn test_es3_global_var_update_in_function() {
+    let mut engine = Engine::new();
+
+    // Test updating global variables from within a function
+    let code = r#"
+var counter = 0;
+
+function increment() {
+    counter = counter + 1;
+}
+
+increment();
+counter;
+"#;
+    
+    let result = engine.eval(code).unwrap();
+    println!("counter after increment() = {:?}", result);
+    assert_eq!(result.to_string(), "1");
+}
+
+#[test]
+fn test_debug_global_access() {
+    let mut engine = Engine::new();
+
+    // Simple global variable read after function call
+    let code = r#"
+var x = 10;
+
+function read_x() {
+    return x;
+}
+
+read_x();
+"#;
+    
+    let result = engine.eval(code).unwrap();
+    println!("read_x() = {:?}", result);
+    assert_eq!(result.to_string(), "10");
+}
+
+#[test]
+fn test_parse_console_log() {
+    use spacey_spidermonkey::parser::Parser;
+    
+    let code = r#"console.log("test");"#;
+    let mut parser = Parser::new(code);
+    let result = parser.parse_program();
+    println!("Parse result: {:?}", result);
+    assert!(result.is_ok());
+}
+
+#[test]
+fn test_parse_string_method() {
+    use spacey_spidermonkey::parser::Parser;
+    
+    let code = r#""=".repeat(60);"#;
+    let mut parser = Parser::new(code);
+    let result = parser.parse_program();
+    println!("Parse result: {:?}", result);
+    assert!(result.is_ok());
+}
+
+#[test]
+fn test_parse_assertEqual() {
+    use spacey_spidermonkey::parser::Parser;
+    
+    let code = r#"
+function assertEqual(actual, expected, message) {
+    if (actual === expected) {
+        testsPassed = testsPassed + 1;
+    }
+}
+"#;
+    let mut parser = Parser::new(code);
+    let result = parser.parse_program();
+    println!("Parse result: {:?}", result);
+    assert!(result.is_ok());
+}
+
+#[test]
+fn test_parse_for_with_increment() {
+    use spacey_spidermonkey::parser::Parser;
+    
+    let code = r#"for (var i = 1; i <= 5; i++) { }"#;
+    let mut parser = Parser::new(code);
+    let result = parser.parse_program();
+    println!("Parse result: {:?}", result);
+    assert!(result.is_ok());
+}
+
+#[test]
+fn test_parse_first_50_lines() {
+    use spacey_spidermonkey::parser::Parser;
+    use std::fs;
+    
+    let source = fs::read_to_string("../../tests/es3_compliance.js").unwrap();
+    let lines: Vec<&str> = source.lines().take(50).collect();
+    let partial = lines.join("\n");
+    
+    let mut parser = Parser::new(&partial);
+    let result = parser.parse_program();
+    println!("Parse result of first 50 lines: {:?}", result.is_ok());
+    if let Err(e) = &result {
+        println!("Error: {:?}", e);
+    }
+    assert!(result.is_ok());
+}
+
+#[test]
+fn test_parse_progressive() {
+    use spacey_spidermonkey::parser::Parser;
+    use std::fs;
+    
+    let source = fs::read_to_string("../../tests/es3_compliance.js").unwrap();
+    
+    // Try to parse the whole file
+    let mut parser = Parser::new(&source);
+    match parser.parse_program() {
+        Ok(_) => println!("Full file parses successfully!"),
+        Err(e) => {
+            // Find approximately where the error is
+            let lines: Vec<&str> = source.lines().collect();
+            for end in (100..lines.len()).step_by(50) {
+                let partial = lines[..end].join("\n");
+                let mut p = Parser::new(&partial);
+                if p.parse_program().is_err() {
+                    println!("Parse error somewhere in lines {}-{}: {:?}", end-50, end, e);
+                    println!("Context:\n{}", lines[end.saturating_sub(5)..end.min(lines.len())].join("\n"));
+                    break;
+                }
+            }
+            panic!("Parse failed: {:?}", e);
+        }
+    }
+}
+
+#[test]
+fn test_parse_comma_operator() {
+    use spacey_spidermonkey::parser::Parser;
+    
+    let code = r#"var commaResult = (1, 2, 3);"#;
+    let mut parser = Parser::new(code);
+    let result = parser.parse_program();
+    println!("Parse result: {:?}", result);
+    assert!(result.is_ok());
+}
+
+#[test]
+fn test_parse_in_operator() {
+    use spacey_spidermonkey::parser::Parser;
+    
+    let code = r#""x" in obj;"#;
+    let mut parser = Parser::new(code);
+    let result = parser.parse_program();
+    println!("Parse result: {:?}", result);
+    assert!(result.is_ok());
+}
+
+#[test]
+fn test_parse_up_to_line_600() {
+    use spacey_spidermonkey::parser::Parser;
+    use std::fs;
+    
+    let source = fs::read_to_string("../../tests/es3_compliance.js").unwrap();
+    let lines: Vec<&str> = source.lines().take(600).collect();
+    let partial = lines.join("\n");
+    
+    let mut parser = Parser::new(&partial);
+    let result = parser.parse_program();
+    if let Err(e) = &result {
+        println!("Parse error: {:?}", e);
+    } else {
+        println!("Lines 1-600 parse OK");
+    }
+    assert!(result.is_ok());
+}
+
+#[test]
+fn test_parse_around_regex() {
+    use spacey_spidermonkey::parser::Parser;
+    use std::fs;
+    
+    let source = fs::read_to_string("../../tests/es3_compliance.js").unwrap();
+    let lines: Vec<&str> = source.lines().collect();
+    
+    // Try lines around the regex area
+    for end in [650, 680, 685, 686, 687] {
+        if end > lines.len() { break; }
+        let partial = lines[..end].join("\n");
+        let mut parser = Parser::new(&partial);
+        if let Err(e) = parser.parse_program() {
+            println!("Parse error at line {}: {:?}", end, e);
+            println!("Line {}: {}", end, lines[end-1]);
+        } else {
+            println!("Lines 1-{}: OK", end);
+        }
+    }
+}
+
+#[test]
+fn test_full_parse() {
+    use spacey_spidermonkey::parser::Parser;
+    use std::fs;
+    
+    let source = fs::read_to_string("../../tests/es3_compliance.js").unwrap();
+    let lines: Vec<&str> = source.lines().collect();
+    
+    // Binary search for the error line
+    for end in (600..=lines.len()).step_by(10) {
+        let partial = lines[..end.min(lines.len())].join("\n");
+        let mut parser = Parser::new(&partial);
+        if let Err(e) = parser.parse_program() {
+            println!("Parse error around line {}: {:?}", end, e);
+            let start = (end as i32 - 5).max(0) as usize;
+            println!("Context:\n{}", lines[start..end.min(lines.len())].join("\n"));
+            return;
+        }
+    }
+    println!("Full file ({} lines) parses OK!", lines.len());
+}
+
+#[test]
+fn test_parse_string_concat() {
+    use spacey_spidermonkey::parser::Parser;
+    
+    let code = r#"console.log("\n" + "=".repeat(60));"#;
+    let mut parser = Parser::new(code);
+    let result = parser.parse_program();
+    println!("Parse result: {:?}", result);
+    assert!(result.is_ok());
+}
+
+#[test]
+fn test_find_exact_error_line() {
+    use spacey_spidermonkey::parser::Parser;
+    use std::fs;
+    
+    let source = fs::read_to_string("../../tests/es3_compliance.js").unwrap();
+    let lines: Vec<&str> = source.lines().collect();
+    
+    for end in 710..=lines.len() {
+        let partial = lines[..end].join("\n");
+        let mut parser = Parser::new(&partial);
+        if let Err(e) = parser.parse_program() {
+            println!("First parse error at line {}: {:?}", end, e);
+            println!("Line {}: {}", end, lines[end-1]);
+            return;
+        }
+    }
+    println!("Full file parses OK");
+}
+
+#[test]
+fn test_parse_paren_addition() {
+    use spacey_spidermonkey::parser::Parser;
+    
+    let code = r#""str" + (a + b);"#;
+    let mut parser = Parser::new(code);
+    let result = parser.parse_program();
+    println!("Parse result: {:?}", result);
+    assert!(result.is_ok());
+}

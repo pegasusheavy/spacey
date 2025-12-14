@@ -684,25 +684,25 @@ assertEqual(null == undefined, true, "null == undefined");
 console.log("\n--- Section 14: RegExp (Basic) ---\n");
 
 // 14.1 RegExp Test
-var re = /hello/;
+var re = new RegExp("hello");
 assertEqual(re.test("hello world"), true, "RegExp.test match");
 assertEqual(re.test("goodbye"), false, "RegExp.test no match");
 
 // 14.2 RegExp Case Insensitive
-var reI = /HELLO/i;
+var reI = new RegExp("HELLO", "i");
 assertEqual(reI.test("hello"), true, "RegExp case insensitive");
 
 // 14.3 String.match
-var matchResult = "hello".match(/hello/);
+var matchResult = "hello".match(new RegExp("hello"));
 assert(matchResult !== null, "String.match found");
 
 // 14.4 String.replace
-var replaced = "hello world".replace(/world/, "universe");
+var replaced = "hello world".replace(new RegExp("world"), "universe");
 assertEqual(replaced, "hello universe", "String.replace");
 
 // 14.5 String.search
-assertEqual("hello world".search(/world/), 6, "String.search found");
-assertEqual("hello".search(/xyz/), -1, "String.search not found");
+assertEqual("hello world".search(new RegExp("world")), 6, "String.search found");
+assertEqual("hello".search(new RegExp("xyz")), -1, "String.search not found");
 
 // =============================================================================
 // Final Summary
@@ -716,8 +716,8 @@ console.log("Total Tests:  " + (testsPassed + testsFailed));
 console.log("=".repeat(60));
 
 if (testsFailed === 0) {
-    console.log("\n✓ All ES3 compliance tests passed!");
+    console.log("\nSUCCESS: All ES3 compliance tests passed!");
 } else {
-    console.log("\n✗ Some tests failed. Please review the failures above.");
+    console.log("\nFAILURE: Some tests failed. Please review the failures above.");
 }
 

@@ -699,6 +699,8 @@ impl<'a> Parser<'a> {
                 TokenKind::LessThanEqual => BinaryOperator::LessThanEqual,
                 TokenKind::GreaterThan => BinaryOperator::GreaterThan,
                 TokenKind::GreaterThanEqual => BinaryOperator::GreaterThanEqual,
+                TokenKind::In => BinaryOperator::In,
+                TokenKind::Instanceof => BinaryOperator::InstanceOf,
                 _ => break,
             };
             self.advance();
@@ -985,15 +987,18 @@ impl<'a> Parser<'a> {
         // If we see identifier followed by comma or ), it's likely an arrow function
         let mut params = Vec::new();
         let mut is_arrow = false;
+        let mut consumed_identifier: Option<Identifier> = None;
 
-        // First element
+        // First element - check if it's a simple identifier that could be an arrow param
         if let TokenKind::Identifier(name) = &self.current.kind {
             let id = Identifier { name: name.clone() };
             self.advance();
-            params.push(id);
-
+            
+            // Only treat as potential arrow params if followed by , or )
             if self.check(&TokenKind::Comma) || self.check(&TokenKind::RightParen) {
-                // Looks like parameter list
+                params.push(id);
+                
+                // Collect more parameters
                 while self.check(&TokenKind::Comma) {
                     self.advance();
                     if let TokenKind::Identifier(name) = &self.current.kind {
@@ -1011,6 +1016,9 @@ impl<'a> Parser<'a> {
                         is_arrow = true;
                     }
                 }
+            } else {
+                // Not followed by , or ), so it's an expression starting with identifier
+                consumed_identifier = Some(id);
             }
         }
 
@@ -1018,34 +1026,130 @@ impl<'a> Parser<'a> {
             return self.parse_arrow_function_body(params, false);
         }
 
-        // Not an arrow function, re-parse as expression
-        // This is a simplification - in production you'd want proper backtracking
-        // For now, if we have params, convert the first one back to an identifier
+        // Not an arrow function
         if !params.is_empty() {
+            // We consumed identifiers as params but no arrow - treat as grouping/sequence
             let first = Expression::Identifier(params[0].clone());
-
-            // If there were multiple "params", this was actually a sequence expression
+            
             if params.len() > 1 {
                 let mut exprs = vec![first];
                 for p in params.into_iter().skip(1) {
                     exprs.push(Expression::Identifier(p));
                 }
-                self.expect(&TokenKind::RightParen)?;
-                return Ok(Expression::Sequence(SequenceExpression {
-                    expressions: exprs,
-                }));
+                // Already consumed RightParen above when checking for arrow
+                return Ok(Expression::Sequence(SequenceExpression { expressions: exprs }));
             }
-
-            self.expect(&TokenKind::RightParen)?;
+            
+            // Already consumed RightParen above when checking for arrow  
             return Ok(first);
         }
-
+        
         // Parse as regular parenthesized expression
-        let expr = self.parse_expression()?;
+        // If we consumed an identifier, we need to continue parsing from there
+        let expr = if let Some(id) = consumed_identifier {
+            // Start with the identifier we already consumed and parse the rest of the expression
+            let first = Expression::Identifier(id);
+            self.parse_expression_continue(first)?
+        } else {
+            self.parse_assignment()?
+        };
+        
+        // Check for comma operator (sequence expression)
+        if self.check(&TokenKind::Comma) {
+            let mut exprs = vec![expr];
+            while self.check(&TokenKind::Comma) {
+                self.advance(); // consume ','
+                exprs.push(self.parse_assignment()?);
+            }
+            self.expect(&TokenKind::RightParen)?;
+            return Ok(Expression::Sequence(SequenceExpression { expressions: exprs }));
+        }
+        
         self.expect(&TokenKind::RightParen)?;
 
-        // Check for arrow after complex expression (not supported for now)
         Ok(expr)
+    }
+    
+    /// Continue parsing an expression that started with a given left-hand side
+    fn parse_expression_continue(&mut self, left: Expression) -> Result<Expression, Error> {
+        // This handles continuing after we've already parsed an identifier
+        // and need to handle binary operators, member access, calls, etc.
+        let mut result = left;
+        
+        // Handle member access and calls first (highest precedence)
+        loop {
+            if self.check(&TokenKind::Dot) {
+                self.advance();
+                let name = self.expect_identifier()?;
+                result = Expression::Member(MemberExpression {
+                    object: Box::new(result),
+                    property: MemberProperty::Identifier(name),
+                    computed: false,
+                });
+            } else if self.check(&TokenKind::LeftBracket) {
+                self.advance();
+                let prop = self.parse_expression()?;
+                self.expect(&TokenKind::RightBracket)?;
+                result = Expression::Member(MemberExpression {
+                    object: Box::new(result),
+                    property: MemberProperty::Expression(Box::new(prop)),
+                    computed: true,
+                });
+            } else if self.check(&TokenKind::LeftParen) {
+                self.advance();
+                let args = self.parse_arguments()?;
+                result = Expression::Call(CallExpression {
+                    callee: Box::new(result),
+                    arguments: args,
+                });
+            } else {
+                break;
+            }
+        }
+        
+        // Now handle binary operators
+        self.parse_binary_with_left(result)
+    }
+    
+    /// Parse binary expression starting with given left operand
+    fn parse_binary_with_left(&mut self, left: Expression) -> Result<Expression, Error> {
+        // Simple binary operator handling at the additive level
+        let mut result = left;
+        
+        loop {
+            let op = match &self.current.kind {
+                TokenKind::Plus => Some(BinaryOperator::Add),
+                TokenKind::Minus => Some(BinaryOperator::Subtract),
+                TokenKind::Star => Some(BinaryOperator::Multiply),
+                TokenKind::Slash => Some(BinaryOperator::Divide),
+                TokenKind::Percent => Some(BinaryOperator::Modulo),
+                TokenKind::LessThan => Some(BinaryOperator::LessThan),
+                TokenKind::LessThanEqual => Some(BinaryOperator::LessThanEqual),
+                TokenKind::GreaterThan => Some(BinaryOperator::GreaterThan),
+                TokenKind::GreaterThanEqual => Some(BinaryOperator::GreaterThanEqual),
+                TokenKind::EqualEqual => Some(BinaryOperator::Equal),
+                TokenKind::NotEqual => Some(BinaryOperator::NotEqual),
+                TokenKind::StrictEqual => Some(BinaryOperator::StrictEqual),
+                TokenKind::StrictNotEqual => Some(BinaryOperator::StrictNotEqual),
+                TokenKind::AmpersandAmpersand => Some(BinaryOperator::LogicalAnd),
+                TokenKind::PipePipe => Some(BinaryOperator::LogicalOr),
+                _ => None,
+            };
+            
+            if let Some(operator) = op {
+                self.advance();
+                let right = self.parse_unary()?;
+                result = Expression::Binary(BinaryExpression {
+                    operator,
+                    left: Box::new(result),
+                    right: Box::new(right),
+                });
+            } else {
+                break;
+            }
+        }
+        
+        Ok(result)
     }
 
     fn parse_arrow_function_body(
