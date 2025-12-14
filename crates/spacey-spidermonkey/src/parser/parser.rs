@@ -552,7 +552,7 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_assignment(&mut self) -> Result<Expression, Error> {
-        let expr = self.parse_logical_or()?;
+        let expr = self.parse_conditional()?;
 
         if self.check(&TokenKind::Equal) {
             self.advance();
@@ -565,6 +565,26 @@ impl<'a> Parser<'a> {
         }
 
         Ok(expr)
+    }
+
+    /// Parse conditional (ternary) expression: test ? consequent : alternate
+    fn parse_conditional(&mut self) -> Result<Expression, Error> {
+        let test = self.parse_logical_or()?;
+
+        if self.check(&TokenKind::Question) {
+            self.advance(); // consume '?'
+            let consequent = self.parse_assignment()?;
+            self.expect(&TokenKind::Colon)?;
+            let alternate = self.parse_assignment()?;
+
+            return Ok(Expression::Conditional(ConditionalExpression {
+                test: Box::new(test),
+                consequent: Box::new(consequent),
+                alternate: Box::new(alternate),
+            }));
+        }
+
+        Ok(test)
     }
 
     fn parse_logical_or(&mut self) -> Result<Expression, Error> {
@@ -584,13 +604,61 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_logical_and(&mut self) -> Result<Expression, Error> {
-        let mut left = self.parse_equality()?;
+        let mut left = self.parse_bitwise_or()?;
 
         while self.check(&TokenKind::AmpersandAmpersand) {
             self.advance();
-            let right = self.parse_equality()?;
+            let right = self.parse_bitwise_or()?;
             left = Expression::Binary(BinaryExpression {
                 operator: BinaryOperator::LogicalAnd,
+                left: Box::new(left),
+                right: Box::new(right),
+            });
+        }
+
+        Ok(left)
+    }
+
+    fn parse_bitwise_or(&mut self) -> Result<Expression, Error> {
+        let mut left = self.parse_bitwise_xor()?;
+
+        while self.check(&TokenKind::Pipe) {
+            self.advance();
+            let right = self.parse_bitwise_xor()?;
+            left = Expression::Binary(BinaryExpression {
+                operator: BinaryOperator::BitwiseOr,
+                left: Box::new(left),
+                right: Box::new(right),
+            });
+        }
+
+        Ok(left)
+    }
+
+    fn parse_bitwise_xor(&mut self) -> Result<Expression, Error> {
+        let mut left = self.parse_bitwise_and()?;
+
+        while self.check(&TokenKind::Caret) {
+            self.advance();
+            let right = self.parse_bitwise_and()?;
+            left = Expression::Binary(BinaryExpression {
+                operator: BinaryOperator::BitwiseXor,
+                left: Box::new(left),
+                right: Box::new(right),
+            });
+        }
+
+        Ok(left)
+    }
+
+    fn parse_bitwise_and(&mut self) -> Result<Expression, Error> {
+        let mut left = self.parse_equality()?;
+
+        while self.check(&TokenKind::Ampersand) {
+            self.advance();
+            let right = self.parse_equality()?;
+            left = Expression::Binary(BinaryExpression {
+                operator: BinaryOperator::BitwiseAnd,
                 left: Box::new(left),
                 right: Box::new(right),
             });
@@ -623,7 +691,7 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_comparison(&mut self) -> Result<Expression, Error> {
-        let mut left = self.parse_additive()?;
+        let mut left = self.parse_shift()?;
 
         loop {
             let operator = match &self.current.kind {
@@ -631,6 +699,28 @@ impl<'a> Parser<'a> {
                 TokenKind::LessThanEqual => BinaryOperator::LessThanEqual,
                 TokenKind::GreaterThan => BinaryOperator::GreaterThan,
                 TokenKind::GreaterThanEqual => BinaryOperator::GreaterThanEqual,
+                _ => break,
+            };
+            self.advance();
+            let right = self.parse_shift()?;
+            left = Expression::Binary(BinaryExpression {
+                operator,
+                left: Box::new(left),
+                right: Box::new(right),
+            });
+        }
+
+        Ok(left)
+    }
+
+    fn parse_shift(&mut self) -> Result<Expression, Error> {
+        let mut left = self.parse_additive()?;
+
+        loop {
+            let operator = match &self.current.kind {
+                TokenKind::LeftShift => BinaryOperator::LeftShift,
+                TokenKind::RightShift => BinaryOperator::RightShift,
+                TokenKind::UnsignedRightShift => BinaryOperator::UnsignedRightShift,
                 _ => break,
             };
             self.advance();
@@ -689,6 +779,27 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_unary(&mut self) -> Result<Expression, Error> {
+        // Check for prefix increment/decrement
+        if self.check(&TokenKind::PlusPlus) {
+            self.advance();
+            let argument = self.parse_unary()?;
+            return Ok(Expression::Update(UpdateExpression {
+                operator: UpdateOperator::Increment,
+                argument: Box::new(argument),
+                prefix: true,
+            }));
+        }
+
+        if self.check(&TokenKind::MinusMinus) {
+            self.advance();
+            let argument = self.parse_unary()?;
+            return Ok(Expression::Update(UpdateExpression {
+                operator: UpdateOperator::Decrement,
+                argument: Box::new(argument),
+                prefix: true,
+            }));
+        }
+
         let operator = match &self.current.kind {
             TokenKind::Bang => Some(UnaryOperator::LogicalNot),
             TokenKind::Minus => Some(UnaryOperator::Minus),
@@ -696,6 +807,7 @@ impl<'a> Parser<'a> {
             TokenKind::Typeof => Some(UnaryOperator::Typeof),
             TokenKind::Void => Some(UnaryOperator::Void),
             TokenKind::Delete => Some(UnaryOperator::Delete),
+            TokenKind::Tilde => Some(UnaryOperator::BitwiseNot),
             _ => None,
         };
 
@@ -739,6 +851,22 @@ impl<'a> Parser<'a> {
                     object: Box::new(expr),
                     property: MemberProperty::Expression(Box::new(property)),
                     computed: true,
+                });
+            } else if self.check(&TokenKind::PlusPlus) {
+                // Postfix increment: x++
+                self.advance();
+                expr = Expression::Update(UpdateExpression {
+                    operator: UpdateOperator::Increment,
+                    argument: Box::new(expr),
+                    prefix: false,
+                });
+            } else if self.check(&TokenKind::MinusMinus) {
+                // Postfix decrement: x--
+                self.advance();
+                expr = Expression::Update(UpdateExpression {
+                    operator: UpdateOperator::Decrement,
+                    argument: Box::new(expr),
+                    prefix: false,
                 });
             } else {
                 break;

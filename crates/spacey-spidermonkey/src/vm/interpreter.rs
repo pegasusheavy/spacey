@@ -263,8 +263,66 @@ impl VM {
                     self.stack.push(Value::Object(0));
                 }
 
-                OpCode::GetProperty | OpCode::SetProperty => {
-                    // TODO: Implement proper property access
+                OpCode::GetProperty => {
+                    // Get property name from operand or stack
+                    let prop_name = if let Some(Operand::Property(idx)) = &instruction.operand {
+                        // Property name is in constants
+                        match bytecode.constants.get(*idx as usize) {
+                            Some(Value::String(s)) => s.clone(),
+                            _ => {
+                                self.stack.push(Value::Undefined);
+                                continue;
+                            }
+                        }
+                    } else {
+                        // Property name/index is on stack
+                        match self.stack.pop() {
+                            Some(Value::String(s)) => s,
+                            Some(Value::Number(n)) => n.to_string(),
+                            _ => {
+                                self.stack.push(Value::Undefined);
+                                continue;
+                            }
+                        }
+                    };
+
+                    // Get object from stack
+                    let obj = self.stack.pop().unwrap_or(Value::Undefined);
+
+                    // Access property based on value type
+                    let result = match &obj {
+                        Value::String(s) => {
+                            // String properties
+                            match prop_name.as_str() {
+                                "length" => Value::Number(s.len() as f64),
+                                _ => {
+                                    // Numeric index access
+                                    if let Ok(idx) = prop_name.parse::<usize>() {
+                                        s.chars()
+                                            .nth(idx)
+                                            .map(|c| Value::String(c.to_string()))
+                                            .unwrap_or(Value::Undefined)
+                                    } else {
+                                        Value::Undefined
+                                    }
+                                }
+                            }
+                        }
+                        Value::Object(_) => {
+                            // Object property access - for now just basic handling
+                            Value::Undefined
+                        }
+                        _ => Value::Undefined,
+                    };
+
+                    self.stack.push(result);
+                }
+
+                OpCode::SetProperty => {
+                    // TODO: Implement proper property setting
+                    let _value = self.stack.pop();
+                    let _prop = self.stack.pop();
+                    let _obj = self.stack.pop();
                     self.stack.push(Value::Undefined);
                 }
 

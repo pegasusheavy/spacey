@@ -1175,6 +1175,17 @@ impl Compiler {
     }
 
     fn compile_binary(&mut self, bin: &BinaryExpression) -> Result<(), Error> {
+        // Handle short-circuit operators specially
+        match bin.operator {
+            BinaryOperator::LogicalAnd => {
+                return self.compile_logical_and(bin);
+            }
+            BinaryOperator::LogicalOr => {
+                return self.compile_logical_or(bin);
+            }
+            _ => {}
+        }
+
         self.compile_expression(&bin.left)?;
         self.compile_expression(&bin.right)?;
 
@@ -1192,10 +1203,73 @@ impl Compiler {
             BinaryOperator::NotEqual => OpCode::Ne,
             BinaryOperator::StrictEqual => OpCode::StrictEq,
             BinaryOperator::StrictNotEqual => OpCode::StrictNe,
+            // Bitwise operators
+            BinaryOperator::BitwiseAnd => OpCode::BitAnd,
+            BinaryOperator::BitwiseOr => OpCode::BitOr,
+            BinaryOperator::BitwiseXor => OpCode::BitXor,
+            BinaryOperator::LeftShift => OpCode::Shl,
+            BinaryOperator::RightShift => OpCode::Shr,
+            BinaryOperator::UnsignedRightShift => OpCode::Ushr,
+            // These are handled above
+            BinaryOperator::LogicalAnd | BinaryOperator::LogicalOr => unreachable!(),
             _ => return Err(Error::InternalError("Unsupported operator".into())),
         };
 
         self.emit(Instruction::simple(opcode));
+        Ok(())
+    }
+
+    /// Compile logical AND with short-circuit evaluation.
+    fn compile_logical_and(&mut self, bin: &BinaryExpression) -> Result<(), Error> {
+        // Evaluate left side
+        self.compile_expression(&bin.left)?;
+
+        // Duplicate for the result if falsy
+        self.emit(Instruction::simple(OpCode::Dup));
+
+        // If falsy, jump to end (short-circuit)
+        let jump_if_false = self.emit(Instruction::with_operand(
+            OpCode::JumpIfFalse,
+            Operand::Jump(0), // Placeholder
+        ));
+
+        // Pop the duplicated value (we'll use right side result)
+        self.emit(Instruction::simple(OpCode::Pop));
+
+        // Evaluate right side
+        self.compile_expression(&bin.right)?;
+
+        // Patch the jump
+        let end_pos = self.bytecode.instructions.len() as i32;
+        self.bytecode.instructions[jump_if_false].operand = Some(Operand::Jump(end_pos));
+
+        Ok(())
+    }
+
+    /// Compile logical OR with short-circuit evaluation.
+    fn compile_logical_or(&mut self, bin: &BinaryExpression) -> Result<(), Error> {
+        // Evaluate left side
+        self.compile_expression(&bin.left)?;
+
+        // Duplicate for the result if truthy
+        self.emit(Instruction::simple(OpCode::Dup));
+
+        // If truthy, jump to end (short-circuit)
+        let jump_if_true = self.emit(Instruction::with_operand(
+            OpCode::JumpIfTrue,
+            Operand::Jump(0), // Placeholder
+        ));
+
+        // Pop the duplicated value (we'll use right side result)
+        self.emit(Instruction::simple(OpCode::Pop));
+
+        // Evaluate right side
+        self.compile_expression(&bin.right)?;
+
+        // Patch the jump
+        let end_pos = self.bytecode.instructions.len() as i32;
+        self.bytecode.instructions[jump_if_true].operand = Some(Operand::Jump(end_pos));
+
         Ok(())
     }
 
