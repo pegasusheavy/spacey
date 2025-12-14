@@ -637,3 +637,283 @@ impl Default for Compiler {
         Self::new()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::parser::Parser;
+
+    fn compile_source(src: &str) -> Result<Bytecode, Error> {
+        let mut parser = Parser::new(src);
+        let program = parser.parse_program()?;
+        let mut compiler = Compiler::new();
+        compiler.compile(&program)
+    }
+
+    fn compile_ok(src: &str) -> Bytecode {
+        compile_source(src).expect("Compilation should succeed")
+    }
+
+    #[test]
+    fn test_compiler_new() {
+        let compiler = Compiler::new();
+        assert!(compiler.bytecode.instructions.is_empty());
+    }
+
+    #[test]
+    fn test_compiler_default() {
+        let compiler = Compiler::default();
+        assert!(compiler.bytecode.instructions.is_empty());
+    }
+
+    #[test]
+    fn test_compile_empty_program() {
+        let bytecode = compile_ok("");
+        // Should emit LoadUndefined and Halt
+        assert!(!bytecode.instructions.is_empty());
+    }
+
+    #[test]
+    fn test_compile_number_literal() {
+        let bytecode = compile_ok("42;");
+        assert!(!bytecode.instructions.is_empty());
+    }
+
+    #[test]
+    fn test_compile_string_literal() {
+        let bytecode = compile_ok("'hello';");
+        assert!(!bytecode.instructions.is_empty());
+    }
+
+    #[test]
+    fn test_compile_boolean_literals() {
+        compile_ok("true;");
+        compile_ok("false;");
+    }
+
+    #[test]
+    fn test_compile_null_undefined() {
+        compile_ok("null;");
+    }
+
+    #[test]
+    fn test_compile_binary_add() {
+        let bytecode = compile_ok("1 + 2;");
+        assert!(!bytecode.instructions.is_empty());
+    }
+
+    #[test]
+    fn test_compile_binary_sub() {
+        compile_ok("5 - 3;");
+    }
+
+    #[test]
+    fn test_compile_binary_mul() {
+        compile_ok("2 * 3;");
+    }
+
+    #[test]
+    fn test_compile_binary_div() {
+        compile_ok("10 / 2;");
+    }
+
+    #[test]
+    fn test_compile_comparison_operators() {
+        compile_ok("1 < 2;");
+        compile_ok("1 > 2;");
+        compile_ok("1 <= 2;");
+        compile_ok("1 >= 2;");
+        compile_ok("1 == 2;");
+        compile_ok("1 != 2;");
+        compile_ok("1 === 2;");
+        compile_ok("1 !== 2;");
+    }
+
+    #[test]
+    fn test_compile_unary_minus() {
+        compile_ok("-42;");
+    }
+
+    #[test]
+    fn test_compile_unary_not() {
+        compile_ok("!true;");
+    }
+
+    #[test]
+    fn test_compile_variable_declaration() {
+        compile_ok("let x = 1;");
+        compile_ok("const y = 2;");
+        compile_ok("var z = 3;");
+    }
+
+    #[test]
+    fn test_compile_variable_use() {
+        compile_ok("let x = 1; x;");
+    }
+
+    #[test]
+    fn test_compile_variable_assignment() {
+        compile_ok("let x = 1; x = 2;");
+    }
+
+    #[test]
+    fn test_compile_multiple_variables() {
+        compile_ok("let a = 1; let b = 2; a + b;");
+    }
+
+    #[test]
+    fn test_compile_if_statement() {
+        compile_ok("if (true) { 1; }");
+    }
+
+    #[test]
+    fn test_compile_if_else() {
+        compile_ok("if (true) { 1; } else { 2; }");
+    }
+
+    #[test]
+    fn test_compile_while_loop() {
+        compile_ok("while (false) { 1; }");
+    }
+
+    #[test]
+    fn test_compile_for_loop() {
+        compile_ok("for (let i = 0; i < 10; i = i + 1) { }");
+    }
+
+    #[test]
+    fn test_compile_function_declaration() {
+        compile_ok("function f() { return 1; }");
+    }
+
+    #[test]
+    fn test_compile_function_call() {
+        compile_ok("function f() { return 1; } f();");
+    }
+
+    #[test]
+    fn test_compile_function_with_params() {
+        compile_ok("function add(a, b) { return a + b; }");
+    }
+
+    #[test]
+    fn test_compile_return_statement() {
+        compile_ok("function f() { return; }");
+        compile_ok("function f() { return 42; }");
+    }
+
+    #[test]
+    fn test_compile_block_statement() {
+        compile_ok("{ let x = 1; }");
+    }
+
+    #[test]
+    fn test_compile_nested_blocks() {
+        compile_ok("{ let x = 1; { let y = 2; } }");
+    }
+
+    #[test]
+    fn test_compile_expression_statement() {
+        compile_ok("1 + 2;");
+        compile_ok("f();");
+    }
+
+    #[test]
+    fn test_compile_array_literal() {
+        compile_ok("let arr = [1, 2, 3];");
+    }
+
+    #[test]
+    fn test_compile_object_literal() {
+        compile_ok("let obj = { x: 1 };");
+    }
+
+    #[test]
+    fn test_compile_member_expression() {
+        compile_ok("let obj = { x: 1 }; obj.x;");
+    }
+
+    #[test]
+    fn test_compile_complex_expression() {
+        compile_ok("1 + 2 * 3;");
+        compile_ok("(1 < 2) === true;");
+    }
+
+    // Note: Logical operators and conditional expressions are not yet fully supported
+    // These tests are placeholders for when they are implemented
+
+    #[test]
+    fn test_scope_declare() {
+        let mut scope = Scope::new();
+        let idx = scope.declare("x".to_string(), true).unwrap();
+        assert_eq!(idx, 0);
+    }
+
+    #[test]
+    fn test_scope_resolve() {
+        let mut scope = Scope::new();
+        scope.declare("x".to_string(), true).unwrap();
+        assert_eq!(scope.resolve("x"), Some(0));
+        assert_eq!(scope.resolve("y"), None);
+    }
+
+    #[test]
+    fn test_scope_duplicate_error() {
+        let mut scope = Scope::new();
+        scope.declare("x".to_string(), true).unwrap();
+        let result = scope.declare("x".to_string(), true);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_scope_mark_initialized() {
+        let mut scope = Scope::new();
+        let idx = scope.declare("x".to_string(), true).unwrap();
+        assert!(!scope.locals[idx].initialized);
+        scope.mark_initialized(idx);
+        assert!(scope.locals[idx].initialized);
+    }
+
+    #[test]
+    fn test_scope_begin_end() {
+        let mut scope = Scope::new();
+        assert_eq!(scope.depth, 0);
+        scope.begin_scope();
+        assert_eq!(scope.depth, 1);
+        scope.declare("x".to_string(), true).unwrap();
+        let popped = scope.end_scope();
+        assert_eq!(popped, 1);
+        assert_eq!(scope.depth, 0);
+    }
+
+    #[test]
+    fn test_scope_nested() {
+        let mut scope = Scope::new();
+        scope.declare("outer".to_string(), true).unwrap();
+        scope.begin_scope();
+        scope.declare("inner".to_string(), true).unwrap();
+        assert_eq!(scope.resolve("outer"), Some(0));
+        assert_eq!(scope.resolve("inner"), Some(1));
+        scope.end_scope();
+        assert_eq!(scope.resolve("outer"), Some(0));
+        assert_eq!(scope.resolve("inner"), None);
+    }
+
+    #[test]
+    fn test_scope_is_local() {
+        let mut scope = Scope::new();
+        assert!(!scope.is_local("x"));
+        scope.declare("x".to_string(), true).unwrap();
+        assert!(scope.is_local("x"));
+    }
+
+    #[test]
+    fn test_scope_shadowing() {
+        let mut scope = Scope::new();
+        scope.declare("x".to_string(), true).unwrap();
+        scope.begin_scope();
+        // Can declare same name in inner scope
+        let result = scope.declare("x".to_string(), true);
+        assert!(result.is_ok());
+    }
+}
