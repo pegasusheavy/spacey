@@ -1,0 +1,29 @@
+---
+description: Prevent automatic generation of summary documents
+globs: *
+alwaysApply: true
+---
+
+# No Summary Documents
+
+Do not automatically generate summary or recap documents.
+
+## Prohibited Actions
+
+- Do not create markdown files summarizing work performed
+- Do not create "summary.md", "recap.md", "notes.md", or similar files
+- Do not create documentation files unless explicitly requested
+- Do not generate changelogs or release notes unless asked
+
+## When Documentation IS Appropriate
+
+Only create documentation when the user explicitly:
+- Asks for documentation to be written
+- Requests a specific document by name
+- Asks you to "document" a feature or API
+
+## Instead of Summaries
+
+- Provide brief inline responses about what was done
+- Use code comments for implementation notes
+- Update existing documentation files when relevant

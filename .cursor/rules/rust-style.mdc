@@ -1,0 +1,253 @@
+---
+description: Rust 2024 edition syntax and styling conventions
+globs: "**/*.rs"
+alwaysApply: true
+---
+
+# Rust 2024 Style Guide
+
+This project uses Rust 2024 edition. Follow these conventions for consistent, idiomatic code.
+
+## Edition 2024 Features
+
+Prefer these Rust 2024 patterns:
+
+### Use `gen` blocks for iterators (when stabilized)
+```rust
+// Prefer generator syntax for complex iterators
+let iter = gen {
+    for item in collection {
+        yield transform(item);
+    }
+};
+```
+
+### Precise capturing in closures
+Rust 2024 captures only the fields used, not entire structs:
+```rust
+// This now only captures `self.field`, not all of `self`
+let closure = || self.field.method();
+```
+
+### RPIT lifetime capture rules
+Return position impl Trait now captures all in-scope lifetimes by default.
+
+## Code Style
+
+### Formatting
+- Use `rustfmt` defaults - run `cargo fmt` before committing
+- Maximum line width: 100 characters
+- Use 4 spaces for indentation (no tabs)
+
+### Imports
+```rust
+// Group imports in this order, separated by blank lines:
+// 1. std library
+use std::collections::HashMap;
+use std::fmt;
+
+// 2. External crates
+use bumpalo::Bump;
+use rustc_hash::FxHashMap;
+
+// 3. Crate modules
+use crate::runtime::Value;
+use crate::lexer::Token;
+
+// 4. Super/self
+use super::Parser;
+```
+
+### Naming Conventions
+| Item | Convention | Example |
+|------|------------|---------|
+| Types, Traits | PascalCase | `TokenKind`, `AstVisitor` |
+| Functions, Methods | snake_case | `parse_expression`, `to_string` |
+| Variables, Fields | snake_case | `token_stream`, `current_pos` |
+| Constants | SCREAMING_SNAKE_CASE | `MAX_STACK_SIZE` |
+| Lifetimes | short lowercase | `'a`, `'src`, `'ctx` |
+| Type Parameters | single uppercase or descriptive | `T`, `Item`, `Node` |
+
+### Enums
+```rust
+// Use descriptive variant names
+pub enum Value {
+    Undefined,
+    Null,
+    Boolean(bool),
+    Number(f64),
+    String(String),  // Not Str or StringVal
+}
+
+// Match exhaustively, avoid wildcards when possible
+match value {
+    Value::Undefined => ...,
+    Value::Null => ...,
+    Value::Boolean(b) => ...,
+    Value::Number(n) => ...,
+    Value::String(s) => ...,
+}
+```
+
+### Error Handling
+```rust
+// Define specific error types, not just String
+#[derive(Debug, Clone)]
+pub enum ParseError {
+    UnexpectedToken { expected: TokenKind, found: TokenKind, span: Span },
+    UnexpectedEof { expected: &'static str },
+    InvalidSyntax { message: String, span: Span },
+}
+
+// Implement std::error::Error
+impl std::error::Error for ParseError {}
+
+// Use Result<T, E> for fallible operations
+pub fn parse(&mut self) -> Result<Ast, ParseError> { ... }
+
+// Use ? operator for propagation
+let token = self.expect(TokenKind::Semicolon)?;
+
+// Reserve .unwrap() and .expect() for truly impossible cases
+let value = map.get(&key).expect("key was just inserted");
+```
+
+### Option Handling
+```rust
+// Prefer combinators over match when appropriate
+let name = user.name.as_ref().map(|n| n.to_uppercase());
+
+// Use if-let for single-arm matches
+if let Some(value) = optional_value {
+    process(value);
+}
+
+// Use let-else for early returns (Rust 2024 stable)
+let Some(value) = optional_value else {
+    return Err(Error::MissingValue);
+};
+```
+
+### Structs
+```rust
+// Derive common traits
+#[derive(Debug, Clone, PartialEq)]
+pub struct Token {
+    pub kind: TokenKind,
+    pub span: Span,
+}
+
+// Use Default when there's a sensible default
+#[derive(Default)]
+pub struct ParserOptions {
+    pub strict_mode: bool,
+    pub allow_await: bool,
+}
+
+// Builder pattern for complex construction
+impl EngineBuilder {
+    pub fn new() -> Self { ... }
+    pub fn with_strict_mode(mut self, strict: bool) -> Self { ... }
+    pub fn build(self) -> Engine { ... }
+}
+```
+
+### Lifetimes
+```rust
+// Elide lifetimes when possible
+fn first(s: &str) -> &str { ... }  // Not fn first<'a>(s: &'a str) -> &'a str
+
+// Name lifetimes descriptively for complex cases
+struct Parser<'src> {
+    source: &'src str,
+    tokens: Vec<Token<'src>>,
+}
+```
+
+### Documentation
+```rust
+//! Module-level documentation at the top of the file
+//! Describes the purpose and contents of the module.
+
+/// Type/function documentation using triple slash.
+///
+/// # Examples
+///
+/// ```rust
+/// let lexer = Lexer::new("1 + 2");
+/// let tokens = lexer.tokenize()?;
+/// ```
+///
+/// # Errors
+///
+/// Returns `LexError::InvalidCharacter` if an unrecognized character is encountered.
+///
+/// # Panics
+///
+/// Panics if the source string is not valid UTF-8.
+pub fn tokenize(&mut self) -> Result<Vec<Token>, LexError> { ... }
+```
+
+### Visibility
+```rust
+// Be explicit about visibility
+pub struct Engine { ... }           // Public API
+pub(crate) fn helper() { ... }      // Crate-internal
+pub(super) fn parent_only() { ... } // Parent module only
+fn private() { ... }                // Module-private (default)
+```
+
+### Performance Patterns
+```rust
+// Use &str instead of String when not taking ownership
+fn parse(source: &str) -> Result<Ast, Error> { ... }
+
+// Use Cow<str> when you might need to own
+fn normalize(s: &str) -> Cow<'_, str> { ... }
+
+// Prefer iterators over collecting into Vec
+tokens.iter().filter(|t| t.is_keyword()).count()
+
+// Use entry API for maps
+map.entry(key).or_insert_with(Vec::new).push(value);
+```
+
+### Testing
+```rust
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_descriptive_name() {
+        // Arrange
+        let input = "1 + 2";
+
+        // Act
+        let result = parse(input);
+
+        // Assert
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), expected);
+    }
+
+    #[test]
+    #[should_panic(expected = "index out of bounds")]
+    fn test_panic_case() { ... }
+}
+```
+
+## Project-Specific Conventions
+
+### AST Nodes
+- Use `Box<T>` for recursive types
+- Implement `Clone` for all AST types
+- Include source spans for error reporting
+
+### Value Types
+- Keep `Value` enum variants simple
+- Use internal mutability sparingly (prefer `&mut self`)
+
+### Memory Management
+- Use arena allocation (`bumpalo`) for AST nodes during parsing
+- Avoid unnecessary cloning - use references where possible

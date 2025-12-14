@@ -1,0 +1,96 @@
+---
+description: Git-flow commit conventions for the Spacey project
+globs: *
+alwaysApply: true
+---
+
+# Git-Flow Commit Conventions
+
+This project follows git-flow branching and conventional commit message standards.
+
+## Commit Message Format
+
+All commits must follow the conventional commits specification:
+
+```
+<type>(<scope>): <subject>
+
+[optional body]
+
+[optional footer(s)]
+```
+
+### Types
+
+| Type | Description |
+|------|-------------|
+| `feat` | A new feature |
+| `fix` | A bug fix |
+| `docs` | Documentation only changes |
+| `style` | Code style changes (formatting, missing semicolons, etc.) |
+| `refactor` | Code change that neither fixes a bug nor adds a feature |
+| `perf` | Performance improvements |
+| `test` | Adding or updating tests |
+| `build` | Changes to build system or dependencies |
+| `ci` | Changes to CI configuration |
+| `chore` | Other changes that don't modify src or test files |
+| `revert` | Reverts a previous commit |
+
+### Scopes
+
+Use the crate or module name as scope when applicable:
+
+- `lexer` - Lexer/tokenizer changes
+- `parser` - Parser changes
+- `ast` - AST structure changes
+- `compiler` - Bytecode compiler changes
+- `vm` - Virtual machine changes
+- `runtime` - Runtime/value system changes
+- `builtins` - Built-in objects/functions
+- `gc` - Garbage collector changes
+- `repl` - REPL interface changes
+- `cli` - CLI argument handling
+- `node` - Node.js bindings (spacey-node)
+
+### Subject Line Rules
+
+- Use imperative mood ("add" not "added" or "adds")
+- Don't capitalize the first letter
+- No period at the end
+- Maximum 50 characters
+
+### Examples
+
+```
+feat(lexer): add support for template literals
+fix(parser): handle trailing commas in array literals
+docs(readme): update build instructions
+refactor(vm): extract opcode dispatch into separate module
+test(parser): add tests for arrow function parsing
+perf(gc): implement incremental marking
+chore: update dependencies
+```
+
+## Branch Naming
+
+Follow git-flow branch naming conventions:
+
+| Branch Type | Pattern | Example |
+|-------------|---------|---------|
+| Feature | `feature/<description>` | `feature/template-literals` |
+| Bugfix | `bugfix/<description>` | `bugfix/array-bounds-check` |
+| Hotfix | `hotfix/<description>` | `hotfix/critical-gc-crash` |
+| Release | `release/<version>` | `release/0.2.0` |
+| Main | `main` | Production-ready code |
+| Develop | `develop` | Integration branch |
+
+## Breaking Changes
+
+For breaking changes, add `!` after the type/scope and include a `BREAKING CHANGE:` footer:
+
+```
+feat(runtime)!: change Value enum representation
+
+BREAKING CHANGE: Value::Number now uses f64 instead of tagged union.
+All code using pattern matching on Value must be updated.
+```

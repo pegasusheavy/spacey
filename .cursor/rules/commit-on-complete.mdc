@@ -1,0 +1,52 @@
+---
+description: Commit after completing each task
+globs: *
+alwaysApply: true
+---
+
+# Commit After Task Completion
+
+After completing any task, create a git commit with the changes.
+
+## Workflow
+
+1. Complete the requested task
+2. Stage all relevant changed files
+3. Create a commit with a conventional commit message
+4. Inform the user the commit was made
+
+## Commit Guidelines
+
+- Follow git-flow conventional commit format (see git-flow.mdc)
+- Use appropriate type: `feat`, `fix`, `docs`, `refactor`, `test`, `chore`, etc.
+- Include scope when applicable (e.g., `lexer`, `parser`, `repl`)
+- Write clear, concise commit messages
+
+## Example Workflow
+
+```bash
+# After implementing a feature
+git add -A
+git commit -m "feat(repl): add tab completion for keywords"
+
+# After fixing a bug
+git add -A
+git commit -m "fix(parser): handle trailing commas in arrays"
+
+# After refactoring
+git add -A
+git commit -m "refactor(vm): extract opcode dispatch logic"
+```
+
+## When NOT to Commit
+
+- If the task is incomplete or broken
+- If there are failing tests that should pass
+- If the user explicitly asks not to commit
+- If only exploring/investigating (no actual changes)
+
+## Multiple Related Changes
+
+If a task involves multiple logical changes, prefer atomic commits:
+- One commit per logical unit of work
+- Each commit should leave the codebase in a working state

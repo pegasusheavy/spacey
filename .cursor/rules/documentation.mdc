@@ -1,0 +1,51 @@
+---
+description: Documentation structure and location conventions
+globs: *
+alwaysApply: true
+---
+
+# Documentation Conventions
+
+All project documentation must be placed in the `docs/` folder at the project root.
+
+## Documentation Location
+
+- **All markdown documentation** goes in `docs/`
+- **Do not create** documentation files in the project root (except `README.md` and `LICENSE`)
+- **Do not create** documentation alongside source code in `src/` or `crates/`
+
+## Folder Structure
+
+```
+docs/
+├── architecture/       # System design and architecture docs
+├── api/               # API documentation and references
+├── guides/            # How-to guides and tutorials
+├── specs/             # Technical specifications
+└── contributing/      # Contribution guidelines
+```
+
+## Exceptions
+
+The following files may exist at the project root:
+- `README.md` - Project overview and quick start
+- `LICENSE` - License file
+- `CHANGELOG.md` - Version history
+- `TODO.md` - Development roadmap
+
+## When Creating Documentation
+
+1. Place new documentation in the appropriate `docs/` subdirectory
+2. Use descriptive filenames in kebab-case (e.g., `bytecode-format.md`)
+3. Link from `README.md` to detailed docs when appropriate
+4. Keep `README.md` concise - detailed information belongs in `docs/`
+
+## Documentation Types
+
+| Type | Location | Purpose |
+|------|----------|---------|
+| Architecture | `docs/architecture/` | System design, component diagrams |
+| API Reference | `docs/api/` | Public API documentation |
+| Guides | `docs/guides/` | Tutorials, how-to guides |
+| Specifications | `docs/specs/` | ECMAScript compliance, bytecode format |
+| Contributing | `docs/contributing/` | Development setup, code style |
