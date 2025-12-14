@@ -1,0 +1,198 @@
+# Async and Parallel Optimization
+
+Always optimize for asynchronous and parallel execution using Tokio and Rayon.
+
+## Async-First Design
+
+Prefer async operations for:
+- File I/O (`tokio::fs` instead of `std::fs`)
+- Network operations
+- Any operation that may block
+- Inter-task communication
+
+```rust
+// Good: Async file reading
+use tokio::fs;
+let content = fs::read_to_string(path).await?;
+
+// Avoid: Blocking file reading in async context
+use std::fs;
+let content = fs::read_to_string(path)?; // Blocks the executor!
+```
+
+## Tokio Best Practices
+
+### Runtime Configuration
+```rust
+#[tokio::main]
+async fn main() {
+    // Use multi-threaded runtime by default
+}
+
+// For CPU-bound work, use spawn_blocking
+let result = tokio::task::spawn_blocking(|| {
+    expensive_computation()
+}).await?;
+```
+
+### Concurrency Patterns
+```rust
+// Good: Parallel async operations
+let (result1, result2) = tokio::join!(
+    async_operation1(),
+    async_operation2(),
+);
+
+// Good: Concurrent stream processing
+use futures::stream::{self, StreamExt};
+stream::iter(items)
+    .buffer_unordered(10)
+    .collect::<Vec<_>>()
+    .await;
+```
+
+### Avoid Blocking in Async
+```rust
+// Bad: Blocking in async context
+async fn bad_example() {
+    std::thread::sleep(Duration::from_secs(1)); // Blocks executor!
+}
+
+// Good: Use async sleep
+async fn good_example() {
+    tokio::time::sleep(Duration::from_secs(1)).await;
+}
+```
+
+## Rayon for CPU-Bound Work
+
+Use Rayon for data-parallel operations:
+
+```rust
+use rayon::prelude::*;
+
+// Good: Parallel iteration
+let results: Vec<_> = items.par_iter()
+    .map(|item| expensive_transform(item))
+    .collect();
+
+// Good: Parallel sorting
+let mut data = vec![...];
+data.par_sort();
+
+// Good: Parallel reduction
+let sum: i64 = numbers.par_iter().sum();
+```
+
+### Rayon Thresholds
+Only parallelize when beneficial:
+
+```rust
+const PARALLEL_THRESHOLD: usize = 1000;
+
+if items.len() >= PARALLEL_THRESHOLD {
+    items.par_iter().for_each(|item| process(item));
+} else {
+    items.iter().for_each(|item| process(item));
+}
+```
+
+## Thread Safety Requirements
+
+### Use Arc for Shared Ownership
+```rust
+// Good: Arc for cross-thread sharing
+use std::sync::Arc;
+let shared_data = Arc::new(data);
+
+// Avoid: Rc in multi-threaded context
+use std::rc::Rc; // Not Send!
+```
+
+### Prefer Lock-Free When Possible
+```rust
+// Good: Atomic operations
+use std::sync::atomic::{AtomicUsize, Ordering};
+counter.fetch_add(1, Ordering::Relaxed);
+
+// Good: Lock-free queues
+use crossbeam::queue::SegQueue;
+let queue = SegQueue::new();
+
+// Good: Concurrent maps
+use dashmap::DashMap;
+let map = DashMap::new();
+```
+
+### When Locks Are Needed
+```rust
+// Good: parking_lot for faster mutexes
+use parking_lot::{Mutex, RwLock};
+
+// Prefer RwLock for read-heavy workloads
+let data = RwLock::new(value);
+
+// Keep critical sections small
+{
+    let guard = data.write();
+    // Minimal work here
+}
+```
+
+## Combining Async and Parallel
+
+Bridge between Tokio and Rayon carefully:
+
+```rust
+// Good: Use spawn_blocking for rayon work
+async fn parallel_process(items: Vec<Item>) -> Vec<Result> {
+    tokio::task::spawn_blocking(move || {
+        items.par_iter()
+            .map(|item| process(item))
+            .collect()
+    }).await.unwrap()
+}
+
+// Good: Async with parallel file processing
+async fn process_files(paths: Vec<PathBuf>) -> Vec<Content> {
+    let contents = futures::future::join_all(
+        paths.iter().map(|p| tokio::fs::read_to_string(p))
+    ).await;
+    
+    tokio::task::spawn_blocking(move || {
+        contents.into_par_iter()
+            .filter_map(|c| c.ok())
+            .map(|c| parse_content(&c))
+            .collect()
+    }).await.unwrap()
+}
+```
+
+## Required Dependencies
+
+Ensure these are in Cargo.toml:
+
+```toml
+[dependencies]
+tokio = { version = "1", features = ["full"] }
+rayon = "1"
+futures = "0.3"
+parking_lot = "0.12"
+crossbeam = "0.8"
+```
+
+## Performance Considerations
+
+1. **Measure before optimizing** - Not all operations benefit from parallelism
+2. **Consider overhead** - Thread spawning has costs; batch small operations
+3. **Avoid contention** - Design to minimize shared mutable state
+4. **Use appropriate granularity** - Too fine-grained parallelism adds overhead
+5. **Profile with real workloads** - Synthetic benchmarks can be misleading
+
+## When NOT to Parallelize
+
+- Operations with heavy synchronization requirements
+- I/O-bound work (use async instead)
+- Small data sets (< 1000 items typically)
+- Operations with dependencies between iterations
+- When memory bandwidth is the bottleneck
