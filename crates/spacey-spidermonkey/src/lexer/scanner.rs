@@ -692,6 +692,21 @@ mod tests {
     }
 
     #[test]
+    fn test_all_single_char_tokens() {
+        let mut scanner = Scanner::new("{}()[];,~:");
+        assert!(matches!(scanner.next_token().kind, TokenKind::LeftBrace));
+        assert!(matches!(scanner.next_token().kind, TokenKind::RightBrace));
+        assert!(matches!(scanner.next_token().kind, TokenKind::LeftParen));
+        assert!(matches!(scanner.next_token().kind, TokenKind::RightParen));
+        assert!(matches!(scanner.next_token().kind, TokenKind::LeftBracket));
+        assert!(matches!(scanner.next_token().kind, TokenKind::RightBracket));
+        assert!(matches!(scanner.next_token().kind, TokenKind::Semicolon));
+        assert!(matches!(scanner.next_token().kind, TokenKind::Comma));
+        assert!(matches!(scanner.next_token().kind, TokenKind::Tilde));
+        assert!(matches!(scanner.next_token().kind, TokenKind::Colon));
+    }
+
+    #[test]
     fn test_numbers() {
         let mut scanner = Scanner::new("42 3.14 0xff 0b1010");
         assert!(matches!(scanner.next_token().kind, TokenKind::Number(n) if n == 42.0));
@@ -701,10 +716,75 @@ mod tests {
     }
 
     #[test]
+    fn test_octal_numbers() {
+        let mut scanner = Scanner::new("0o777 0O10");
+        assert!(matches!(scanner.next_token().kind, TokenKind::Number(n) if n == 511.0));
+        assert!(matches!(scanner.next_token().kind, TokenKind::Number(n) if n == 8.0));
+    }
+
+    #[test]
+    fn test_bigint() {
+        let mut scanner = Scanner::new("123n 0xFFn 0o77n 0b1010n");
+        assert!(matches!(scanner.next_token().kind, TokenKind::BigInt(s) if s == "123"));
+        assert!(matches!(scanner.next_token().kind, TokenKind::BigInt(s) if s == "0xFF"));
+        assert!(matches!(scanner.next_token().kind, TokenKind::BigInt(s) if s == "0o77"));
+        assert!(matches!(scanner.next_token().kind, TokenKind::BigInt(s) if s == "0b1010"));
+    }
+
+    #[test]
+    fn test_numbers_with_exponent() {
+        let mut scanner = Scanner::new("1e10 2.5e-3 3E+4");
+        assert!(
+            matches!(scanner.next_token().kind, TokenKind::Number(n) if (n - 1e10).abs() < 0.001)
+        );
+        assert!(
+            matches!(scanner.next_token().kind, TokenKind::Number(n) if (n - 2.5e-3).abs() < 0.0000001)
+        );
+        assert!(
+            matches!(scanner.next_token().kind, TokenKind::Number(n) if (n - 3e4).abs() < 0.001)
+        );
+    }
+
+    #[test]
+    fn test_numbers_with_underscores() {
+        let mut scanner = Scanner::new("1_000_000 0xFF_FF");
+        assert!(matches!(scanner.next_token().kind, TokenKind::Number(n) if n == 1_000_000.0));
+        assert!(matches!(scanner.next_token().kind, TokenKind::Number(n) if n == 65535.0));
+    }
+
+    #[test]
     fn test_strings() {
         let mut scanner = Scanner::new(r#""hello" 'world'"#);
         assert!(matches!(scanner.next_token().kind, TokenKind::String(s) if s == "hello"));
         assert!(matches!(scanner.next_token().kind, TokenKind::String(s) if s == "world"));
+    }
+
+    #[test]
+    fn test_string_escapes() {
+        let mut scanner = Scanner::new(r#""\n\r\t\\\'\"\0""#);
+        let token = scanner.next_token();
+        if let TokenKind::String(s) = token.kind {
+            assert_eq!(s, "\n\r\t\\'\"\0");
+        } else {
+            panic!("Expected string");
+        }
+    }
+
+    #[test]
+    fn test_template_literal() {
+        let mut scanner = Scanner::new("`hello world`");
+        assert!(matches!(scanner.next_token().kind, TokenKind::Template(s) if s == "hello world"));
+    }
+
+    #[test]
+    fn test_template_with_escapes() {
+        let mut scanner = Scanner::new(r#"`\n\t\`\$`"#);
+        let token = scanner.next_token();
+        if let TokenKind::Template(s) = token.kind {
+            assert_eq!(s, "\n\t`$");
+        } else {
+            panic!("Expected template");
+        }
     }
 
     #[test]
@@ -717,11 +797,79 @@ mod tests {
     }
 
     #[test]
+    fn test_all_keywords() {
+        let keywords = "await break case catch class const continue debugger default delete do else enum export extends finally for function if import in instanceof let new return static super switch this throw try typeof var void while with yield async true false null";
+        let mut scanner = Scanner::new(keywords);
+
+        let expected = vec![
+            TokenKind::Await,
+            TokenKind::Break,
+            TokenKind::Case,
+            TokenKind::Catch,
+            TokenKind::Class,
+            TokenKind::Const,
+            TokenKind::Continue,
+            TokenKind::Debugger,
+            TokenKind::Default,
+            TokenKind::Delete,
+            TokenKind::Do,
+            TokenKind::Else,
+            TokenKind::Enum,
+            TokenKind::Export,
+            TokenKind::Extends,
+            TokenKind::Finally,
+            TokenKind::For,
+            TokenKind::Function,
+            TokenKind::If,
+            TokenKind::Import,
+            TokenKind::In,
+            TokenKind::Instanceof,
+            TokenKind::Let,
+            TokenKind::New,
+            TokenKind::Return,
+            TokenKind::Static,
+            TokenKind::Super,
+            TokenKind::Switch,
+            TokenKind::This,
+            TokenKind::Throw,
+            TokenKind::Try,
+            TokenKind::Typeof,
+            TokenKind::Var,
+            TokenKind::Void,
+            TokenKind::While,
+            TokenKind::With,
+            TokenKind::Yield,
+            TokenKind::Async,
+            TokenKind::True,
+            TokenKind::False,
+            TokenKind::Null,
+        ];
+
+        for expected_kind in expected {
+            assert_eq!(scanner.next_token().kind, expected_kind);
+        }
+    }
+
+    #[test]
     fn test_identifiers() {
         let mut scanner = Scanner::new("foo _bar $baz");
         assert!(matches!(scanner.next_token().kind, TokenKind::Identifier(s) if s == "foo"));
         assert!(matches!(scanner.next_token().kind, TokenKind::Identifier(s) if s == "_bar"));
         assert!(matches!(scanner.next_token().kind, TokenKind::Identifier(s) if s == "$baz"));
+    }
+
+    #[test]
+    fn test_private_identifier() {
+        let mut scanner = Scanner::new("#privateField");
+        assert!(
+            matches!(scanner.next_token().kind, TokenKind::PrivateIdentifier(s) if s == "privateField")
+        );
+    }
+
+    #[test]
+    fn test_invalid_private_identifier() {
+        let mut scanner = Scanner::new("# ");
+        assert!(matches!(scanner.next_token().kind, TokenKind::Invalid));
     }
 
     #[test]
@@ -745,5 +893,244 @@ mod tests {
         assert!(matches!(scanner.next_token().kind, TokenKind::Number(n) if n == 6.0));
         assert!(matches!(scanner.next_token().kind, TokenKind::Slash));
         assert!(matches!(scanner.next_token().kind, TokenKind::Number(n) if n == 2.0));
+    }
+
+    #[test]
+    fn test_dot_operators() {
+        let mut scanner = Scanner::new(". ... ..");
+        assert!(matches!(scanner.next_token().kind, TokenKind::Dot));
+        assert!(matches!(scanner.next_token().kind, TokenKind::Ellipsis));
+        assert!(matches!(scanner.next_token().kind, TokenKind::Invalid)); // ".." is invalid
+    }
+
+    #[test]
+    fn test_plus_operators() {
+        let mut scanner = Scanner::new("+ ++ +=");
+        assert!(matches!(scanner.next_token().kind, TokenKind::Plus));
+        assert!(matches!(scanner.next_token().kind, TokenKind::PlusPlus));
+        assert!(matches!(scanner.next_token().kind, TokenKind::PlusEqual));
+    }
+
+    #[test]
+    fn test_minus_operators() {
+        let mut scanner = Scanner::new("- -- -=");
+        assert!(matches!(scanner.next_token().kind, TokenKind::Minus));
+        assert!(matches!(scanner.next_token().kind, TokenKind::MinusMinus));
+        assert!(matches!(scanner.next_token().kind, TokenKind::MinusEqual));
+    }
+
+    #[test]
+    fn test_star_operators() {
+        let mut scanner = Scanner::new("* ** *= **=");
+        assert!(matches!(scanner.next_token().kind, TokenKind::Star));
+        assert!(matches!(scanner.next_token().kind, TokenKind::StarStar));
+        assert!(matches!(scanner.next_token().kind, TokenKind::StarEqual));
+        assert!(matches!(
+            scanner.next_token().kind,
+            TokenKind::StarStarEqual
+        ));
+    }
+
+    #[test]
+    fn test_slash_operators() {
+        let mut scanner = Scanner::new("/ /=");
+        assert!(matches!(scanner.next_token().kind, TokenKind::Slash));
+        assert!(matches!(scanner.next_token().kind, TokenKind::SlashEqual));
+    }
+
+    #[test]
+    fn test_percent_operators() {
+        let mut scanner = Scanner::new("% %=");
+        assert!(matches!(scanner.next_token().kind, TokenKind::Percent));
+        assert!(matches!(scanner.next_token().kind, TokenKind::PercentEqual));
+    }
+
+    #[test]
+    fn test_less_than_operators() {
+        let mut scanner = Scanner::new("< <= << <<=");
+        assert!(matches!(scanner.next_token().kind, TokenKind::LessThan));
+        assert!(matches!(
+            scanner.next_token().kind,
+            TokenKind::LessThanEqual
+        ));
+        assert!(matches!(scanner.next_token().kind, TokenKind::LeftShift));
+        assert!(matches!(
+            scanner.next_token().kind,
+            TokenKind::LeftShiftEqual
+        ));
+    }
+
+    #[test]
+    fn test_greater_than_operators() {
+        let mut scanner = Scanner::new("> >= >> >>= >>> >>>=");
+        assert!(matches!(scanner.next_token().kind, TokenKind::GreaterThan));
+        assert!(matches!(
+            scanner.next_token().kind,
+            TokenKind::GreaterThanEqual
+        ));
+        assert!(matches!(scanner.next_token().kind, TokenKind::RightShift));
+        assert!(matches!(
+            scanner.next_token().kind,
+            TokenKind::RightShiftEqual
+        ));
+        assert!(matches!(
+            scanner.next_token().kind,
+            TokenKind::UnsignedRightShift
+        ));
+        assert!(matches!(
+            scanner.next_token().kind,
+            TokenKind::UnsignedRightShiftEqual
+        ));
+    }
+
+    #[test]
+    fn test_equal_operators() {
+        let mut scanner = Scanner::new("= == === =>");
+        assert!(matches!(scanner.next_token().kind, TokenKind::Equal));
+        assert!(matches!(scanner.next_token().kind, TokenKind::EqualEqual));
+        assert!(matches!(scanner.next_token().kind, TokenKind::StrictEqual));
+        assert!(matches!(scanner.next_token().kind, TokenKind::Arrow));
+    }
+
+    #[test]
+    fn test_bang_operators() {
+        let mut scanner = Scanner::new("! != !==");
+        assert!(matches!(scanner.next_token().kind, TokenKind::Bang));
+        assert!(matches!(scanner.next_token().kind, TokenKind::NotEqual));
+        assert!(matches!(
+            scanner.next_token().kind,
+            TokenKind::StrictNotEqual
+        ));
+    }
+
+    #[test]
+    fn test_ampersand_operators() {
+        let mut scanner = Scanner::new("& && &= &&=");
+        assert!(matches!(scanner.next_token().kind, TokenKind::Ampersand));
+        assert!(matches!(
+            scanner.next_token().kind,
+            TokenKind::AmpersandAmpersand
+        ));
+        assert!(matches!(
+            scanner.next_token().kind,
+            TokenKind::AmpersandEqual
+        ));
+        assert!(matches!(
+            scanner.next_token().kind,
+            TokenKind::AmpersandAmpersandEqual
+        ));
+    }
+
+    #[test]
+    fn test_pipe_operators() {
+        let mut scanner = Scanner::new("| || |= ||=");
+        assert!(matches!(scanner.next_token().kind, TokenKind::Pipe));
+        assert!(matches!(scanner.next_token().kind, TokenKind::PipePipe));
+        assert!(matches!(scanner.next_token().kind, TokenKind::PipeEqual));
+        assert!(matches!(
+            scanner.next_token().kind,
+            TokenKind::PipePipeEqual
+        ));
+    }
+
+    #[test]
+    fn test_caret_operators() {
+        let mut scanner = Scanner::new("^ ^=");
+        assert!(matches!(scanner.next_token().kind, TokenKind::Caret));
+        assert!(matches!(scanner.next_token().kind, TokenKind::CaretEqual));
+    }
+
+    #[test]
+    fn test_question_operators() {
+        let mut scanner = Scanner::new("? ?? ?. ??=");
+        assert!(matches!(scanner.next_token().kind, TokenKind::Question));
+        assert!(matches!(
+            scanner.next_token().kind,
+            TokenKind::QuestionQuestion
+        ));
+        assert!(matches!(scanner.next_token().kind, TokenKind::QuestionDot));
+        assert!(matches!(
+            scanner.next_token().kind,
+            TokenKind::QuestionQuestionEqual
+        ));
+    }
+
+    #[test]
+    fn test_eof() {
+        let mut scanner = Scanner::new("");
+        assert!(matches!(scanner.next_token().kind, TokenKind::Eof));
+    }
+
+    #[test]
+    fn test_whitespace_handling() {
+        let mut scanner = Scanner::new("  \t\n\r  42  ");
+        assert!(matches!(scanner.next_token().kind, TokenKind::Number(n) if n == 42.0));
+    }
+
+    #[test]
+    fn test_iterator() {
+        let scanner = Scanner::new("1 + 2");
+        let tokens: Vec<_> = scanner.collect();
+        assert_eq!(tokens.len(), 3);
+        assert!(matches!(tokens[0].kind, TokenKind::Number(_)));
+        assert!(matches!(tokens[1].kind, TokenKind::Plus));
+        assert!(matches!(tokens[2].kind, TokenKind::Number(_)));
+    }
+
+    #[test]
+    fn test_invalid_character() {
+        let mut scanner = Scanner::new("@");
+        assert!(matches!(scanner.next_token().kind, TokenKind::Invalid));
+    }
+
+    #[test]
+    fn test_span_tracking() {
+        let mut scanner = Scanner::new("foo");
+        let token = scanner.next_token();
+        assert_eq!(token.span.start, 0);
+        assert_eq!(token.span.end, 3);
+    }
+
+    #[test]
+    fn test_unicode_identifier() {
+        let mut scanner = Scanner::new("π café 日本語");
+        assert!(matches!(scanner.next_token().kind, TokenKind::Identifier(s) if s == "π"));
+        assert!(matches!(scanner.next_token().kind, TokenKind::Identifier(s) if s == "café"));
+        assert!(matches!(scanner.next_token().kind, TokenKind::Identifier(s) if s == "日本語"));
+    }
+
+    #[test]
+    fn test_template_with_expression() {
+        let mut scanner = Scanner::new("`hello ${");
+        let token = scanner.next_token();
+        assert!(matches!(token.kind, TokenKind::Template(s) if s == "hello "));
+    }
+
+    #[test]
+    fn test_unterminated_string() {
+        let mut scanner = Scanner::new("\"hello");
+        assert!(matches!(scanner.next_token().kind, TokenKind::Invalid));
+    }
+
+    #[test]
+    fn test_unterminated_template() {
+        let mut scanner = Scanner::new("`hello");
+        assert!(matches!(scanner.next_token().kind, TokenKind::Invalid));
+    }
+
+    #[test]
+    fn test_comment_at_end() {
+        let mut scanner = Scanner::new("42 // comment");
+        assert!(matches!(scanner.next_token().kind, TokenKind::Number(n) if n == 42.0));
+        assert!(matches!(scanner.next_token().kind, TokenKind::Eof));
+    }
+
+    #[test]
+    fn test_complex_expression() {
+        // const x = a + b * (c - d) / e;
+        // const, x, =, a, +, b, *, (, c, -, d, ), /, e, ; = 15 tokens
+        let scanner = Scanner::new("const x = a + b * (c - d) / e;");
+        let tokens: Vec<_> = scanner.collect();
+        assert_eq!(tokens.len(), 15);
     }
 }

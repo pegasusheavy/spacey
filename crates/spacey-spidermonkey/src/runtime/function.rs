@@ -116,3 +116,187 @@ impl CallFrame {
         self.locals[index] = value;
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::compiler::Bytecode;
+
+    fn make_function(name: Option<&str>, params: Vec<&str>, local_count: usize) -> Function {
+        Function::new(
+            name.map(|s| s.to_string()),
+            params.into_iter().map(|s| s.to_string()).collect(),
+            Bytecode::new(),
+            local_count,
+        )
+    }
+
+    #[test]
+    fn test_function_new() {
+        let func = make_function(Some("test"), vec!["a", "b"], 3);
+        assert_eq!(func.name, Some("test".to_string()));
+        assert_eq!(func.params, vec!["a".to_string(), "b".to_string()]);
+        assert_eq!(func.local_count, 3);
+        assert!(func.upvalues.is_empty());
+    }
+
+    #[test]
+    fn test_function_arity() {
+        let func0 = make_function(None, vec![], 0);
+        let func1 = make_function(None, vec!["x"], 0);
+        let func3 = make_function(None, vec!["a", "b", "c"], 0);
+
+        assert_eq!(func0.arity(), 0);
+        assert_eq!(func1.arity(), 1);
+        assert_eq!(func3.arity(), 3);
+    }
+
+    #[test]
+    fn test_function_clone() {
+        let func = make_function(Some("clone_test"), vec!["x"], 1);
+        let cloned = func.clone();
+
+        assert_eq!(func.name, cloned.name);
+        assert_eq!(func.params, cloned.params);
+        assert_eq!(func.local_count, cloned.local_count);
+    }
+
+    #[test]
+    fn test_upvalue() {
+        let upvalue = Upvalue {
+            index: 5,
+            is_local: true,
+        };
+
+        assert_eq!(upvalue.index, 5);
+        assert!(upvalue.is_local);
+
+        let cloned = upvalue.clone();
+        assert_eq!(cloned.index, 5);
+    }
+
+    #[test]
+    fn test_callable_function() {
+        let func = make_function(Some("myFunc"), vec![], 0);
+        let callable = Callable::Function(func);
+
+        let debug = format!("{:?}", callable);
+        assert!(debug.contains("myFunc"));
+    }
+
+    #[test]
+    fn test_callable_native() {
+        fn native_fn(_frame: &mut CallFrame, _args: &[Value]) -> Result<Value, String> {
+            Ok(Value::Number(42.0))
+        }
+
+        let callable = Callable::Native {
+            name: "native_test".to_string(),
+            arity: 0,
+            func: native_fn,
+        };
+
+        let debug = format!("{:?}", callable);
+        assert!(debug.contains("native_test"));
+    }
+
+    #[test]
+    fn test_callable_clone() {
+        let func = make_function(Some("cloneable"), vec![], 0);
+        let callable = Callable::Function(func);
+        let cloned = callable.clone();
+
+        match cloned {
+            Callable::Function(f) => assert_eq!(f.name, Some("cloneable".to_string())),
+            _ => panic!("Expected Function"),
+        }
+    }
+
+    #[test]
+    fn test_call_frame_new() {
+        let func = make_function(Some("frame_test"), vec!["x", "y"], 5);
+        let frame = CallFrame::new(func, 10);
+
+        assert_eq!(frame.ip, 0);
+        assert_eq!(frame.base_slot, 10);
+        assert_eq!(frame.locals.len(), 5); // max(local_count, params.len())
+    }
+
+    #[test]
+    fn test_call_frame_locals_from_params() {
+        // When params > local_count, locals should be sized by params
+        let func = make_function(None, vec!["a", "b", "c", "d"], 2);
+        let frame = CallFrame::new(func, 0);
+
+        assert_eq!(frame.locals.len(), 4); // max(2, 4) = 4
+    }
+
+    #[test]
+    fn test_call_frame_get_local() {
+        let func = make_function(None, vec![], 3);
+        let mut frame = CallFrame::new(func, 0);
+
+        // Initial values are undefined
+        assert_eq!(frame.get_local(0), Value::Undefined);
+        assert_eq!(frame.get_local(1), Value::Undefined);
+        assert_eq!(frame.get_local(2), Value::Undefined);
+
+        // Out of bounds returns undefined
+        assert_eq!(frame.get_local(100), Value::Undefined);
+
+        // Set and get
+        frame.set_local(1, Value::Number(42.0));
+        assert_eq!(frame.get_local(1), Value::Number(42.0));
+    }
+
+    #[test]
+    fn test_call_frame_set_local_expands() {
+        let func = make_function(None, vec![], 2);
+        let mut frame = CallFrame::new(func, 0);
+
+        assert_eq!(frame.locals.len(), 2);
+
+        // Setting beyond current size should expand
+        frame.set_local(5, Value::Boolean(true));
+
+        assert!(frame.locals.len() >= 6);
+        assert_eq!(frame.get_local(5), Value::Boolean(true));
+
+        // Intermediate values should be undefined
+        assert_eq!(frame.get_local(3), Value::Undefined);
+    }
+
+    #[test]
+    fn test_call_frame_debug() {
+        let func = make_function(Some("debug_test"), vec![], 1);
+        let frame = CallFrame::new(func, 0);
+
+        let debug = format!("{:?}", frame);
+        assert!(debug.contains("CallFrame"));
+    }
+
+    #[test]
+    fn test_native_function_type() {
+        fn my_native(_frame: &mut CallFrame, args: &[Value]) -> Result<Value, String> {
+            if args.is_empty() {
+                Err("Need at least one argument".to_string())
+            } else {
+                Ok(args[0].clone())
+            }
+        }
+
+        let callable = Callable::Native {
+            name: "identity".to_string(),
+            arity: 1,
+            func: my_native,
+        };
+
+        match callable {
+            Callable::Native { name, arity, .. } => {
+                assert_eq!(name, "identity");
+                assert_eq!(arity, 1);
+            }
+            _ => panic!("Expected Native"),
+        }
+    }
+}

@@ -296,3 +296,252 @@ impl TokenKind {
         )
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_span_new() {
+        let span = Span::new(0, 10);
+        assert_eq!(span.start, 0);
+        assert_eq!(span.end, 10);
+    }
+
+    #[test]
+    fn test_span_len() {
+        let span = Span::new(5, 15);
+        assert_eq!(span.len(), 10);
+    }
+
+    #[test]
+    fn test_span_is_empty() {
+        let empty = Span::new(5, 5);
+        let non_empty = Span::new(5, 10);
+
+        assert!(empty.is_empty());
+        assert!(!non_empty.is_empty());
+    }
+
+    #[test]
+    fn test_span_equality() {
+        let span1 = Span::new(0, 10);
+        let span2 = Span::new(0, 10);
+        let span3 = Span::new(0, 5);
+
+        assert_eq!(span1, span2);
+        assert_ne!(span1, span3);
+    }
+
+    #[test]
+    fn test_span_clone() {
+        let span = Span::new(0, 10);
+        let cloned = span;
+        assert_eq!(span, cloned);
+    }
+
+    #[test]
+    fn test_token_new() {
+        let token = Token::new(TokenKind::Number(42.0), Span::new(0, 2));
+        assert_eq!(token.kind, TokenKind::Number(42.0));
+        assert_eq!(token.span, Span::new(0, 2));
+    }
+
+    #[test]
+    fn test_token_equality() {
+        let t1 = Token::new(TokenKind::Plus, Span::new(0, 1));
+        let t2 = Token::new(TokenKind::Plus, Span::new(0, 1));
+        let t3 = Token::new(TokenKind::Minus, Span::new(0, 1));
+
+        assert_eq!(t1, t2);
+        assert_ne!(t1, t3);
+    }
+
+    #[test]
+    fn test_token_clone() {
+        let token = Token::new(TokenKind::Identifier("x".to_string()), Span::new(0, 1));
+        let cloned = token.clone();
+        assert_eq!(token, cloned);
+    }
+
+    #[test]
+    fn test_is_keyword_true() {
+        assert!(TokenKind::If.is_keyword());
+        assert!(TokenKind::Else.is_keyword());
+        assert!(TokenKind::For.is_keyword());
+        assert!(TokenKind::While.is_keyword());
+        assert!(TokenKind::Function.is_keyword());
+        assert!(TokenKind::Const.is_keyword());
+        assert!(TokenKind::Let.is_keyword());
+        assert!(TokenKind::Var.is_keyword());
+        assert!(TokenKind::Return.is_keyword());
+        assert!(TokenKind::Break.is_keyword());
+        assert!(TokenKind::Continue.is_keyword());
+        assert!(TokenKind::Class.is_keyword());
+        assert!(TokenKind::Extends.is_keyword());
+        assert!(TokenKind::Super.is_keyword());
+        assert!(TokenKind::This.is_keyword());
+        assert!(TokenKind::New.is_keyword());
+        assert!(TokenKind::Try.is_keyword());
+        assert!(TokenKind::Catch.is_keyword());
+        assert!(TokenKind::Finally.is_keyword());
+        assert!(TokenKind::Throw.is_keyword());
+        assert!(TokenKind::Typeof.is_keyword());
+        assert!(TokenKind::Instanceof.is_keyword());
+        assert!(TokenKind::In.is_keyword());
+        assert!(TokenKind::Delete.is_keyword());
+        assert!(TokenKind::Void.is_keyword());
+        assert!(TokenKind::Await.is_keyword());
+        assert!(TokenKind::Async.is_keyword());
+        assert!(TokenKind::Yield.is_keyword());
+        assert!(TokenKind::Switch.is_keyword());
+        assert!(TokenKind::Case.is_keyword());
+        assert!(TokenKind::Default.is_keyword());
+        assert!(TokenKind::Do.is_keyword());
+        assert!(TokenKind::With.is_keyword());
+        assert!(TokenKind::Debugger.is_keyword());
+        assert!(TokenKind::Enum.is_keyword());
+        assert!(TokenKind::Export.is_keyword());
+        assert!(TokenKind::Import.is_keyword());
+        assert!(TokenKind::Static.is_keyword());
+    }
+
+    #[test]
+    fn test_is_keyword_false() {
+        assert!(!TokenKind::Plus.is_keyword());
+        assert!(!TokenKind::Number(42.0).is_keyword());
+        assert!(!TokenKind::String("hello".to_string()).is_keyword());
+        assert!(!TokenKind::Identifier("x".to_string()).is_keyword());
+        assert!(!TokenKind::True.is_keyword());
+        assert!(!TokenKind::False.is_keyword());
+        assert!(!TokenKind::Null.is_keyword());
+        assert!(!TokenKind::Eof.is_keyword());
+    }
+
+    #[test]
+    fn test_is_literal_true() {
+        assert!(TokenKind::Number(42.0).is_literal());
+        assert!(TokenKind::BigInt("123".to_string()).is_literal());
+        assert!(TokenKind::String("hello".to_string()).is_literal());
+        assert!(TokenKind::Template("template".to_string()).is_literal());
+        assert!(
+            TokenKind::RegExp {
+                pattern: ".*".to_string(),
+                flags: "g".to_string()
+            }
+            .is_literal()
+        );
+        assert!(TokenKind::True.is_literal());
+        assert!(TokenKind::False.is_literal());
+        assert!(TokenKind::Null.is_literal());
+    }
+
+    #[test]
+    fn test_is_literal_false() {
+        assert!(!TokenKind::Plus.is_literal());
+        assert!(!TokenKind::If.is_literal());
+        assert!(!TokenKind::Identifier("x".to_string()).is_literal());
+        assert!(!TokenKind::LeftBrace.is_literal());
+        assert!(!TokenKind::Eof.is_literal());
+    }
+
+    #[test]
+    fn test_token_kind_debug() {
+        let kind = TokenKind::Number(42.0);
+        let debug = format!("{:?}", kind);
+        assert!(debug.contains("Number"));
+        assert!(debug.contains("42"));
+    }
+
+    #[test]
+    fn test_token_kind_clone() {
+        let kind = TokenKind::String("hello".to_string());
+        let cloned = kind.clone();
+        assert_eq!(kind, cloned);
+    }
+
+    #[test]
+    fn test_all_punctuation_tokens() {
+        // Test that punctuation tokens exist and can be compared
+        let tokens = vec![
+            TokenKind::LeftBrace,
+            TokenKind::RightBrace,
+            TokenKind::LeftParen,
+            TokenKind::RightParen,
+            TokenKind::LeftBracket,
+            TokenKind::RightBracket,
+            TokenKind::Dot,
+            TokenKind::Ellipsis,
+            TokenKind::Semicolon,
+            TokenKind::Comma,
+            TokenKind::LessThan,
+            TokenKind::GreaterThan,
+            TokenKind::LessThanEqual,
+            TokenKind::GreaterThanEqual,
+            TokenKind::EqualEqual,
+            TokenKind::NotEqual,
+            TokenKind::StrictEqual,
+            TokenKind::StrictNotEqual,
+            TokenKind::Plus,
+            TokenKind::Minus,
+            TokenKind::Star,
+            TokenKind::Slash,
+            TokenKind::Percent,
+            TokenKind::StarStar,
+            TokenKind::PlusPlus,
+            TokenKind::MinusMinus,
+            TokenKind::LeftShift,
+            TokenKind::RightShift,
+            TokenKind::UnsignedRightShift,
+            TokenKind::Ampersand,
+            TokenKind::Pipe,
+            TokenKind::Caret,
+            TokenKind::Bang,
+            TokenKind::Tilde,
+            TokenKind::AmpersandAmpersand,
+            TokenKind::PipePipe,
+            TokenKind::QuestionQuestion,
+            TokenKind::Question,
+            TokenKind::QuestionDot,
+            TokenKind::Colon,
+            TokenKind::Equal,
+            TokenKind::PlusEqual,
+            TokenKind::MinusEqual,
+            TokenKind::StarEqual,
+            TokenKind::SlashEqual,
+            TokenKind::PercentEqual,
+            TokenKind::StarStarEqual,
+            TokenKind::LeftShiftEqual,
+            TokenKind::RightShiftEqual,
+            TokenKind::UnsignedRightShiftEqual,
+            TokenKind::AmpersandEqual,
+            TokenKind::PipeEqual,
+            TokenKind::CaretEqual,
+            TokenKind::AmpersandAmpersandEqual,
+            TokenKind::PipePipeEqual,
+            TokenKind::QuestionQuestionEqual,
+            TokenKind::Arrow,
+        ];
+
+        // All punctuation tokens should not be keywords or literals
+        for token in tokens {
+            assert!(!token.is_keyword());
+            assert!(!token.is_literal());
+        }
+    }
+
+    #[test]
+    fn test_special_tokens() {
+        assert!(!TokenKind::Eof.is_keyword());
+        assert!(!TokenKind::Eof.is_literal());
+        assert!(!TokenKind::Invalid.is_keyword());
+        assert!(!TokenKind::Invalid.is_literal());
+    }
+
+    #[test]
+    fn test_private_identifier() {
+        let private = TokenKind::PrivateIdentifier("name".to_string());
+        assert!(!private.is_keyword());
+        assert!(!private.is_literal());
+    }
+}
