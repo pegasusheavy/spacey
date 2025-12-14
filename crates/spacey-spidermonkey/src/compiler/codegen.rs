@@ -931,9 +931,40 @@ impl Compiler {
         &mut self,
         func_decl: &FunctionDeclaration,
     ) -> Result<(), Error> {
-        // Create a placeholder function value
-        // In a full implementation, would compile the function body
-        let func_value = Value::Object(0); // Placeholder
+        // Create a new compiler for the function body
+        let mut func_compiler = Compiler::new();
+        func_compiler.scope.begin_scope();
+
+        // Declare parameters as locals
+        let param_names: Vec<String> = func_decl.params.iter().map(|p| p.name.clone()).collect();
+        for param in &param_names {
+            func_compiler.scope.declare(param.clone(), true)?;
+        }
+
+        // Compile function body
+        for (i, stmt) in func_decl.body.iter().enumerate() {
+            let is_last = i == func_decl.body.len() - 1;
+            func_compiler.compile_statement(stmt, is_last)?;
+        }
+
+        // Implicit return undefined if no explicit return
+        func_compiler.emit(Instruction::simple(OpCode::LoadUndefined));
+        func_compiler.emit(Instruction::simple(OpCode::Return));
+
+        let local_count = func_compiler.scope.locals.len();
+        func_compiler.scope.end_scope();
+
+        // Create the function object
+        let func_obj = crate::runtime::function::Function::new(
+            Some(func_decl.id.name.clone()),
+            param_names,
+            std::mem::take(&mut func_compiler.bytecode),
+            local_count,
+        );
+
+        // Create callable and wrap in Value
+        let callable = crate::runtime::function::Callable::Function(func_obj);
+        let func_value = Value::Function(std::sync::Arc::new(callable));
         let idx = self.bytecode.add_constant(func_value);
 
         // Store function in scope
@@ -1105,9 +1136,42 @@ impl Compiler {
         Ok(())
     }
 
-    fn compile_object(&mut self, _obj: &ObjectExpression) -> Result<(), Error> {
-        // For now, just create empty object
+    fn compile_object(&mut self, obj: &ObjectExpression) -> Result<(), Error> {
+        // Create new object
         self.emit(Instruction::simple(OpCode::NewObject));
+
+        // Set properties
+        for prop in &obj.properties {
+            // Duplicate object reference for each property set
+            self.emit(Instruction::simple(OpCode::Dup));
+
+            // Compile property key
+            let key_name = match &prop.key {
+                PropertyKey::Identifier(id) => id.name.clone(),
+                PropertyKey::Literal(lit) => match lit {
+                    Literal::String(s) => s.clone(),
+                    Literal::Number(n) => n.to_string(),
+                    _ => return Err(Error::SyntaxError("Invalid property key".into())),
+                },
+                PropertyKey::Computed(_) => {
+                    return Err(Error::SyntaxError("Computed properties not yet supported".into()))
+                }
+            };
+
+            // Compile property value
+            self.compile_expression(&prop.value)?;
+
+            // Emit SetProperty
+            let key_idx = self.bytecode.add_constant(Value::String(key_name));
+            self.emit(Instruction::with_operand(
+                OpCode::SetProperty,
+                Operand::Property(key_idx),
+            ));
+
+            // Pop the duplicated object (SetProperty leaves value on stack, we want object)
+            self.emit(Instruction::simple(OpCode::Pop));
+        }
+
         Ok(())
     }
 
@@ -1432,13 +1496,12 @@ impl Compiler {
     fn compile_function_expr(&mut self, func: &FunctionExpression) -> Result<(), Error> {
         // Create a new compiler for the function body
         let mut func_compiler = Compiler::new();
-
-        // Enter function scope
         func_compiler.scope.begin_scope();
 
         // Declare parameters as locals
-        for param in &func.params {
-            func_compiler.scope.declare(param.name.clone(), true)?;
+        let param_names: Vec<String> = func.params.iter().map(|p| p.name.clone()).collect();
+        for param in &param_names {
+            func_compiler.scope.declare(param.clone(), true)?;
         }
 
         // Compile function body
@@ -1451,11 +1514,20 @@ impl Compiler {
         func_compiler.emit(Instruction::simple(OpCode::LoadUndefined));
         func_compiler.emit(Instruction::simple(OpCode::Return));
 
+        let local_count = func_compiler.scope.locals.len();
         func_compiler.scope.end_scope();
 
-        // Store function bytecode as a constant
-        // In a full impl, would create a Function object
-        let func_value = Value::Object(0); // Placeholder
+        // Create the function object
+        let func_obj = crate::runtime::function::Function::new(
+            func.id.as_ref().map(|id| id.name.clone()),
+            param_names,
+            std::mem::take(&mut func_compiler.bytecode),
+            local_count,
+        );
+
+        // Create callable and wrap in Value
+        let callable = crate::runtime::function::Callable::Function(func_obj);
+        let func_value = Value::Function(std::sync::Arc::new(callable));
         let idx = self.bytecode.add_constant(func_value);
         self.emit(Instruction::with_operand(
             OpCode::LoadConst,
@@ -1471,8 +1543,9 @@ impl Compiler {
         let mut func_compiler = Compiler::new();
         func_compiler.scope.begin_scope();
 
-        for param in &arrow.params {
-            func_compiler.scope.declare(param.name.clone(), true)?;
+        let param_names: Vec<String> = arrow.params.iter().map(|p| p.name.clone()).collect();
+        for param in &param_names {
+            func_compiler.scope.declare(param.clone(), true)?;
         }
 
         match &arrow.body {
@@ -1490,9 +1563,19 @@ impl Compiler {
             }
         }
 
+        let local_count = func_compiler.scope.locals.len();
         func_compiler.scope.end_scope();
 
-        let func_value = Value::Object(0); // Placeholder
+        // Create the function object
+        let func_obj = crate::runtime::function::Function::new(
+            None, // Arrow functions are always anonymous
+            param_names,
+            std::mem::take(&mut func_compiler.bytecode),
+            local_count,
+        );
+
+        let callable = crate::runtime::function::Callable::Function(func_obj);
+        let func_value = Value::Function(std::sync::Arc::new(callable));
         let idx = self.bytecode.add_constant(func_value);
         self.emit(Instruction::with_operand(
             OpCode::LoadConst,

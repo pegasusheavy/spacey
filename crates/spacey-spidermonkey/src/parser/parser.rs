@@ -1477,4 +1477,12 @@ mod tests {
         let program = parse_ok("let x = 1; let y = 2; let z = 3;");
         assert_eq!(program.body.len(), 3);
     }
+
+    #[test]
+    fn test_parse_ternary_operator() {
+        parse_ok("true ? 1 : 2;");
+        parse_ok("x > 0 ? x : -x;");
+        parse_ok("a ? b : c ? d : e;");
+        parse_ok("let x = a > b ? a : b;");
+    }
 }

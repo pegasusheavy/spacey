@@ -19,6 +19,68 @@ struct SavedFrame {
     locals_base: usize,
 }
 
+/// Runtime object representation
+#[derive(Clone, Debug)]
+pub struct RuntimeObject {
+    /// Properties stored as key-value pairs
+    properties: HashMap<String, Value>,
+    /// For arrays: stores elements by index
+    array_elements: Vec<Value>,
+    /// Whether this is an array
+    is_array: bool,
+}
+
+impl RuntimeObject {
+    /// Create a new empty object
+    fn new() -> Self {
+        Self {
+            properties: HashMap::new(),
+            array_elements: Vec::new(),
+            is_array: false,
+        }
+    }
+
+    /// Create a new array with elements
+    fn new_array(elements: Vec<Value>) -> Self {
+        let len = elements.len();
+        let mut obj = Self {
+            properties: HashMap::new(),
+            array_elements: elements,
+            is_array: true,
+        };
+        obj.properties.insert("length".to_string(), Value::Number(len as f64));
+        obj
+    }
+
+    /// Get a property by name
+    fn get(&self, name: &str) -> Value {
+        if self.is_array {
+            // Check for numeric index
+            if let Ok(idx) = name.parse::<usize>() {
+                return self.array_elements.get(idx).cloned().unwrap_or(Value::Undefined);
+            }
+        }
+        self.properties.get(name).cloned().unwrap_or(Value::Undefined)
+    }
+
+    /// Set a property
+    fn set(&mut self, name: &str, value: Value) {
+        if self.is_array {
+            if let Ok(idx) = name.parse::<usize>() {
+                // Extend array if necessary
+                while self.array_elements.len() <= idx {
+                    self.array_elements.push(Value::Undefined);
+                }
+                self.array_elements[idx] = value;
+                // Update length
+                self.properties.insert("length".to_string(), Value::Number(self.array_elements.len() as f64));
+                return;
+            }
+        }
+        self.properties.insert(name.to_string(), value);
+    }
+}
+
 /// The virtual machine that executes bytecode.
 #[derive(Clone)]
 pub struct VM {
@@ -34,6 +96,8 @@ pub struct VM {
     call_stack: Vec<SavedFrame>,
     /// Native functions
     native_functions: HashMap<String, Arc<Callable>>,
+    /// Heap for runtime objects
+    heap: Vec<RuntimeObject>,
 }
 
 impl VM {
@@ -46,9 +110,17 @@ impl VM {
             ip: 0,
             call_stack: Vec::with_capacity(64),
             native_functions: HashMap::new(),
+            heap: Vec::with_capacity(256),
         };
         vm.register_builtins();
         vm
+    }
+
+    /// Allocate a new object on the heap, returning its index
+    fn alloc_object(&mut self, obj: RuntimeObject) -> usize {
+        let idx = self.heap.len();
+        self.heap.push(obj);
+        idx
     }
 
     /// Register built-in native functions.
@@ -79,6 +151,110 @@ impl VM {
     /// Get a native function by name.
     pub fn get_native(&self, name: &str) -> Option<Arc<Callable>> {
         self.native_functions.get(name).cloned()
+    }
+
+    /// Call a user-defined function with given arguments.
+    fn call_function(&mut self, func: &Function, args: &[Value]) -> Result<Value, Error> {
+        // Execute the function's bytecode
+        let func_bytecode = &func.bytecode;
+
+        // Save current state
+        let saved_ip = self.ip;
+        let saved_locals_len = self.locals.len();
+
+        // Initialize locals for the function
+        // First set up parameters
+        for (i, param) in func.params.iter().enumerate() {
+            let value = args.get(i).cloned().unwrap_or(Value::Undefined);
+            // Extend locals if needed
+            while self.locals.len() <= i + saved_locals_len {
+                self.locals.push(Value::Undefined);
+            }
+            self.locals[i + saved_locals_len] = value;
+            let _ = param; // Silence unused warning
+        }
+
+        // Allocate remaining locals as undefined
+        let total_locals = func.local_count.max(func.params.len());
+        while self.locals.len() < saved_locals_len + total_locals {
+            self.locals.push(Value::Undefined);
+        }
+
+        // Execute function
+        self.ip = 0;
+        let mut result = Value::Undefined;
+
+        loop {
+            if self.ip >= func_bytecode.instructions.len() {
+                break;
+            }
+
+            let instruction = &func_bytecode.instructions[self.ip];
+            self.ip += 1;
+
+            match instruction.opcode {
+                OpCode::Return => {
+                    result = self.pop().unwrap_or(Value::Undefined);
+                    break;
+                }
+
+                OpCode::LoadConst => {
+                    if let Some(Operand::Constant(idx)) = &instruction.operand {
+                        let value = func_bytecode.constants[*idx as usize].clone();
+                        self.stack.push(value);
+                    }
+                }
+
+                OpCode::LoadLocal => {
+                    if let Some(Operand::Local(idx)) = &instruction.operand {
+                        let local_idx = saved_locals_len + *idx as usize;
+                        let value = self
+                            .locals
+                            .get(local_idx)
+                            .cloned()
+                            .unwrap_or(Value::Undefined);
+                        self.stack.push(value);
+                    }
+                }
+
+                OpCode::StoreLocal => {
+                    if let Some(Operand::Local(idx)) = &instruction.operand {
+                        let local_idx = saved_locals_len + *idx as usize;
+                        let value = self.pop()?;
+                        while self.locals.len() <= local_idx {
+                            self.locals.push(Value::Undefined);
+                        }
+                        self.locals[local_idx] = value;
+                    }
+                }
+
+                OpCode::LoadUndefined => {
+                    self.stack.push(Value::Undefined);
+                }
+
+                OpCode::Add => self.binary_add()?,
+                OpCode::Sub => self.binary_num_op(|a, b| a - b)?,
+                OpCode::Mul => self.binary_num_op(|a, b| a * b)?,
+                OpCode::Div => self.binary_num_op(|a, b| a / b)?,
+                OpCode::Mod => self.binary_num_op(|a, b| a % b)?,
+                OpCode::Pow => self.binary_num_op(|a, b| a.powf(b))?,
+
+                OpCode::Pop => {
+                    self.pop()?;
+                }
+
+                _ => {
+                    // For any other operations, we'd need to handle them
+                    // For now, skip unhandled ops in function bodies
+                }
+            }
+        }
+
+        // Restore state
+        self.ip = saved_ip;
+        self.locals.truncate(saved_locals_len);
+
+        Ok(result)
     }
 
     /// Executes bytecode and returns the result.
@@ -252,15 +428,27 @@ impl VM {
 
                 // Object/array operations
                 OpCode::NewArray => {
-                    // For now, just push an object reference
-                    if let Some(Operand::ArgCount(_)) = &instruction.operand {
-                        // TODO: Actually create array with elements from stack
-                        self.stack.push(Value::Object(0));
+                    if let Some(Operand::ArgCount(count)) = &instruction.operand {
+                        let count = *count as usize;
+                        // Pop elements from stack (in reverse order)
+                        let mut elements = Vec::with_capacity(count);
+                        for _ in 0..count {
+                            elements.push(self.pop()?);
+                        }
+                        elements.reverse();
+                        // Create array on heap
+                        let idx = self.alloc_object(RuntimeObject::new_array(elements));
+                        self.stack.push(Value::Object(idx));
+                    } else {
+                        // Empty array
+                        let idx = self.alloc_object(RuntimeObject::new_array(vec![]));
+                        self.stack.push(Value::Object(idx));
                     }
                 }
 
                 OpCode::NewObject => {
-                    self.stack.push(Value::Object(0));
+                    let idx = self.alloc_object(RuntimeObject::new());
+                    self.stack.push(Value::Object(idx));
                 }
 
                 OpCode::GetProperty => {
@@ -308,9 +496,13 @@ impl VM {
                                 }
                             }
                         }
-                        Value::Object(_) => {
-                            // Object property access - for now just basic handling
-                            Value::Undefined
+                        Value::Object(idx) => {
+                            // Object property access from heap
+                            if let Some(obj) = self.heap.get(*idx) {
+                                obj.get(&prop_name)
+                            } else {
+                                Value::Undefined
+                            }
                         }
                         _ => Value::Undefined,
                     };
@@ -319,11 +511,44 @@ impl VM {
                 }
 
                 OpCode::SetProperty => {
-                    // TODO: Implement proper property setting
-                    let _value = self.stack.pop();
-                    let _prop = self.stack.pop();
-                    let _obj = self.stack.pop();
-                    self.stack.push(Value::Undefined);
+                    // Get property name from operand or stack
+                    let prop_name = if let Some(Operand::Property(idx)) = &instruction.operand {
+                        match bytecode.constants.get(*idx as usize) {
+                            Some(Value::String(s)) => s.clone(),
+                            _ => {
+                                self.stack.push(Value::Undefined);
+                                continue;
+                            }
+                        }
+                    } else {
+                        match self.stack.pop() {
+                            Some(Value::String(s)) => s,
+                            Some(Value::Number(n)) => n.to_string(),
+                            _ => {
+                                self.stack.push(Value::Undefined);
+                                continue;
+                            }
+                        }
+                    };
+
+                    // Get value to set
+                    let value = self.pop()?;
+
+                    // Get object
+                    let obj = self.stack.pop().unwrap_or(Value::Undefined);
+
+                    // Set property on object in heap
+                    if let Value::Object(idx) = obj {
+                        if let Some(obj) = self.heap.get_mut(idx) {
+                            obj.set(&prop_name, value.clone());
+                        }
+                        // Push the object back (object is still on stack for chained property access)
+                        self.stack.push(Value::Object(idx));
+                        // Also push the value (result of assignment)
+                        self.stack.push(value);
+                    } else {
+                        self.stack.push(Value::Undefined);
+                    }
                 }
 
                 OpCode::LoadThis => {
@@ -360,14 +585,10 @@ impl VM {
                                             Err(e) => return Err(Error::TypeError(e)),
                                         }
                                     }
-                                    Callable::Function(_func) => {
-                                        // TODO: Implement JS function calls
-                                        // This would involve:
-                                        // 1. Save current frame
-                                        // 2. Create new frame
-                                        // 3. Set up locals with arguments
-                                        // 4. Execute function bytecode
-                                        self.stack.push(Value::Undefined);
+                                    Callable::Function(func) => {
+                                        // Execute the user-defined function
+                                        let result = self.call_function(func, &args)?;
+                                        self.stack.push(result);
                                     }
                                 }
                             }
