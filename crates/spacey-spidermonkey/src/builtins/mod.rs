@@ -16,6 +16,7 @@
 pub mod array;
 pub mod boolean;
 pub mod console;
+pub mod date;
 pub mod error;
 pub mod function;
 pub mod global;
@@ -63,6 +64,9 @@ pub fn register_builtins() -> HashMap<String, Value> {
 
     // Function constructor and methods
     register_function(&mut globals);
+
+    // Date constructor and methods
+    register_date(&mut globals);
 
     globals
 }
@@ -537,6 +541,131 @@ fn register_function(globals: &mut HashMap<String, Value>) {
     globals.insert(
         "Function_name".to_string(),
         make_native("Function.prototype.name", 0, function::get_name),
+    );
+}
+
+/// Register Date constructor and methods.
+fn register_date(globals: &mut HashMap<String, Value>) {
+    // Date constructor
+    globals.insert(
+        "Date".to_string(),
+        make_native("Date", -1, date::date_constructor),
+    );
+
+    // Date static methods
+    globals.insert(
+        "Date_parse".to_string(),
+        make_native("Date.parse", 1, date::parse),
+    );
+    globals.insert(
+        "Date_UTC".to_string(),
+        make_native("Date.UTC", -1, date::utc),
+    );
+    globals.insert(
+        "Date_now".to_string(),
+        make_native("Date.now", 0, date::now),
+    );
+
+    // Date.prototype methods
+    globals.insert(
+        "Date_toString".to_string(),
+        make_native("Date.prototype.toString", 0, date::to_string),
+    );
+    globals.insert(
+        "Date_toDateString".to_string(),
+        make_native("Date.prototype.toDateString", 0, date::to_date_string),
+    );
+    globals.insert(
+        "Date_toTimeString".to_string(),
+        make_native("Date.prototype.toTimeString", 0, date::to_time_string),
+    );
+    globals.insert(
+        "Date_toISOString".to_string(),
+        make_native("Date.prototype.toISOString", 0, date::to_iso_string),
+    );
+    globals.insert(
+        "Date_toJSON".to_string(),
+        make_native("Date.prototype.toJSON", 0, date::to_json),
+    );
+    globals.insert(
+        "Date_valueOf".to_string(),
+        make_native("Date.prototype.valueOf", 0, date::value_of),
+    );
+    globals.insert(
+        "Date_getTime".to_string(),
+        make_native("Date.prototype.getTime", 0, date::get_time),
+    );
+    globals.insert(
+        "Date_getFullYear".to_string(),
+        make_native("Date.prototype.getFullYear", 0, date::get_full_year),
+    );
+    globals.insert(
+        "Date_getMonth".to_string(),
+        make_native("Date.prototype.getMonth", 0, date::get_month),
+    );
+    globals.insert(
+        "Date_getDate".to_string(),
+        make_native("Date.prototype.getDate", 0, date::get_date),
+    );
+    globals.insert(
+        "Date_getDay".to_string(),
+        make_native("Date.prototype.getDay", 0, date::get_day),
+    );
+    globals.insert(
+        "Date_getHours".to_string(),
+        make_native("Date.prototype.getHours", 0, date::get_hours),
+    );
+    globals.insert(
+        "Date_getMinutes".to_string(),
+        make_native("Date.prototype.getMinutes", 0, date::get_minutes),
+    );
+    globals.insert(
+        "Date_getSeconds".to_string(),
+        make_native("Date.prototype.getSeconds", 0, date::get_seconds),
+    );
+    globals.insert(
+        "Date_getMilliseconds".to_string(),
+        make_native("Date.prototype.getMilliseconds", 0, date::get_milliseconds),
+    );
+    globals.insert(
+        "Date_getTimezoneOffset".to_string(),
+        make_native(
+            "Date.prototype.getTimezoneOffset",
+            0,
+            date::get_timezone_offset,
+        ),
+    );
+    globals.insert(
+        "Date_setTime".to_string(),
+        make_native("Date.prototype.setTime", 1, date::set_time),
+    );
+    globals.insert(
+        "Date_setMilliseconds".to_string(),
+        make_native("Date.prototype.setMilliseconds", 1, date::set_milliseconds),
+    );
+    globals.insert(
+        "Date_setSeconds".to_string(),
+        make_native("Date.prototype.setSeconds", -1, date::set_seconds),
+    );
+    globals.insert(
+        "Date_setMinutes".to_string(),
+        make_native("Date.prototype.setMinutes", -1, date::set_minutes),
+    );
+    globals.insert(
+        "Date_setHours".to_string(),
+        make_native("Date.prototype.setHours", -1, date::set_hours),
+    );
+    globals.insert(
+        "Date_setDate".to_string(),
+        make_native("Date.prototype.setDate", 1, date::set_date),
+    );
+    globals.insert(
+        "Date_setMonth".to_string(),
+        make_native("Date.prototype.setMonth", -1, date::set_month),
+    );
+    globals.insert(
+        "Date_setFullYear".to_string(),
+        make_native("Date.prototype.setFullYear", -1, date::set_full_year),
     );
 }
 
