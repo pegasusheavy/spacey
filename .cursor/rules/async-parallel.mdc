@@ -158,7 +158,7 @@ async fn process_files(paths: Vec<PathBuf>) -> Vec<Content> {
     let contents = futures::future::join_all(
         paths.iter().map(|p| tokio::fs::read_to_string(p))
     ).await;
-    
+
     tokio::task::spawn_blocking(move || {
         contents.into_par_iter()
             .filter_map(|c| c.ok())

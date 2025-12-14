@@ -1,6 +1,7 @@
 [workspace]
 resolver = "2"
 members = [
+    "crates/spacey-macros",
     "crates/spacey-spidermonkey",
     "crates/spacey-node",
 ]
@@ -14,6 +15,7 @@ repository = "https://github.com/pegasusheavy/spacey"
 
 [workspace.dependencies]
 # Shared dependencies across workspace
+spacey-macros = { path = "crates/spacey-macros" }
 spacey-spidermonkey = { path = "crates/spacey-spidermonkey" }
 tokio = { version = "1.42", features = ["rt-multi-thread", "fs", "sync", "macros"] }
 rayon = "1.10"

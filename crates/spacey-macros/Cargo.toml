@@ -1,0 +1,13 @@
+[package]
+name = "spacey-macros"
+description = "Developer-friendly macros for the Spacey JavaScript engine"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+# No dependencies needed for declarative macros
+
+[dev-dependencies]
+tokio = { version = "1.42", features = ["rt-multi-thread", "macros"] }
+rayon = "1.10"

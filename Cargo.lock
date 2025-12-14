@@ -1046,6 +1046,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "spacey-macros"
+version = "0.1.0"
+dependencies = [
+ "rayon",
+ "tokio",
+]
+
+[[package]]
 name = "spacey-node"
 version = "0.1.0"
 dependencies = [
