@@ -990,6 +990,25 @@ impl<'a> Parser<'a> {
 mod tests {
     use super::*;
 
+    // Helper to parse and get first statement
+    fn parse_stmt(src: &str) -> Statement {
+        let mut parser = Parser::new(src);
+        let program = parser.parse_program().unwrap();
+        program.body.into_iter().next().unwrap()
+    }
+
+    // Helper to parse and check it succeeds
+    fn parse_ok(src: &str) -> Program {
+        let mut parser = Parser::new(src);
+        parser.parse_program().unwrap()
+    }
+
+    // Helper to parse and check it fails
+    fn parse_err(src: &str) -> Error {
+        let mut parser = Parser::new(src);
+        parser.parse_program().unwrap_err()
+    }
+
     #[test]
     fn test_parse_variable_declaration() {
         let mut parser = Parser::new("let x = 42;");
@@ -1009,5 +1028,261 @@ mod tests {
         let mut parser = Parser::new("1 + 2 * 3;");
         let program = parser.parse_program().unwrap();
         assert_eq!(program.body.len(), 1);
+    }
+
+    #[test]
+    fn test_parse_var_let_const() {
+        parse_ok("var x = 1;");
+        parse_ok("let y = 2;");
+        parse_ok("const z = 3;");
+    }
+
+    #[test]
+    fn test_parse_multiple_declarations() {
+        let program = parse_ok("let a = 1, b = 2, c;");
+        assert_eq!(program.body.len(), 1);
+    }
+
+    #[test]
+    fn test_parse_if_statement() {
+        parse_ok("if (x > 0) { y = 1; }");
+        parse_ok("if (x) y = 1;");
+        parse_ok("if (x) y = 1; else z = 2;");
+        parse_ok("if (a) { } else if (b) { } else { }");
+    }
+
+    #[test]
+    fn test_parse_while_statement() {
+        parse_ok("while (x > 0) { x = x - 1; }");
+        parse_ok("while (true) break;");
+    }
+
+    #[test]
+    fn test_parse_do_while_statement() {
+        parse_ok("do { x = x + 1; } while (x < 10);");
+    }
+
+    #[test]
+    fn test_parse_for_statement() {
+        parse_ok("for (let i = 0; i < 10; i = i + 1) { }");
+        parse_ok("for (;;) break;");
+        parse_ok("for (i = 0; i < n;) { i = i + 1; }");
+    }
+
+    #[test]
+    fn test_parse_switch_statement() {
+        parse_ok("switch (x) { case 1: break; case 2: y = 2; break; default: z = 0; }");
+        parse_ok("switch (x) { default: break; }");
+    }
+
+    #[test]
+    fn test_parse_try_catch_finally() {
+        parse_ok("try { x = 1; } catch (e) { }");
+        parse_ok("try { } finally { cleanup(); }");
+        parse_ok("try { } catch (e) { } finally { }");
+    }
+
+    #[test]
+    fn test_parse_throw_statement() {
+        parse_ok("throw new Error('msg');");
+        parse_ok("throw 42;");
+    }
+
+    #[test]
+    fn test_parse_return_statement() {
+        parse_ok("function f() { return; }");
+        parse_ok("function f() { return 42; }");
+    }
+
+    #[test]
+    fn test_parse_break_continue() {
+        parse_ok("while (true) { break; }");
+        parse_ok("while (true) { continue; }");
+    }
+
+    #[test]
+    fn test_parse_block_statement() {
+        parse_ok("{ let x = 1; let y = 2; }");
+    }
+
+    #[test]
+    fn test_parse_empty_statement() {
+        parse_ok(";");
+        parse_ok(";;;");
+    }
+
+    #[test]
+    fn test_parse_expression_statement() {
+        parse_ok("42;");
+        parse_ok("x + y;");
+        parse_ok("f();");
+    }
+
+    #[test]
+    fn test_parse_arithmetic_operators() {
+        parse_ok("a + b;");
+        parse_ok("a - b;");
+        parse_ok("a * b;");
+        parse_ok("a / b;");
+    }
+
+    #[test]
+    fn test_parse_comparison_operators() {
+        parse_ok("a < b;");
+        parse_ok("a > b;");
+        parse_ok("a <= b;");
+        parse_ok("a >= b;");
+        parse_ok("a == b;");
+        parse_ok("a != b;");
+        parse_ok("a === b;");
+        parse_ok("a !== b;");
+    }
+
+    #[test]
+    fn test_parse_logical_operators() {
+        parse_ok("a && b;");
+        parse_ok("a || b;");
+        parse_ok("!a;");
+    }
+
+    #[test]
+    fn test_parse_assignment_operators() {
+        parse_ok("a = b;");
+    }
+
+    #[test]
+    fn test_parse_unary_operators() {
+        parse_ok("-x;");
+        parse_ok("!x;");
+        parse_ok("typeof x;");
+    }
+
+    #[test]
+    fn test_parse_member_expression() {
+        parse_ok("a.b;");
+        parse_ok("a.b.c;");
+        parse_ok("a[0];");
+        parse_ok("a[b];");
+        parse_ok("a.b[c].d;");
+    }
+
+    #[test]
+    fn test_parse_call_expression() {
+        parse_ok("f();");
+        parse_ok("f(a);");
+        parse_ok("f(a, b, c);");
+        parse_ok("obj.method();");
+        parse_ok("a()();");
+    }
+
+    #[test]
+    fn test_parse_new_expression() {
+        parse_ok("new Foo();");
+        parse_ok("new Foo(a, b);");
+        parse_ok("new a.b.c();");
+    }
+
+    #[test]
+    fn test_parse_array_literal() {
+        parse_ok("[];");
+        parse_ok("[1, 2, 3];");
+        parse_ok("[a, b, c];");
+    }
+
+    #[test]
+    fn test_parse_object_literal() {
+        // Object literals need identifier on left side
+        parse_ok("let x = {};");
+        parse_ok("let x = { a: 1 };");
+        parse_ok("let x = { a: 1, b: 2 };");
+    }
+
+    #[test]
+    fn test_parse_arrow_function() {
+        parse_ok("let f = () => 42;");
+        parse_ok("let f = (a, b) => a + b;");
+        parse_ok("let f = (x) => { return x; };");
+    }
+
+    #[test]
+    fn test_parse_function_expression() {
+        parse_ok("let f = function() { };");
+        parse_ok("let f = function add(a, b) { return a + b; };");
+    }
+
+    #[test]
+    fn test_parse_literals() {
+        parse_ok("42;");
+        parse_ok("3.14;");
+        parse_ok("'hello';");
+        parse_ok("\"world\";");
+        parse_ok("true;");
+        parse_ok("false;");
+        parse_ok("null;");
+    }
+
+    #[test]
+    fn test_parse_this() {
+        parse_ok("this;");
+        parse_ok("this.x;");
+    }
+
+    #[test]
+    fn test_parse_grouping() {
+        // Test that grouped expressions work
+        parse_ok("let x = (1 + 2);");
+    }
+
+    #[test]
+    fn test_parse_complex_expression() {
+        parse_ok("a + b * c;");
+        parse_ok("f(g(h(x)));");
+    }
+
+    #[test]
+    fn test_parse_nested_control_flow() {
+        parse_ok("if (a) { if (b) { c = 1; } }");
+        parse_ok("while (a) { while (b) { break; } }");
+    }
+
+    #[test]
+    fn test_parse_error_missing_semicolon() {
+        // This might or might not error depending on ASI rules
+        // Just verify it doesn't panic
+        let _ = Parser::new("let x = 1").parse_program();
+    }
+
+    #[test]
+    fn test_parse_error_unexpected_token() {
+        let err = parse_err("let = 42;");
+        assert!(matches!(err, Error::SyntaxError(_)));
+    }
+
+    #[test]
+    fn test_parse_operator_precedence() {
+        // 1 + 2 * 3 should parse as 1 + (2 * 3)
+        let stmt = parse_stmt("1 + 2 * 3;");
+        if let Statement::Expression(expr_stmt) = stmt {
+            // The outer expression should be addition
+            if let Expression::Binary(bin_expr) = &expr_stmt.expression {
+                assert_eq!(bin_expr.operator, BinaryOperator::Add);
+            } else {
+                panic!("Expected binary expression");
+            }
+        } else {
+            panic!("Expected expression statement");
+        }
+    }
+
+    #[test]
+    fn test_parse_empty_program() {
+        let program = parse_ok("");
+        assert!(program.body.is_empty());
+    }
+
+    #[test]
+    fn test_parse_multiple_statements() {
+        let program = parse_ok("let x = 1; let y = 2; let z = 3;");
+        assert_eq!(program.body.len(), 3);
     }
 }
