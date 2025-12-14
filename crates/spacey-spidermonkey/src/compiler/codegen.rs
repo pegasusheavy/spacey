@@ -381,11 +381,11 @@ impl Compiler {
             Expression::Array(arr) => self.compile_array(arr),
             Expression::Object(obj) => self.compile_object(obj),
             Expression::Conditional(cond) => self.compile_conditional(cond),
-            _ => {
-                // For now, just push undefined for unimplemented expressions
-                self.emit(Instruction::simple(OpCode::LoadUndefined));
-                Ok(())
-            }
+            Expression::Update(update) => self.compile_update(update),
+            Expression::Sequence(seq) => self.compile_sequence(seq),
+            Expression::Function(func) => self.compile_function_expr(func),
+            Expression::Arrow(arrow) => self.compile_arrow(arrow),
+            Expression::New(new_expr) => self.compile_new(new_expr),
         }
     }
 
@@ -620,10 +620,245 @@ impl Compiler {
             UnaryOperator::Minus => OpCode::Neg,
             UnaryOperator::LogicalNot => OpCode::Not,
             UnaryOperator::BitwiseNot => OpCode::BitNot,
-            _ => return Err(Error::InternalError("Unsupported operator".into())),
+            UnaryOperator::Typeof => OpCode::TypeOf,
+            UnaryOperator::Void => {
+                // void evaluates expression and returns undefined
+                self.emit(Instruction::simple(OpCode::Pop));
+                self.emit(Instruction::simple(OpCode::LoadUndefined));
+                return Ok(());
+            }
+            UnaryOperator::Delete => {
+                // Delete is complex - for now, just return true
+                self.emit(Instruction::simple(OpCode::Pop));
+                self.emit(Instruction::simple(OpCode::LoadTrue));
+                return Ok(());
+            }
+            UnaryOperator::Plus => {
+                // Unary + converts to number - we'll emit a ToNumber conversion
+                // For now, just leave value on stack (it's already compiled)
+                return Ok(());
+            }
         };
 
         self.emit(Instruction::simple(opcode));
+        Ok(())
+    }
+
+    /// Compile ++/-- expressions (ES3 Section 11.4.4-5, 11.3.1-2)
+    fn compile_update(&mut self, update: &UpdateExpression) -> Result<(), Error> {
+        // Get the variable being updated
+        match update.argument.as_ref() {
+            Expression::Identifier(id) => {
+                if update.prefix {
+                    // ++x or --x: increment/decrement first, then return new value
+                    // Load current value
+                    self.compile_identifier(id)?;
+
+                    // Add/subtract 1
+                    let one_idx = self.bytecode.add_constant(Value::Number(1.0));
+                    self.emit(Instruction::with_operand(
+                        OpCode::LoadConst,
+                        Operand::Constant(one_idx),
+                    ));
+
+                    match update.operator {
+                        UpdateOperator::Increment => {
+                            self.emit(Instruction::simple(OpCode::Add));
+                        }
+                        UpdateOperator::Decrement => {
+                            self.emit(Instruction::simple(OpCode::Sub));
+                        }
+                    }
+
+                    // Duplicate result (one for storage, one for return)
+                    self.emit(Instruction::simple(OpCode::Dup));
+
+                    // Store back
+                    if let Some(index) = self.scope.resolve(&id.name) {
+                        self.emit(Instruction::with_operand(
+                            OpCode::StoreLocal,
+                            Operand::Local(index as u16),
+                        ));
+                    } else {
+                        let name_idx = self.bytecode.add_constant(Value::String(id.name.clone()));
+                        self.emit(Instruction::with_operand(
+                            OpCode::StoreGlobal,
+                            Operand::Property(name_idx),
+                        ));
+                    }
+                } else {
+                    // x++ or x--: return old value, then increment/decrement
+                    // Load current value
+                    self.compile_identifier(id)?;
+
+                    // Duplicate for return value
+                    self.emit(Instruction::simple(OpCode::Dup));
+
+                    // Add/subtract 1
+                    let one_idx = self.bytecode.add_constant(Value::Number(1.0));
+                    self.emit(Instruction::with_operand(
+                        OpCode::LoadConst,
+                        Operand::Constant(one_idx),
+                    ));
+
+                    match update.operator {
+                        UpdateOperator::Increment => {
+                            self.emit(Instruction::simple(OpCode::Add));
+                        }
+                        UpdateOperator::Decrement => {
+                            self.emit(Instruction::simple(OpCode::Sub));
+                        }
+                    }
+
+                    // Store new value
+                    if let Some(index) = self.scope.resolve(&id.name) {
+                        self.emit(Instruction::with_operand(
+                            OpCode::StoreLocal,
+                            Operand::Local(index as u16),
+                        ));
+                    } else {
+                        let name_idx = self.bytecode.add_constant(Value::String(id.name.clone()));
+                        self.emit(Instruction::with_operand(
+                            OpCode::StoreGlobal,
+                            Operand::Property(name_idx),
+                        ));
+                    }
+                    // Old value is still on stack from the Dup
+                }
+            }
+            Expression::Member(member) => {
+                // For member expressions like obj.prop++ or obj[key]++
+                // This is more complex - for now, emit a placeholder
+                self.compile_expression(&member.object)?;
+                match &member.property {
+                    MemberProperty::Identifier(prop_id) => {
+                        let name_idx = self
+                            .bytecode
+                            .add_constant(Value::String(prop_id.name.clone()));
+                        self.emit(Instruction::with_operand(
+                            OpCode::GetProperty,
+                            Operand::Property(name_idx),
+                        ));
+                    }
+                    MemberProperty::Expression(prop_expr) => {
+                        self.compile_expression(prop_expr)?;
+                        self.emit(Instruction::simple(OpCode::GetProperty));
+                    }
+                }
+                // TODO: Implement full member update (requires saving object/property)
+            }
+            _ => {
+                return Err(Error::SyntaxError(
+                    "Invalid left-hand side in update expression".into(),
+                ));
+            }
+        }
+        Ok(())
+    }
+
+    /// Compile sequence (comma) expressions
+    fn compile_sequence(&mut self, seq: &SequenceExpression) -> Result<(), Error> {
+        for (i, expr) in seq.expressions.iter().enumerate() {
+            self.compile_expression(expr)?;
+            // Pop all but the last value
+            if i < seq.expressions.len() - 1 {
+                self.emit(Instruction::simple(OpCode::Pop));
+            }
+        }
+        Ok(())
+    }
+
+    /// Compile function expressions
+    fn compile_function_expr(&mut self, func: &FunctionExpression) -> Result<(), Error> {
+        // Create a new compiler for the function body
+        let mut func_compiler = Compiler::new();
+
+        // Enter function scope
+        func_compiler.scope.begin_scope();
+
+        // Declare parameters as locals
+        for param in &func.params {
+            func_compiler.scope.declare(param.name.clone(), true)?;
+        }
+
+        // Compile function body
+        for (i, stmt) in func.body.iter().enumerate() {
+            let is_last = i == func.body.len() - 1;
+            func_compiler.compile_statement(stmt, is_last)?;
+        }
+
+        // Implicit return undefined if no explicit return
+        func_compiler.emit(Instruction::simple(OpCode::LoadUndefined));
+        func_compiler.emit(Instruction::simple(OpCode::Return));
+
+        func_compiler.scope.end_scope();
+
+        // Store function bytecode as a constant
+        // In a full impl, would create a Function object
+        let func_value = Value::Object(0); // Placeholder
+        let idx = self.bytecode.add_constant(func_value);
+        self.emit(Instruction::with_operand(
+            OpCode::LoadConst,
+            Operand::Constant(idx),
+        ));
+
+        Ok(())
+    }
+
+    /// Compile arrow function expressions
+    fn compile_arrow(&mut self, arrow: &ArrowFunctionExpression) -> Result<(), Error> {
+        // Arrow functions are similar to function expressions
+        let mut func_compiler = Compiler::new();
+        func_compiler.scope.begin_scope();
+
+        for param in &arrow.params {
+            func_compiler.scope.declare(param.name.clone(), true)?;
+        }
+
+        match &arrow.body {
+            ArrowBody::Expression(expr) => {
+                func_compiler.compile_expression(expr)?;
+                func_compiler.emit(Instruction::simple(OpCode::Return));
+            }
+            ArrowBody::Block(stmts) => {
+                for (i, stmt) in stmts.iter().enumerate() {
+                    let is_last = i == stmts.len() - 1;
+                    func_compiler.compile_statement(stmt, is_last)?;
+                }
+                func_compiler.emit(Instruction::simple(OpCode::LoadUndefined));
+                func_compiler.emit(Instruction::simple(OpCode::Return));
+            }
+        }
+
+        func_compiler.scope.end_scope();
+
+        let func_value = Value::Object(0); // Placeholder
+        let idx = self.bytecode.add_constant(func_value);
+        self.emit(Instruction::with_operand(
+            OpCode::LoadConst,
+            Operand::Constant(idx),
+        ));
+
+        Ok(())
+    }
+
+    /// Compile new expressions
+    fn compile_new(&mut self, new_expr: &NewExpression) -> Result<(), Error> {
+        // Compile the constructor
+        self.compile_expression(&new_expr.callee)?;
+
+        // Compile arguments
+        for arg in &new_expr.arguments {
+            self.compile_expression(arg)?;
+        }
+
+        // Emit call with argument count
+        // In a full impl, would use a separate NewCall opcode
+        self.emit(Instruction::with_operand(
+            OpCode::Call,
+            Operand::ArgCount(new_expr.arguments.len() as u8),
+        ));
+
         Ok(())
     }
 

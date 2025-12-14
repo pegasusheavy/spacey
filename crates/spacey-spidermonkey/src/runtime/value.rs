@@ -100,6 +100,209 @@ impl Value {
             Value::Function(_) => "function",
         }
     }
+
+    // =========================================================================
+    // ES3 Type Conversion Operations (Section 9)
+    // =========================================================================
+
+    /// ToNumber (ES3 Section 9.3)
+    ///
+    /// Converts the value to a number.
+    pub fn to_number(&self) -> f64 {
+        match self {
+            Value::Undefined => f64::NAN,
+            Value::Null => 0.0,
+            Value::Boolean(b) => {
+                if *b {
+                    1.0
+                } else {
+                    0.0
+                }
+            }
+            Value::Number(n) => *n,
+            Value::String(s) => Self::string_to_number(s),
+            Value::BigInt(_) => f64::NAN, // Would throw in real ES
+            Value::Symbol(_) => f64::NAN, // Would throw in real ES
+            Value::Object(_) => f64::NAN, // Would call ToPrimitive first
+            Value::Function(_) => f64::NAN,
+        }
+    }
+
+    /// ToString (ES3 Section 9.8)
+    ///
+    /// Converts the value to a string.
+    pub fn to_js_string(&self) -> String {
+        match self {
+            Value::Undefined => "undefined".to_string(),
+            Value::Null => "null".to_string(),
+            Value::Boolean(b) => {
+                if *b {
+                    "true".to_string()
+                } else {
+                    "false".to_string()
+                }
+            }
+            Value::Number(n) => Self::number_to_string(*n),
+            Value::String(s) => s.clone(),
+            Value::BigInt(s) => s.clone(),
+            Value::Symbol(id) => format!("Symbol({})", id),
+            Value::Object(_) => "[object Object]".to_string(),
+            Value::Function(callable) => match callable.as_ref() {
+                Callable::Function(func) => {
+                    if let Some(name) = &func.name {
+                        format!("function {}() {{ [native code] }}", name)
+                    } else {
+                        "function () { [native code] }".to_string()
+                    }
+                }
+                Callable::Native { name, .. } => {
+                    format!("function {}() {{ [native code] }}", name)
+                }
+            },
+        }
+    }
+
+    /// ToInteger (ES3 Section 9.4)
+    ///
+    /// Converts the value to an integer.
+    pub fn to_integer(&self) -> f64 {
+        let num = self.to_number();
+        if num.is_nan() {
+            return 0.0;
+        }
+        if num == 0.0 || num.is_infinite() {
+            return num;
+        }
+        num.signum() * num.abs().floor()
+    }
+
+    /// ToInt32 (ES3 Section 9.5)
+    ///
+    /// Converts the value to a signed 32-bit integer.
+    pub fn to_int32(&self) -> i32 {
+        let num = self.to_number();
+        if num.is_nan() || num == 0.0 || num.is_infinite() {
+            return 0;
+        }
+        let int = (num.signum() * num.abs().floor()) as i64;
+        let int32bit = int % (1i64 << 32);
+        if int32bit >= (1i64 << 31) {
+            (int32bit - (1i64 << 32)) as i32
+        } else {
+            int32bit as i32
+        }
+    }
+
+    /// ToUint32 (ES3 Section 9.6)
+    ///
+    /// Converts the value to an unsigned 32-bit integer.
+    pub fn to_uint32(&self) -> u32 {
+        let num = self.to_number();
+        if num.is_nan() || num == 0.0 || num.is_infinite() {
+            return 0;
+        }
+        let int = (num.signum() * num.abs().floor()) as i64;
+        (int % (1i64 << 32)) as u32
+    }
+
+    /// ToUint16 (ES3 Section 9.7)
+    ///
+    /// Converts the value to an unsigned 16-bit integer.
+    pub fn to_uint16(&self) -> u16 {
+        let num = self.to_number();
+        if num.is_nan() || num == 0.0 || num.is_infinite() {
+            return 0;
+        }
+        let int = (num.signum() * num.abs().floor()) as i64;
+        (int % (1i64 << 16)) as u16
+    }
+
+    /// Helper: Convert string to number (ES3 Section 9.3.1)
+    fn string_to_number(s: &str) -> f64 {
+        let trimmed = s.trim();
+        if trimmed.is_empty() {
+            return 0.0;
+        }
+
+        // Handle hex
+        if trimmed.starts_with("0x") || trimmed.starts_with("0X") {
+            if let Ok(n) = i64::from_str_radix(&trimmed[2..], 16) {
+                return n as f64;
+            }
+            return f64::NAN;
+        }
+
+        // Handle infinity
+        if trimmed == "Infinity" || trimmed == "+Infinity" {
+            return f64::INFINITY;
+        }
+        if trimmed == "-Infinity" {
+            return f64::NEG_INFINITY;
+        }
+
+        // Try parsing as float
+        trimmed.parse::<f64>().unwrap_or(f64::NAN)
+    }
+
+    /// Helper: Convert number to string (ES3 Section 9.8.1)
+    pub fn number_to_string(n: f64) -> String {
+        if n.is_nan() {
+            return "NaN".to_string();
+        }
+        if n == 0.0 {
+            return "0".to_string();
+        }
+        if n.is_infinite() {
+            return if n > 0.0 {
+                "Infinity".to_string()
+            } else {
+                "-Infinity".to_string()
+            };
+        }
+
+        // Check if it's an integer
+        if n.fract() == 0.0 && n.abs() < 1e15 {
+            return format!("{}", n as i64);
+        }
+
+        // General case
+        format!("{}", n)
+    }
+
+    /// Returns true if this value is an object (including functions).
+    pub fn is_object(&self) -> bool {
+        matches!(self, Value::Object(_) | Value::Function(_))
+    }
+
+    /// Returns true if this value is a primitive (not an object).
+    pub fn is_primitive(&self) -> bool {
+        !self.is_object()
+    }
+
+    /// Returns true if this value is a number.
+    pub fn is_number(&self) -> bool {
+        matches!(self, Value::Number(_))
+    }
+
+    /// Returns true if this value is a string.
+    pub fn is_string(&self) -> bool {
+        matches!(self, Value::String(_))
+    }
+
+    /// Returns true if this value is a boolean.
+    pub fn is_boolean(&self) -> bool {
+        matches!(self, Value::Boolean(_))
+    }
+
+    /// Returns true if the value is NaN.
+    pub fn is_nan(&self) -> bool {
+        matches!(self, Value::Number(n) if n.is_nan())
+    }
+
+    /// Returns true if the value is finite (not NaN or Infinity).
+    pub fn is_finite(&self) -> bool {
+        matches!(self, Value::Number(n) if n.is_finite())
+    }
 }
 
 impl Default for Value {
