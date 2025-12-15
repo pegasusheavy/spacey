@@ -37,12 +37,25 @@ pub async fn run(args: &InstallArgs, cli: &Cli) -> Result<()> {
     let lockfile_path = PathBuf::from("package-lock.json");
     let snpm_toml_path = PathBuf::from("snpm.toml");
     
-    // Prefer snpm.toml if it exists, otherwise use package-lock.json
+    // For frozen lockfile mode, require a lockfile to exist
+    if args.frozen_lockfile && !snpm_toml_path.exists() && !lockfile_path.exists() {
+        return Err(crate::error::SnpmError::InvalidLockfile(
+            "Frozen lockfile mode requires snpm.toml or package-lock.json to exist".into()
+        ));
+    }
+    
+    // Prefer snpm.toml if it exists (primary lockfile), otherwise use package-lock.json
     let lockfile = if snpm_toml_path.exists() && !args.no_package_lock {
         // Read snpm.toml and convert to PackageLock for resolver
+        if !cli.quiet {
+            println!("  {} {}", "Reading".dimmed(), "snpm.toml".cyan());
+        }
         let toml_lock = SnpmToml::read(&snpm_toml_path)?;
         Some(crate::toml_lock::convert_to_package_lock(&toml_lock))
     } else if lockfile_path.exists() && !args.no_package_lock {
+        if !cli.quiet {
+            println!("  {} {}", "Reading".dimmed(), "package-lock.json".cyan());
+        }
         Some(PackageLock::read(&lockfile_path)?)
     } else {
         None
@@ -123,47 +136,46 @@ pub async fn run(args: &InstallArgs, cli: &Cli) -> Result<()> {
     let installer = ctx.installer(!cli.quiet && ctx.config.progress);
     let result = installer.install(&resolved).await?;
 
-    // Update lockfile
+    // Update lockfiles (write BOTH snpm.toml and package-lock.json)
     if args.package_lock && !args.no_package_lock {
-        // Determine lockfile format
-        let use_toml = args.toml || snpm_toml_path.exists();
+        // Write snpm.toml (primary lockfile)
+        let toml_lock = SnpmToml::from_resolved(
+            package_json.name.clone().unwrap_or_default(),
+            package_json.version.clone().unwrap_or_default(),
+            &resolved,
+        );
+        toml_lock.write(&snpm_toml_path)?;
         
-        if use_toml {
-            // Use snpm.toml format
-            let toml_lock = SnpmToml::from_resolved(
+        if !cli.quiet {
+            println!("  {} {}", "Wrote".dimmed(), "snpm.toml".cyan());
+        }
+
+        // Write package-lock.json (for npm compatibility)
+        let mut lock = lockfile.unwrap_or_else(|| {
+            PackageLock::new(
                 package_json.name.clone().unwrap_or_default(),
                 package_json.version.clone().unwrap_or_default(),
-                &resolved,
-            );
-            toml_lock.write(&snpm_toml_path)?;
-            
-            if !cli.quiet {
-                println!("  {} {}", "Wrote".dimmed(), "snpm.toml".cyan());
-            }
-        } else {
-            // Use package-lock.json format
-            let mut lock = lockfile.unwrap_or_else(|| {
-                PackageLock::new(
-                    package_json.name.clone().unwrap_or_default(),
-                    package_json.version.clone().unwrap_or_default(),
-                )
-            });
+            )
+        });
 
-            // Add root package entry
-            lock.add_package(
-                "",
-                crate::lockfile::LockPackage {
-                    version: package_json.version.clone().unwrap_or_default(),
-                    dependencies: package_json.dependencies.clone(),
-                    dev_dependencies: package_json.dev_dependencies.clone(),
-                    peer_dependencies: package_json.peer_dependencies.clone(),
-                    optional_dependencies: package_json.optional_dependencies.clone(),
-                    ..Default::default()
-                },
-            );
+        // Add root package entry
+        lock.add_package(
+            "",
+            crate::lockfile::LockPackage {
+                version: package_json.version.clone().unwrap_or_default(),
+                dependencies: package_json.dependencies.clone(),
+                dev_dependencies: package_json.dev_dependencies.clone(),
+                peer_dependencies: package_json.peer_dependencies.clone(),
+                optional_dependencies: package_json.optional_dependencies.clone(),
+                ..Default::default()
+            },
+        );
 
-            update_lockfile(&mut lock, &resolved);
-            lock.write(&lockfile_path)?;
+        update_lockfile(&mut lock, &resolved);
+        lock.write(&lockfile_path)?;
+        
+        if !cli.quiet {
+            println!("  {} {}", "Wrote".dimmed(), "package-lock.json".cyan());
         }
     }
 

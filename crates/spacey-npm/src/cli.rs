@@ -207,6 +207,10 @@ pub struct InstallArgs {
     /// Use snpm.toml lockfile format instead of package-lock.json
     #[arg(long)]
     pub toml: bool,
+
+    /// Fail if lockfile is out of date (CI mode)
+    #[arg(long)]
+    pub frozen_lockfile: bool,
 }
 
 #[derive(Args, Debug, Clone)]

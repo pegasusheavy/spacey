@@ -6,14 +6,28 @@ use crate::cli::{Cli, CiArgs, InstallArgs};
 use crate::error::{Result, SnpmError};
 
 pub async fn run(args: &CiArgs, cli: &Cli) -> Result<()> {
-    // Check for package-lock.json
-    if !PathBuf::from("package-lock.json").exists() {
+    let snpm_toml_path = PathBuf::from("snpm.toml");
+    let package_lock_path = PathBuf::from("package-lock.json");
+    
+    // Check for lockfile (prefer snpm.toml)
+    let has_lockfile = snpm_toml_path.exists() || package_lock_path.exists();
+    
+    if !has_lockfile {
         return Err(SnpmError::InvalidLockfile(
-            "package-lock.json not found. CI requires a lockfile.".into()
+            "CI requires a lockfile. Neither snpm.toml nor package-lock.json found.".into()
         ));
     }
 
-    // Remove existing node_modules
+    if !cli.quiet {
+        if snpm_toml_path.exists() {
+            println!("{} {} {}", "CI:".cyan().bold(), "Using".dimmed(), "snpm.toml".green());
+        } else {
+            println!("{} {} {}", "CI:".cyan().bold(), "Using".dimmed(), "package-lock.json".yellow());
+            println!("  {} Consider using snpm.toml for better reproducibility", "Tip:".dimmed());
+        }
+    }
+
+    // Remove existing node_modules for clean install
     let node_modules = PathBuf::from("node_modules");
     if node_modules.exists() {
         if !cli.quiet {
@@ -22,11 +36,12 @@ pub async fn run(args: &CiArgs, cli: &Cli) -> Result<()> {
         std::fs::remove_dir_all(&node_modules)?;
     }
 
-    // Run install with strict lockfile
+    // Run install with frozen lockfile mode
     let install_args = InstallArgs {
         ignore_scripts: args.ignore_scripts,
         production: args.production,
-        no_package_lock: true, // Don't update lockfile
+        no_package_lock: true, // Don't update lockfile in CI
+        frozen_lockfile: true, // Fail if lockfile is out of date
         ..Default::default()
     };
 
