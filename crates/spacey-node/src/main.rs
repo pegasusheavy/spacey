@@ -109,11 +109,11 @@ async fn main() -> anyhow::Result<()> {
         // Run script file
         // Force TypeScript mode if flag is set, otherwise auto-detect
         let use_typescript = cli.force_typescript || is_typescript_file(&script_path);
-        
+
         if use_typescript && !is_typescript_file(&script_path) {
             tracing::info!("Forcing TypeScript mode for {}", script_path.display());
         }
-        
+
         match runtime.run_file(&script_path).await {
             Ok(exit_code) => {
                 std::process::exit(exit_code);

@@ -196,10 +196,10 @@ use spacey_node::NodeRuntime;
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     let mut runtime = NodeRuntime::new(vec![]);
-    
+
     // TypeScript files are automatically handled
     runtime.run_file(Path::new("server.ts")).await?;
-    
+
     Ok(())
 }
 ```
