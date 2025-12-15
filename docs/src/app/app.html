@@ -42,15 +42,13 @@
       <a href="#architecture" class="hover:text-white transition-colors" style="color: var(--color-text-muted);">Architecture</a>
       <a href="#getting-started" class="hover:text-white transition-colors" style="color: var(--color-text-muted);">Getting Started</a>
       <a href="https://github.com/pegasusheavy/spacey" target="_blank" class="flex items-center gap-2 px-4 py-2 rounded-lg transition-all hover:scale-105" style="background: rgba(255, 113, 57, 0.1); border: 1px solid rgba(255, 113, 57, 0.3);">
-        <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
+        <fa-icon [icon]="faGithub" class="text-lg"></fa-icon>
         GitHub
       </a>
     </div>
     <!-- Mobile menu button -->
     <button class="md:hidden p-2" (click)="toggleMobileMenu()">
-      <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path>
-      </svg>
+      <fa-icon [icon]="faBars" class="text-2xl"></fa-icon>
     </button>
   </nav>
 
@@ -59,15 +57,13 @@
     <div class="md:hidden fixed inset-0 z-50 backdrop-blur-lg" style="background: rgba(12, 0, 21, 0.95);">
       <div class="flex flex-col items-center justify-center h-full gap-8 text-xl">
         <button class="absolute top-6 right-6" (click)="toggleMobileMenu()">
-          <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-          </svg>
+          <fa-icon [icon]="faXmark" class="text-3xl"></fa-icon>
         </button>
         <a href="#features" class="transition-colors" style="color: #ff7139;" (click)="toggleMobileMenu()">Features</a>
         <a href="#architecture" class="transition-colors" style="color: #ff7139;" (click)="toggleMobileMenu()">Architecture</a>
         <a href="#getting-started" class="transition-colors" style="color: #ff7139;" (click)="toggleMobileMenu()">Getting Started</a>
         <a href="https://github.com/pegasusheavy/spacey" target="_blank" class="flex items-center gap-2 px-6 py-3 rounded-lg" style="background: #ff7139;">
-          <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
+          <fa-icon [icon]="faGithub" class="text-lg"></fa-icon>
           GitHub
         </a>
       </div>
@@ -104,7 +100,7 @@
           Get Started
         </a>
         <a href="https://github.com/pegasusheavy/spacey" target="_blank" class="px-8 py-4 rounded-xl font-semibold text-lg transition-colors flex items-center gap-2" style="background: rgba(144, 89, 255, 0.1); border: 1px solid rgba(144, 89, 255, 0.3);">
-          <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
+          <fa-icon [icon]="faGithub" class="text-xl"></fa-icon>
           View on GitHub
         </a>
       </div>
@@ -133,12 +129,10 @@
       </div>
 
       <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-        <!-- Feature Card 1 -->
+<!-- Feature Card 1 -->
         <div class="group p-6 rounded-2xl transition-all duration-300 card-mozilla">
           <div class="w-12 h-12 mb-4 rounded-xl flex items-center justify-center transition-colors" style="background: rgba(255, 113, 57, 0.1);">
-            <svg class="w-6 h-6" style="color: #ff7139;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path>
-            </svg>
+            <fa-icon [icon]="faShieldHalved" class="text-2xl" style="color: #ff7139;"></fa-icon>
           </div>
           <h3 class="text-xl font-semibold mb-2">Memory Safe</h3>
           <p style="color: var(--color-text-muted);">Leverages Rust's ownership model for a JavaScript runtime free of memory bugs and data races.</p>
@@ -147,9 +141,7 @@
         <!-- Feature Card 2 -->
         <div class="group p-6 rounded-2xl transition-all duration-300 card-mozilla">
           <div class="w-12 h-12 mb-4 rounded-xl flex items-center justify-center transition-colors" style="background: rgba(144, 89, 255, 0.1);">
-            <svg class="w-6 h-6" style="color: #9059ff;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
-            </svg>
+            <fa-icon [icon]="faBolt" class="text-2xl" style="color: #9059ff;"></fa-icon>
           </div>
           <h3 class="text-xl font-semibold mb-2">Pure Rust</h3>
           <p style="color: var(--color-text-muted);">No C++ dependencies. Enables tighter integration with Rust-based projects like Servo.</p>
@@ -158,9 +150,7 @@
         <!-- Feature Card 3 -->
         <div class="group p-6 rounded-2xl transition-all duration-300 card-mozilla">
           <div class="w-12 h-12 mb-4 rounded-xl flex items-center justify-center transition-colors" style="background: rgba(59, 130, 246, 0.1);">
-            <svg class="w-6 h-6" style="color: #3b82f6;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM4 13a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6zM16 13a1 1 0 011-1h2a1 1 0 011 1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-6z"></path>
-            </svg>
+            <fa-icon [icon]="faCubes" class="text-2xl" style="color: #3b82f6;"></fa-icon>
           </div>
           <h3 class="text-xl font-semibold mb-2">Modular Design</h3>
           <p style="color: var(--color-text-muted);">Clean architecture with separate crates for engine, runtime, and Node.js compatibility.</p>
@@ -169,9 +159,7 @@
         <!-- Feature Card 4 -->
         <div class="group p-6 rounded-2xl transition-all duration-300 card-mozilla">
           <div class="w-12 h-12 mb-4 rounded-xl flex items-center justify-center transition-colors" style="background: rgba(16, 185, 129, 0.1);">
-            <svg class="w-6 h-6" style="color: #10b981;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"></path>
-            </svg>
+            <fa-icon [icon]="faWandMagicSparkles" class="text-2xl" style="color: #10b981;"></fa-icon>
           </div>
           <h3 class="text-xl font-semibold mb-2">TypeScript Native</h3>
           <p style="color: var(--color-text-muted);">Direct TypeScript parsing without transpilation. Types are stripped at parse time for fast execution.</p>
@@ -180,9 +168,7 @@
         <!-- Feature Card 5 -->
         <div class="group p-6 rounded-2xl transition-all duration-300 card-mozilla">
           <div class="w-12 h-12 mb-4 rounded-xl flex items-center justify-center transition-colors" style="background: rgba(245, 158, 11, 0.1);">
-            <svg class="w-6 h-6" style="color: #f59e0b;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z"></path>
-            </svg>
+            <fa-icon [icon]="faFlask" class="text-2xl" style="color: #f59e0b;"></fa-icon>
           </div>
           <h3 class="text-xl font-semibold mb-2">Generational GC</h3>
           <p style="color: var(--color-text-muted);">High-performance garbage collector with nursery/old generation, incremental marking, and parallel sweeping.</p>
@@ -191,9 +177,7 @@
         <!-- Feature Card 6 -->
         <div class="group p-6 rounded-2xl transition-all duration-300 card-mozilla">
           <div class="w-12 h-12 mb-4 rounded-xl flex items-center justify-center transition-colors" style="background: rgba(236, 72, 153, 0.1);">
-            <svg class="w-6 h-6" style="color: #ec4899;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"></path>
-            </svg>
+            <fa-icon [icon]="faGlobe" class="text-2xl" style="color: #ec4899;"></fa-icon>
           </div>
           <h3 class="text-xl font-semibold mb-2">Node.js Compatible</h3>
           <p style="color: var(--color-text-muted);">Full Node.js API layer with CommonJS, ES Modules, and async I/O through Tokio.</p>
@@ -225,36 +209,28 @@
                 <div class="text-xs" style="color: var(--color-text-muted);">.js / .ts / .mjs</div>
               </div>
             </div>
-            <svg class="w-8 h-8 rotate-90 lg:rotate-0 flex-shrink-0" style="color: var(--color-border);" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"></path>
-            </svg>
+            <fa-icon [icon]="faArrowRight" class="text-2xl rotate-90 lg:rotate-0 flex-shrink-0" style="color: var(--color-border);"></fa-icon>
             <div class="flex-1 w-full">
               <div class="p-4 rounded-xl text-center" style="background: rgba(144, 89, 255, 0.1); border: 1px solid rgba(144, 89, 255, 0.3);">
                 <div class="font-mono text-sm mb-1" style="color: #9059ff;">Lexer</div>
                 <div class="text-xs" style="color: var(--color-text-muted);">Tokenization</div>
               </div>
             </div>
-            <svg class="w-8 h-8 rotate-90 lg:rotate-0 flex-shrink-0" style="color: var(--color-border);" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"></path>
-            </svg>
+            <fa-icon [icon]="faArrowRight" class="text-2xl rotate-90 lg:rotate-0 flex-shrink-0" style="color: var(--color-border);"></fa-icon>
             <div class="flex-1 w-full">
               <div class="p-4 rounded-xl text-center" style="background: rgba(59, 130, 246, 0.1); border: 1px solid rgba(59, 130, 246, 0.3);">
                 <div class="font-mono text-sm mb-1" style="color: #3b82f6;">Parser</div>
                 <div class="text-xs" style="color: var(--color-text-muted);">AST Generation</div>
               </div>
             </div>
-            <svg class="w-8 h-8 rotate-90 lg:rotate-0 flex-shrink-0" style="color: var(--color-border);" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"></path>
-            </svg>
+            <fa-icon [icon]="faArrowRight" class="text-2xl rotate-90 lg:rotate-0 flex-shrink-0" style="color: var(--color-border);"></fa-icon>
             <div class="flex-1 w-full">
               <div class="p-4 rounded-xl text-center" style="background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.3);">
                 <div class="font-mono text-sm mb-1" style="color: #10b981;">Compiler</div>
                 <div class="text-xs" style="color: var(--color-text-muted);">Bytecode</div>
               </div>
             </div>
-            <svg class="w-8 h-8 rotate-90 lg:rotate-0 flex-shrink-0" style="color: var(--color-border);" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"></path>
-            </svg>
+            <fa-icon [icon]="faArrowRight" class="text-2xl rotate-90 lg:rotate-0 flex-shrink-0" style="color: var(--color-border);"></fa-icon>
             <div class="flex-1 w-full">
               <div class="p-4 rounded-xl text-center" style="background: rgba(245, 158, 11, 0.1); border: 1px solid rgba(245, 158, 11, 0.3);">
                 <div class="font-mono text-sm mb-1" style="color: #f59e0b;">VM</div>
@@ -430,24 +406,17 @@ console.log(greet({{ '{' }} name: <span style="color: #10b981;">"World"</span>, 
             @switch (item.status) {
               @case ('complete') {
                 <div class="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0" style="background: rgba(16, 185, 129, 0.2);">
-                  <svg class="w-5 h-5" style="color: #10b981;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
-                  </svg>
+                  <fa-icon [icon]="faCheck" class="text-lg" style="color: #10b981;"></fa-icon>
                 </div>
               }
               @case ('in-progress') {
                 <div class="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0" style="background: rgba(255, 113, 57, 0.2);">
-                  <svg class="w-5 h-5 animate-spin" style="color: #ff7139;" fill="none" viewBox="0 0 24 24">
-                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                  </svg>
+                  <fa-icon [icon]="faSpinner" class="text-lg animate-spin" style="color: #ff7139;"></fa-icon>
                 </div>
               }
               @case ('planned') {
                 <div class="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0" style="background: rgba(107, 114, 128, 0.2);">
-                  <svg class="w-5 h-5" style="color: #6b7280;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                  </svg>
+                  <fa-icon [icon]="faClock" class="text-lg" style="color: #6b7280;"></fa-icon>
                 </div>
               }
             }
@@ -460,7 +429,7 @@ console.log(greet({{ '{' }} name: <span style="color: #10b981;">"World"</span>, 
               [style.color]="item.status === 'complete' ? '#10b981' : item.status === 'in-progress' ? '#ff7139' : '#6b7280'">
               {{ item.status === 'complete' ? 'Complete' : item.status === 'in-progress' ? 'In Progress' : 'Planned' }}
             </span>
-          </div>
+    </div>
         }
       </div>
     </div>
@@ -476,15 +445,15 @@ console.log(greet({{ '{' }} name: <span style="color: #10b981;">"World"</span>, 
         </p>
         <div class="flex flex-col sm:flex-row items-center justify-center gap-4">
           <a href="https://github.com/pegasusheavy/spacey" target="_blank" class="px-8 py-4 rounded-xl font-semibold transition-all hover:scale-105 flex items-center gap-2" style="background: #ff7139; color: white;">
-            <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
+            <fa-icon [icon]="faGithub" class="text-xl"></fa-icon>
             Star on GitHub
           </a>
           <a href="https://github.com/pegasusheavy/spacey/issues" target="_blank" class="px-8 py-4 rounded-xl font-semibold transition-colors" style="background: rgba(144, 89, 255, 0.1); border: 1px solid rgba(144, 89, 255, 0.3);">
             Browse Issues
-          </a>
-        </div>
+        </a>
       </div>
     </div>
+  </div>
   </section>
 
   <!-- Footer -->

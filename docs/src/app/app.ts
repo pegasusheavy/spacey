@@ -1,6 +1,24 @@
 import { Component, signal } from '@angular/core';
 import { RouterOutlet } from '@angular/router';
 import { CommonModule } from '@angular/common';
+import { FontAwesomeModule, FaIconLibrary } from '@fortawesome/angular-fontawesome';
+import { 
+  faShieldHalved, 
+  faBolt, 
+  faCubes, 
+  faWandMagicSparkles, 
+  faFlask, 
+  faGlobe,
+  faCheck,
+  faSpinner,
+  faClock,
+  faBars,
+  faXmark,
+  faArrowRight,
+  faEnvelope,
+  faCopy
+} from '@fortawesome/free-solid-svg-icons';
+import { faGithub, faRust, faNode } from '@fortawesome/free-brands-svg-icons';
 
 interface Star {
   id: number;
@@ -18,12 +36,31 @@ interface StatusItem {
 
 @Component({
   selector: 'app-root',
-  imports: [RouterOutlet, CommonModule],
+  imports: [RouterOutlet, CommonModule, FontAwesomeModule],
   templateUrl: './app.html',
   styleUrl: './app.css'
 })
 export class App {
   protected readonly mobileMenuOpen = signal(false);
+
+  // Font Awesome icons
+  faGithub = faGithub;
+  faShieldHalved = faShieldHalved;
+  faBolt = faBolt;
+  faCubes = faCubes;
+  faWandMagicSparkles = faWandMagicSparkles;
+  faFlask = faFlask;
+  faGlobe = faGlobe;
+  faCheck = faCheck;
+  faSpinner = faSpinner;
+  faClock = faClock;
+  faBars = faBars;
+  faXmark = faXmark;
+  faArrowRight = faArrowRight;
+  faEnvelope = faEnvelope;
+  faCopy = faCopy;
+  faRust = faRust;
+  faNode = faNode;
 
   // Generate random stars for the background
   protected readonly stars: Star[] = Array.from({ length: 100 }, (_, i) => ({
@@ -48,6 +85,15 @@ export class App {
     { name: 'JIT Compiler', description: 'Just-in-time compilation for hot paths', status: 'planned' },
     { name: 'Servo Integration', description: 'Direct integration with Servo browser', status: 'planned' },
   ];
+
+  constructor(library: FaIconLibrary) {
+    // Add icons to the library
+    library.addIcons(
+      faGithub, faShieldHalved, faBolt, faCubes, faWandMagicSparkles,
+      faFlask, faGlobe, faCheck, faSpinner, faClock, faBars, faXmark,
+      faArrowRight, faEnvelope, faCopy, faRust, faNode
+    );
+  }
 
   toggleMobileMenu() {
     this.mobileMenuOpen.update(v => !v);
