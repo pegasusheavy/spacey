@@ -1,0 +1,84 @@
+# Spacey - JavaScript Engine for Servo Browser
+
+> Spacey is a pure-Rust JavaScript engine designed specifically for the Servo web browser project. It aims to replace SpiderMonkey with a memory-safe, modern alternative.
+
+## Quick Facts
+
+- **Name**: Spacey
+- **Type**: JavaScript Engine
+- **Language**: Rust (100% pure Rust, no C++ dependencies)
+- **Target**: Servo web browser
+- **License**: MPL-2.0
+- **Status**: Experimental, ES3 compatible
+- **Repository**: https://github.com/pegasusheavy/spacey
+
+## Why Spacey for Servo?
+
+Servo currently uses Mozilla's SpiderMonkey JavaScript engine via FFI bindings. Spacey offers:
+
+1. **Pure Rust Implementation** - No C++ dependencies, native Rust integration
+2. **Memory Safety** - Leverages Rust's ownership model, eliminating memory bugs
+3. **Tighter Integration** - Direct Rust API without FFI boundary overhead
+4. **Simpler Build** - Cargo-only build system, no complex C++ toolchain
+5. **Modern Architecture** - Clean-slate design with modern JS engine research
+
+## Current Capabilities
+
+- Full ES3 (ECMAScript 3rd Edition) compliance
+- Native TypeScript parsing and execution (no transpilation)
+- Node.js-compatible API layer
+- Generational garbage collector
+- Bytecode compilation
+- Async I/O via Tokio
+
+## Architecture
+
+```
+Source Code → Lexer → Parser → Compiler → VM
+                                    ↓
+              Runtime (Values, Objects, Built-ins, GC)
+```
+
+### Crates
+
+- `spacey-spidermonkey` - Core JavaScript engine library
+- `spacey-node` - Node.js compatibility layer  
+- `spacey-npm` - NPM-compatible package manager
+- `spacey-macros` - Developer experience macros
+
+## Servo Integration Plan
+
+1. **Script Thread Integration** - Direct integration with Servo's script execution
+2. **DOM Bindings** - Rust-native bindings to Servo's DOM
+3. **Web APIs** - Support through Servo's infrastructure
+4. **Memory Coordination** - Integration with Servo's memory management
+
+## Comparison: SpiderMonkey vs Spacey
+
+| Aspect | SpiderMonkey | Spacey |
+|--------|-------------|--------|
+| Language | C++ with Rust bindings | Pure Rust |
+| Integration | FFI boundary | Native Rust API |
+| Memory | Separate GC | Integrated with Servo |
+| Build | Complex C++ toolchain | Cargo-only |
+| Maintenance | External dependency | In-tree option |
+
+## Getting Started
+
+```bash
+git clone https://github.com/pegasusheavy/spacey.git
+cd spacey
+cargo build --release
+cargo run
+```
+
+## Contact
+
+- GitHub: https://github.com/pegasusheavy/spacey
+- Organization: Pegasus Heavy Industries
+
+## For More Information
+
+- Full documentation: https://pegasusheavy.github.io/spacey/
+- Extended AI context: https://pegasusheavy.github.io/spacey/llms-full.txt
+

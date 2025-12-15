@@ -2,36 +2,286 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <title>Spacey - JavaScript Engine in Rust</title>
+  <title>Spacey - Pure Rust JavaScript Engine for Servo Browser | SpiderMonkey Alternative</title>
   <base href="/">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   
-  <!-- SEO Meta Tags -->
-  <meta name="description" content="Spacey is an experimental JavaScript engine written in pure Rust, targeting the Servo web browser. Memory-safe, modern, and built for the future of the web.">
-  <meta name="keywords" content="JavaScript, Rust, Engine, Servo, Browser, SpiderMonkey, TypeScript, Node.js, Mozilla">
+  <!-- Primary SEO Meta Tags -->
+  <meta name="title" content="Spacey - Pure Rust JavaScript Engine for Servo Browser">
+  <meta name="description" content="Spacey is an experimental JavaScript engine written in pure Rust, designed as a SpiderMonkey alternative for the Servo web browser. Memory-safe, ES3 compatible, with native TypeScript support.">
+  <meta name="keywords" content="Servo browser, Servo JavaScript engine, Servo web engine, SpiderMonkey alternative, Rust JavaScript engine, Servo SpiderMonkey replacement, pure Rust JS engine, memory safe JavaScript, Servo integration, servo-engine, web browser engine, Rust web browser, JavaScript runtime Rust, TypeScript engine Rust, Servo project, Mozilla Servo, experimental browser engine">
   <meta name="author" content="Pegasus Heavy Industries">
+  <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1">
+  <meta name="googlebot" content="index, follow">
+  <meta name="bingbot" content="index, follow">
   
-  <!-- Open Graph / Social -->
+  <!-- Canonical URL -->
+  <link rel="canonical" href="https://pegasusheavy.github.io/spacey/">
+  
+  <!-- Open Graph / Facebook -->
   <meta property="og:type" content="website">
-  <meta property="og:title" content="Spacey - JavaScript Engine in Rust">
-  <meta property="og:description" content="An experimental JavaScript engine written in pure Rust, targeting the Servo web browser.">
-  <meta property="og:image" content="/og-image.png">
+  <meta property="og:url" content="https://pegasusheavy.github.io/spacey/">
+  <meta property="og:title" content="Spacey - Pure Rust JavaScript Engine for Servo Browser">
+  <meta property="og:description" content="A memory-safe JavaScript engine written in pure Rust, designed to replace SpiderMonkey in the Servo web browser. ES3 compatible with native TypeScript support.">
+  <meta property="og:image" content="https://pegasusheavy.github.io/spacey/og-image.png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="Spacey - JavaScript Engine for Servo">
+  <meta property="og:site_name" content="Spacey">
+  <meta property="og:locale" content="en_US">
   
   <!-- Twitter Card -->
   <meta name="twitter:card" content="summary_large_image">
-  <meta name="twitter:title" content="Spacey - JavaScript Engine in Rust">
-  <meta name="twitter:description" content="An experimental JavaScript engine written in pure Rust, targeting the Servo web browser.">
+  <meta name="twitter:url" content="https://pegasusheavy.github.io/spacey/">
+  <meta name="twitter:title" content="Spacey - Pure Rust JavaScript Engine for Servo Browser">
+  <meta name="twitter:description" content="A memory-safe JavaScript engine written in pure Rust, designed to replace SpiderMonkey in the Servo web browser.">
+  <meta name="twitter:image" content="https://pegasusheavy.github.io/spacey/og-image.png">
+  <meta name="twitter:image:alt" content="Spacey - JavaScript Engine for Servo">
+  <meta name="twitter:creator" content="@pegasusheavy">
   
-  <!-- Theme Color - Mozilla Ink -->
+  <!-- Additional Meta Tags -->
   <meta name="theme-color" content="#0c0015">
+  <meta name="msapplication-TileColor" content="#0c0015">
+  <meta name="application-name" content="Spacey">
+  <meta name="apple-mobile-web-app-title" content="Spacey">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  
+  <!-- Geo/Language -->
+  <meta name="geo.region" content="US">
+  <meta name="language" content="English">
+  <meta http-equiv="content-language" content="en">
   
   <!-- Favicon -->
   <link rel="icon" type="image/x-icon" href="favicon.ico">
+  <link rel="icon" type="image/svg+xml" href="logo.svg">
+  <link rel="apple-touch-icon" href="logo.svg">
   
-  <!-- Fonts - Mozilla Protocol Typography -->
+  <!-- Preconnect to External Resources -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  
+  <!-- DNS Prefetch -->
+  <link rel="dns-prefetch" href="https://github.com">
+  <link rel="dns-prefetch" href="https://servo.org">
+  
+  <!-- Fonts - Mozilla Protocol Typography -->
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Zilla+Slab:wght@400;500;600;700&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
+  
+  <!-- AI/LLM Context -->
+  <link rel="alternate" type="text/plain" href="/llms.txt" title="AI Context">
+  <link rel="alternate" type="text/plain" href="/llms-full.txt" title="Extended AI Context">
+  
+  <!-- JSON-LD Structured Data -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    "name": "Spacey",
+    "alternateName": ["Spacey JavaScript Engine", "Spacey JS Engine", "Spacey for Servo"],
+    "description": "An experimental JavaScript engine written in pure Rust, designed as a SpiderMonkey alternative for the Servo web browser. Features memory safety, ES3 compliance, and native TypeScript support.",
+    "url": "https://pegasusheavy.github.io/spacey/",
+    "applicationCategory": "DeveloperApplication",
+    "applicationSubCategory": "JavaScript Engine",
+    "operatingSystem": ["Linux", "macOS", "Windows"],
+    "programmingLanguage": "Rust",
+    "softwareVersion": "0.1.0",
+    "releaseNotes": "ES3 compatible, TypeScript support, Node.js APIs",
+    "license": "https://www.mozilla.org/en-US/MPL/2.0/",
+    "isAccessibleForFree": true,
+    "offers": {
+      "@type": "Offer",
+      "price": "0",
+      "priceCurrency": "USD"
+    },
+    "author": {
+      "@type": "Organization",
+      "name": "Pegasus Heavy Industries",
+      "url": "https://github.com/pegasusheavy"
+    },
+    "publisher": {
+      "@type": "Organization",
+      "name": "Pegasus Heavy Industries"
+    },
+    "maintainer": {
+      "@type": "Organization",
+      "name": "Pegasus Heavy Industries"
+    },
+    "codeRepository": "https://github.com/pegasusheavy/spacey",
+    "downloadUrl": "https://github.com/pegasusheavy/spacey",
+    "installUrl": "https://github.com/pegasusheavy/spacey#building",
+    "featureList": [
+      "Pure Rust implementation",
+      "Memory safe JavaScript execution",
+      "ES3 ECMAScript compliance",
+      "Native TypeScript parsing",
+      "Generational garbage collector",
+      "Node.js compatible APIs",
+      "Servo browser integration target",
+      "SpiderMonkey alternative"
+    ],
+    "keywords": "Servo browser, Servo JavaScript, SpiderMonkey alternative, Rust JavaScript engine, web browser engine, Servo engine, pure Rust JS",
+    "sameAs": [
+      "https://github.com/pegasusheavy/spacey"
+    ]
+  }
+  </script>
+  
+  <!-- Organization Schema -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "Organization",
+    "name": "Pegasus Heavy Industries",
+    "url": "https://github.com/pegasusheavy",
+    "logo": "https://pegasusheavy.github.io/spacey/logo.svg",
+    "sameAs": [
+      "https://github.com/pegasusheavy"
+    ]
+  }
+  </script>
+  
+  <!-- FAQ Schema for AI/Search -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    "mainEntity": [
+      {
+        "@type": "Question",
+        "name": "What is Spacey?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "Spacey is an experimental JavaScript engine written entirely in Rust. It is designed to be a pure-Rust alternative to SpiderMonkey for the Servo web browser project, offering memory safety, ES3 compliance, and native TypeScript support."
+        }
+      },
+      {
+        "@type": "Question",
+        "name": "Is Spacey a replacement for SpiderMonkey in Servo?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "Yes, Spacey is specifically designed as a potential SpiderMonkey replacement for the Servo browser. It aims to provide tighter integration with Servo's Rust codebase by eliminating the C++ FFI boundary that currently exists with SpiderMonkey."
+        }
+      },
+      {
+        "@type": "Question",
+        "name": "Why use Spacey instead of SpiderMonkey for Servo?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "Spacey offers several advantages for Servo: 1) Pure Rust implementation with no C++ dependencies, 2) Native Rust API without FFI overhead, 3) Unified memory management without dual GC coordination, 4) Simpler Cargo-only build system, and 5) Tighter integration with Servo's architecture."
+        }
+      },
+      {
+        "@type": "Question",
+        "name": "What JavaScript features does Spacey support?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "Spacey currently supports full ES3 (ECMAScript 3rd Edition) compliance, native TypeScript parsing and execution, Node.js-compatible APIs, and features a generational garbage collector. ES5 and ES6+ features are in development."
+        }
+      },
+      {
+        "@type": "Question",
+        "name": "Can Spacey run TypeScript directly?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "Yes, Spacey features native TypeScript support. Unlike other engines that require transpilation, Spacey parses TypeScript directly and strips type annotations at parse time, allowing direct execution without an intermediate compilation step."
+        }
+      },
+      {
+        "@type": "Question",
+        "name": "How does Spacey integrate with the Servo browser?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "Spacey is designed with Servo integration as a primary goal. The planned integration includes direct script thread integration, Rust-native DOM bindings, Web API support through Servo's infrastructure, and coordinated memory management strategies."
+        }
+      },
+      {
+        "@type": "Question",
+        "name": "Is Spacey production ready?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "Spacey is currently experimental and under active development. While it has full ES3 compliance and many features, it is not yet recommended for production use. The project welcomes contributors to help reach production readiness."
+        }
+      },
+      {
+        "@type": "Question",
+        "name": "What is the license for Spacey?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "Spacey is licensed under the Mozilla Public License 2.0 (MPL-2.0), the same license used by Firefox and other Mozilla projects, making it compatible with the Servo ecosystem."
+        }
+      }
+    ]
+  }
+  </script>
+  
+  <!-- WebSite Schema -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "WebSite",
+    "name": "Spacey Documentation",
+    "alternateName": "Spacey JS Engine Docs",
+    "url": "https://pegasusheavy.github.io/spacey/",
+    "description": "Official documentation for the Spacey JavaScript engine - a pure Rust JS engine for the Servo browser",
+    "inLanguage": "en-US",
+    "potentialAction": {
+      "@type": "SearchAction",
+      "target": "https://github.com/pegasusheavy/spacey/search?q={search_term_string}",
+      "query-input": "required name=search_term_string"
+    }
+  }
+  </script>
+  
+  <!-- TechArticle Schema -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "TechArticle",
+    "headline": "Spacey: A Pure Rust JavaScript Engine for Servo",
+    "alternativeHeadline": "SpiderMonkey Alternative for Servo Browser",
+    "description": "Technical overview of Spacey, a JavaScript engine written in Rust designed to replace SpiderMonkey in the Servo web browser.",
+    "author": {
+      "@type": "Organization",
+      "name": "Pegasus Heavy Industries"
+    },
+    "publisher": {
+      "@type": "Organization",
+      "name": "Pegasus Heavy Industries"
+    },
+    "datePublished": "2025-12-15",
+    "dateModified": "2025-12-15",
+    "keywords": "Servo, SpiderMonkey, JavaScript engine, Rust, web browser",
+    "articleSection": "Technology",
+    "inLanguage": "en-US",
+    "about": [
+      {
+        "@type": "Thing",
+        "name": "Servo browser"
+      },
+      {
+        "@type": "Thing", 
+        "name": "JavaScript engine"
+      },
+      {
+        "@type": "Thing",
+        "name": "Rust programming language"
+      }
+    ],
+    "mentions": [
+      {
+        "@type": "SoftwareApplication",
+        "name": "Servo",
+        "url": "https://servo.org"
+      },
+      {
+        "@type": "SoftwareApplication",
+        "name": "SpiderMonkey",
+        "url": "https://spidermonkey.dev"
+      }
+    ]
+  }
+  </script>
 </head>
 <body style="background: #0c0015;">
   <app-root></app-root>

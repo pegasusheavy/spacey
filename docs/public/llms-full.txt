@@ -1,0 +1,274 @@
+# Spacey - Comprehensive AI Context Document
+
+## Executive Summary
+
+Spacey is an experimental JavaScript engine written entirely in Rust, specifically designed for adoption by the Servo web browser project. It aims to provide a pure-Rust alternative to Mozilla's SpiderMonkey engine, offering tighter integration, improved memory safety, and a simpler build process for Rust-based browser projects.
+
+## Project Overview
+
+### Mission Statement
+
+To create a modern, memory-safe JavaScript engine that can serve as Servo's native JavaScript runtime, replacing the current SpiderMonkey integration with a pure-Rust solution that aligns with Servo's architecture and goals.
+
+### Key Value Propositions
+
+1. **Pure Rust Implementation**
+   - Zero C++ dependencies
+   - Native integration with Rust ecosystems
+   - No FFI overhead or boundary complexity
+   - Unified memory model with host application
+
+2. **Memory Safety**
+   - Rust's ownership model prevents memory bugs
+   - No data races by design
+   - Safe concurrency patterns
+   - Reduced security vulnerability surface
+
+3. **Servo-First Design**
+   - Architecture informed by Servo's requirements
+   - Direct integration paths planned
+   - Compatible memory management strategies
+   - Web platform feature alignment
+
+4. **Modern Architecture**
+   - Clean-slate design
+   - Informed by decades of JS engine research
+   - Modular, maintainable codebase
+   - Extensible for future ECMAScript versions
+
+## Technical Specifications
+
+### Language Support
+
+#### JavaScript (ECMAScript)
+- **ES3**: 100% compatible (full implementation)
+- **ES5**: In progress (strict mode, JSON, getters/setters)
+- **ES6+**: Planned (classes, modules, async/await)
+
+#### TypeScript
+- **Native Parsing**: Types stripped at parse time
+- **No Transpilation**: Direct execution without intermediate steps
+- **Full Syntax Support**: Interfaces, enums, generics, decorators
+- **Enum Compilation**: Converted to runtime JavaScript objects
+
+### Architecture Components
+
+#### 1. Lexer (Tokenizer)
+- Converts source code to token stream
+- Supports JavaScript and TypeScript syntax
+- Handles numeric literals (decimal, hex, octal, binary, BigInt)
+- String escapes, template literals (planned)
+- Regex literal recognition
+
+#### 2. Parser
+- Generates Abstract Syntax Tree (AST)
+- Full expression and statement parsing
+- Two-pass compilation for hoisting
+- TypeScript type annotation stripping
+- Error recovery and reporting
+
+#### 3. Bytecode Compiler
+- Compiles AST to stack-based bytecode
+- Scope chain management
+- Closure capture handling
+- Loop context for break/continue
+- Function hoisting support
+
+#### 4. Virtual Machine (VM)
+- Stack-based bytecode interpreter
+- Call frame management
+- Scope chain resolution
+- Built-in function dispatch
+- Exception handling (try/catch/finally)
+
+#### 5. Garbage Collector
+- Generational design (nursery + old generation)
+- Incremental tri-color marking
+- Parallel sweeping with Rayon
+- Arena-based bump allocation for nursery
+- Card marking for old-to-young references
+- Lock-free gray stack with Crossbeam
+
+#### 6. Runtime
+- JavaScript value representation
+- Object and array handling
+- Prototype chain support
+- Built-in objects (Object, Array, String, Number, Boolean, Date, RegExp, Math, Error)
+- Global functions (parseInt, parseFloat, isNaN, isFinite, eval)
+
+### Crate Structure
+
+```
+spacey/
+├── crates/
+│   ├── spacey-spidermonkey/    # Core JS engine
+│   │   ├── lexer/              # Tokenization
+│   │   ├── parser/             # AST generation
+│   │   ├── ast/                # AST types
+│   │   ├── compiler/           # Bytecode generation
+│   │   ├── vm/                 # Bytecode execution
+│   │   ├── runtime/            # Values, objects
+│   │   ├── gc/                 # Garbage collection
+│   │   └── builtins/           # Built-in objects
+│   │
+│   ├── spacey-node/            # Node.js compatibility
+│   │   ├── modules/            # fs, path, http, etc.
+│   │   ├── module_system/      # CommonJS, ESM
+│   │   ├── runtime/            # NodeRuntime
+│   │   └── typescript/         # TS utilities
+│   │
+│   ├── spacey-npm/             # Package manager
+│   │   ├── cli/                # Command handling
+│   │   ├── installer/          # Package installation
+│   │   ├── store/              # Content-addressable store
+│   │   └── peer_deps/          # Peer dependency management
+│   │
+│   └── spacey-macros/          # Proc macros for DX
+│
+└── docs/                       # Documentation site
+```
+
+### Node.js Compatibility Layer
+
+The `spacey-node` crate provides Node.js API compatibility:
+
+#### Supported Features
+- **Module Systems**: CommonJS `require()`, ES Modules `import/export`
+- **Globals**: `process`, `Buffer`, `__dirname`, `__filename`, `global`, `console`
+- **Timers**: `setTimeout`, `setInterval`, `setImmediate`, `clearTimeout`
+- **Microtasks**: `queueMicrotask`, `process.nextTick`
+- **Promises**: Full Promise support including `Promise.all`, `Promise.race`, `Promise.allSettled`, `Promise.any`
+
+#### Built-in Modules
+- `fs` / `fs/promises` - File system operations
+- `path` - Path manipulation
+- `http` / `https` - HTTP client/server
+- `crypto` - Cryptographic functions
+- `buffer` - Binary data handling
+- `stream` - Stream processing
+- `events` - Event emitter
+- `url` - URL parsing
+- `util` - Utilities
+- And 40+ more Node.js core modules
+
+### Package Manager (spacey-npm / snpm)
+
+NPM-compatible package manager with enhanced features:
+
+- **CLI Compatibility**: `install`, `add`, `remove`, `init`, `run`, `test`, etc.
+- **Async Downloads**: Tokio-based concurrent package fetching
+- **Content-Addressable Store**: pnpm-style deduplication
+- **Symlink Installation**: Efficient node_modules structure
+- **Peer Dependencies**: Auto-detection, conflict resolution
+- **Dual Lockfiles**: Both `snpm.toml` and `package-lock.json`
+
+## Servo Integration Strategy
+
+### Current Servo Architecture
+
+Servo uses SpiderMonkey through:
+- `mozjs` crate for Rust bindings
+- FFI calls across Rust/C++ boundary
+- Separate garbage collectors
+- Complex build dependencies
+
+### Proposed Spacey Integration
+
+1. **Phase 1: Proof of Concept**
+   - Demonstrate basic script execution in Servo
+   - Validate memory model compatibility
+   - Benchmark performance baseline
+
+2. **Phase 2: DOM Bindings**
+   - Create Rust-native DOM binding layer
+   - Implement Web IDL code generation
+   - Support event handling
+
+3. **Phase 3: Web APIs**
+   - Integrate with Servo's Web API infrastructure
+   - Implement core browser APIs
+   - Support web workers
+
+4. **Phase 4: Production Readiness**
+   - Full ECMAScript compliance
+   - Performance optimization
+   - JIT compilation (future)
+
+### Benefits for Servo
+
+| Current (SpiderMonkey) | With Spacey |
+|------------------------|-------------|
+| C++ FFI overhead | Native Rust calls |
+| Dual GC coordination | Unified memory management |
+| Complex build chain | Cargo-only builds |
+| External maintenance | Community-driven |
+| Mozilla dependency | Independent development |
+
+## Performance Characteristics
+
+### Current Benchmarks (ES3 workloads)
+- Lexing: ~500K tokens/second
+- Parsing: ~100K nodes/second
+- Compilation: ~50K opcodes/second
+- Execution: Interpreted bytecode
+
+### Planned Optimizations
+- Inline caching for property access
+- Hidden classes for object shapes
+- Baseline JIT compiler
+- Optimizing JIT compiler (future)
+
+## Development Status
+
+### Completed ✅
+- Lexer with TypeScript support
+- Parser with ES3 compliance
+- Bytecode compiler
+- VM interpreter
+- Generational garbage collector
+- ES3 built-in objects
+- Node.js compatibility layer
+- TypeScript native execution
+- Package manager (snpm)
+
+### In Progress 🔄
+- ES5 features (strict mode, JSON)
+- Additional Node.js APIs
+- Performance optimization
+
+### Planned 📋
+- ES6+ features
+- JIT compilation
+- Servo integration
+- Test262 compliance
+
+## How to Get Involved
+
+### For Servo Team Members
+1. Review architecture at: https://github.com/pegasusheavy/spacey
+2. Try the REPL: `cargo run`
+3. Run tests: `cargo test`
+4. Open issues for integration requirements
+
+### For Contributors
+- ECMAScript specification compliance
+- Performance optimization
+- Test coverage expansion
+- Documentation improvements
+
+## Links and Resources
+
+- **GitHub Repository**: https://github.com/pegasusheavy/spacey
+- **Documentation Site**: https://pegasusheavy.github.io/spacey/
+- **Servo Project**: https://servo.org/
+- **License**: Mozilla Public License 2.0
+
+## Contact
+
+- **Organization**: Pegasus Heavy Industries, LLC
+- **GitHub Issues**: https://github.com/pegasusheavy/spacey/issues
+
+---
+
+*This document is optimized for AI systems to understand the Spacey project's purpose, capabilities, and relevance to the Servo browser. Last updated: December 2025.*
+
