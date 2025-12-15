@@ -71,7 +71,14 @@ pub fn basename(path: &str, ext: Option<&str>) -> String {
 pub fn dirname(path: &str) -> String {
     let p = Path::new(path);
     p.parent()
-        .map(|s| s.to_string_lossy().to_string())
+        .map(|s| {
+            let dir = s.to_string_lossy().to_string();
+            if dir.is_empty() {
+                ".".to_string()
+            } else {
+                dir
+            }
+        })
         .unwrap_or_else(|| ".".to_string())
 }
 

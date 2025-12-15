@@ -6,13 +6,13 @@ This document tracks the implementation of **native** TypeScript support in the 
 
 **Last Updated**: December 2025
 
-**Current Status**: Planning
+**Current Status**: ✅ **Implemented** (Core Features Complete)
 
 ---
 
 ## Overview
 
-Unlike traditional TypeScript tooling that transpiles `.ts` to `.js`, Spacey will **natively parse and execute TypeScript** by extending the lexer and parser to understand TypeScript syntax and strip types at parse time.
+Unlike traditional TypeScript tooling that transpiles `.ts` to `.js`, Spacey **natively parses and executes TypeScript** by extending the lexer and parser to understand TypeScript syntax and strip types at parse time.
 
 ### Why Native Execution?
 
@@ -65,115 +65,151 @@ Native:       .ts → Parse TS (strip types) → AST → Execute
 
 ## Implementation Checklist
 
-### Phase 1: Lexer Extensions (spacey-spidermonkey)
+### Phase 1: Lexer Extensions (spacey-spidermonkey) ✅
 
 **File: `crates/spacey-spidermonkey/src/lexer/`**
 
-New tokens to recognize:
-- [ ] `type` keyword
-- [ ] `interface` keyword
-- [ ] `namespace` keyword
-- [ ] `declare` keyword
-- [ ] `readonly` keyword
-- [ ] `abstract` keyword
-- [ ] `implements` keyword
-- [ ] `private`, `protected`, `public` modifiers
-- [ ] `as` keyword (type assertion)
-- [ ] `is` keyword (type predicate)
-- [ ] `keyof` keyword
-- [ ] `infer` keyword
-- [ ] `never`, `unknown`, `any` type keywords
-- [ ] `asserts` keyword
-- [ ] `override` keyword
-- [ ] Angle brackets `<>` for generics (context-aware)
-- [ ] `?:` optional property syntax
-- [ ] `!:` definite assignment assertion
-- [ ] `@` decorator syntax
+New tokens recognized:
+- [x] `type` keyword
+- [x] `interface` keyword
+- [x] `namespace` keyword
+- [x] `declare` keyword
+- [x] `readonly` keyword
+- [x] `abstract` keyword
+- [x] `implements` keyword
+- [x] `private`, `protected`, `public` modifiers
+- [x] `as` keyword (type assertion)
+- [x] `is` keyword (type predicate)
+- [x] `keyof` keyword
+- [x] `infer` keyword
+- [x] `never`, `unknown`, `any` type keywords
+- [x] `asserts` keyword
+- [x] `override` keyword
+- [x] `satisfies` keyword
+- [x] `out` keyword
+- [x] `accessor` keyword
+- [x] Angle brackets `<>` for generics
+- [x] `@` decorator syntax
 
-### Phase 2: Parser Extensions - Type Annotations
+### Phase 2: Parser Extensions - Type Annotations ✅
 
-**File: `crates/spacey-spidermonkey/src/parser/`**
+**File: `crates/spacey-spidermonkey/src/parser/parser.rs`**
 
 Parse and skip type annotations:
-- [ ] Variable type annotations: `let x: number`
-- [ ] Function parameter types: `function f(x: number)`
-- [ ] Function return types: `function f(): number`
-- [ ] Arrow function types: `(x: number): number => x`
-- [ ] Optional parameters: `function f(x?: number)`
-- [ ] Rest parameter types: `function f(...args: number[])`
-- [ ] Type assertions: `x as number`, `<number>x`
-- [ ] Non-null assertions: `x!`
-- [ ] Definite assignment: `x!: number`
+- [x] Variable type annotations: `let x: number`
+- [x] Function parameter types: `function f(x: number)`
+- [x] Function return types: `function f(): number`
+- [x] Arrow function types: `(x: number): number => x`
+- [x] Optional parameters: `function f(x?: number)`
+- [x] Rest parameter types: `function f(...args: number[])`
+- [x] Type assertions: `x as number`
+- [x] Non-null assertions: `x!`
+- [x] Definite assignment: `x!: number`
 
-### Phase 3: Parser Extensions - Type Declarations
+### Phase 3: Parser Extensions - Type Declarations ✅
 
 Parse and skip entire type declarations:
-- [ ] Type aliases: `type Foo = string`
-- [ ] Interfaces: `interface Foo { ... }`
-- [ ] Generic type parameters: `function f<T>(x: T): T`
-- [ ] Generic constraints: `<T extends Foo>`
-- [ ] Generic defaults: `<T = string>`
-- [ ] Mapped types: `{ [K in keyof T]: ... }`
-- [ ] Conditional types: `T extends U ? X : Y`
-- [ ] Index signatures: `{ [key: string]: number }`
-- [ ] Call signatures: `{ (x: number): void }`
-- [ ] Construct signatures: `{ new (x: number): Foo }`
+- [x] Type aliases: `type Foo = string`
+- [x] Interfaces: `interface Foo { ... }`
+- [x] Generic type parameters: `function f<T>(x: T): T`
+- [x] Generic constraints: `<T extends Foo>`
+- [x] Generic defaults: `<T = string>`
+- [x] Mapped types: `{ [K in keyof T]: ... }`
+- [x] Conditional types: `T extends U ? X : Y`
+- [x] Index signatures: `{ [key: string]: number }`
+- [x] Union types: `string | number`
+- [x] Intersection types: `A & B`
+- [x] Tuple types: `[string, number]`
+- [x] Function types: `(x: number) => number`
+- [x] Constructor types: `new (x: number) => Foo`
 
-### Phase 4: Parser Extensions - Classes
+### Phase 4: Parser Extensions - Classes ✅
 
-- [ ] Property modifiers: `private x: number`
-- [ ] Parameter properties: `constructor(private x: number)`
-- [ ] Abstract classes: `abstract class Foo`
-- [ ] Abstract methods: `abstract method(): void`
-- [ ] Implements clause: `class Foo implements Bar`
-- [ ] Override keyword: `override method()`
-- [ ] Declare modifier: `declare class Foo`
+- [x] Property modifiers: `private x: number`
+- [x] Abstract classes: `abstract class Foo`
+- [x] Implements clause: `class Foo implements Bar`
+- [x] Override keyword: `override method()`
+- [x] Declare modifier: `declare class Foo`
+- [x] Decorators: `@decorator class Foo`
 
-### Phase 5: Parser Extensions - Modules
+### Phase 5: Parser Extensions - Modules ✅
 
-- [ ] Type-only imports: `import type { Foo } from './foo'`
-- [ ] Type-only exports: `export type { Foo }`
-- [ ] Import type: `import { type Foo } from './foo'`
-- [ ] Declare module: `declare module 'foo' { ... }`
-- [ ] Namespace declarations: `namespace Foo { ... }`
-- [ ] Module augmentation
+- [x] Declare module: `declare module 'foo' { ... }`
+- [x] Namespace declarations: `namespace Foo { ... }`
 
-### Phase 6: Parser Extensions - Enums
+### Phase 6: Parser Extensions - Enums ✅
 
-- [ ] Numeric enums: `enum Color { Red, Green, Blue }`
-- [ ] String enums: `enum Color { Red = "RED" }`
-- [ ] Const enums: `const enum Color { ... }`
-- [ ] Declare enums: `declare enum Color { ... }`
-- [ ] Computed enum members
+- [x] Numeric enums: `enum Color { Red, Green, Blue }` → compiled to JS object
+- [x] String enums: `enum Color { Red = "RED" }` → compiled to JS object (no reverse mapping)
+- [x] Enums with explicit values: `enum Status { Active = 1, Inactive = 0 }`
 
-### Phase 7: Decorators (Optional/Experimental)
-
-- [ ] Class decorators: `@decorator class Foo`
-- [ ] Method decorators: `@decorator method()`
-- [ ] Property decorators: `@decorator prop: number`
-- [ ] Parameter decorators: `method(@decorator x: number)`
-
-### Phase 8: Node Runtime Integration
+### Phase 7: Node Runtime Integration ✅
 
 **File: `crates/spacey-node/src/`**
 
-- [ ] Recognize `.ts`, `.tsx`, `.mts`, `.cts` extensions
-- [ ] Enable TypeScript parsing mode for these files
-- [ ] Handle tsconfig.json for project settings
-- [ ] Support path mappings from tsconfig
-- [ ] JSX support for `.tsx` files
+- [x] Recognize `.ts`, `.tsx`, `.mts`, `.cts` extensions
+- [x] Enable TypeScript parsing mode for these files
+- [x] `is_typescript_file()` helper function
+- [x] `is_jsx_file()` helper function
+- [x] `eval_typescript()` method on `NodeRuntime`
 
-### Phase 9: CLI Integration
+### Phase 8: CLI Integration ✅
 
-- [ ] Run `.ts` files directly: `spacey-node app.ts`
-- [ ] `--no-typescript` flag to disable TS parsing
-- [ ] `--tsconfig <path>` for custom config
+- [x] Run `.ts` files directly: `spacey-node app.ts`
+- [x] `--typescript` / `-T` flag to force TS parsing
+- [x] `--eval-ts` for evaluating TypeScript from command line
 
 ---
 
-## TypeScript Syntax to Support
+## Usage
 
-### Must Have (Core)
+### Running TypeScript Files
+
+```bash
+# TypeScript files are automatically detected and executed
+spacey-node server.ts
+
+# Force TypeScript mode for any file
+spacey-node --typescript script.js
+
+# Evaluate TypeScript inline
+spacey-node --eval-ts "const x: number = 42; console.log(x)"
+```
+
+### Programmatic Usage
+
+```rust
+use spacey_spidermonkey::Engine;
+
+let mut engine = Engine::new();
+
+// Evaluate TypeScript directly
+let result = engine.eval_typescript("const x: number = 42; x;")?;
+
+// Or use auto-detection with files
+let result = engine.eval_file_auto(Path::new("script.ts"))?;
+```
+
+```rust
+use spacey_node::NodeRuntime;
+
+#[tokio::main]
+async fn main() -> anyhow::Result<()> {
+    let mut runtime = NodeRuntime::new(vec![]);
+    
+    // TypeScript files are automatically handled
+    runtime.run_file(Path::new("server.ts")).await?;
+    
+    Ok(())
+}
+```
+
+---
+
+## TypeScript Syntax Supported
+
+### Core Features (Fully Implemented)
+
 ```typescript
 // Type annotations
 let x: number = 42;
@@ -184,6 +220,9 @@ const obj: { name: string } = { name: "foo" };
 function add(a: number, b: number): number { return a + b; }
 const fn: (x: number) => number = (x) => x * 2;
 
+// Optional parameters
+function greet(name?: string): string { return "Hello, " + (name || "World"); }
+
 // Interfaces (parsed and skipped)
 interface User { name: string; age: number; }
 
@@ -192,88 +231,96 @@ type ID = string | number;
 
 // Generics
 function identity<T>(x: T): T { return x; }
+function map<T, U>(arr: T[], fn: (x: T) => U): U[] { /* ... */ }
 
 // Type assertions
 const x = value as string;
-const y = <string>value;
 
-// Optional/non-null
-const z = obj?.prop;
+// Non-null assertions
 const w = obj!.prop;
+
+// Union and intersection types
+type StringOrNumber = string | number;
+type Combined = A & B;
 
 // Classes with types
 class Foo {
     private x: number;
     constructor(x: number) { this.x = x; }
 }
+
+// Abstract classes
+abstract class Base {
+    abstract method(): void;
+}
+
+// Enums (converted to objects at runtime)
+enum Color { Red, Green, Blue }
+enum Direction { Up = "UP", Down = "DOWN" }
 ```
 
-### Nice to Have
+### Skipped Type Declarations
+
+The following TypeScript-only constructs are parsed and completely skipped
+(they produce no runtime code):
+
 ```typescript
-// Enums (converted to objects)
-enum Color { Red, Green, Blue }
+// Type aliases
+type MyType = string | number;
 
-// Namespaces (converted to objects)
-namespace Utils { export function helper() {} }
+// Interfaces
+interface User { name: string; age: number; }
 
-// Decorators (experimental)
-@decorator
-class Foo {}
+// Declare statements
+declare var globalVar: string;
+declare function externalFn(): void;
+
+// Namespaces (skipped, no runtime code)
+namespace Utils { /* ... */ }
 ```
 
 ---
 
-## Implementation Notes
+## Future Enhancements
 
-### Key Insight: Type Erasure
+These features are not yet implemented but could be added:
 
-TypeScript types exist only at parse time. The key is to:
-1. **Parse** the type syntax correctly
-2. **Skip/ignore** it when building the AST
-3. **Output** the same AST as if parsing JavaScript
-
-### Example Transform
-
-Input (TypeScript):
-```typescript
-function greet(name: string): string {
-    return "Hello, " + name;
-}
-```
-
-AST Output (same as JavaScript):
-```
-FunctionDeclaration {
-    name: "greet",
-    params: [Identifier("name")],  // No type info
-    body: BlockStatement { ... }    // No return type
-}
-```
-
-### Enum Handling
-
-Enums need special handling - they generate runtime code:
-```typescript
-enum Color { Red, Green, Blue }
-```
-Becomes:
-```javascript
-var Color;
-(function (Color) {
-    Color[Color["Red"] = 0] = "Red";
-    Color[Color["Green"] = 1] = "Green";
-    Color[Color["Blue"] = 2] = "Blue";
-})(Color || (Color = {}));
-```
+- [ ] Parameter properties: `constructor(private x: number)`
+- [ ] Type-only imports: `import type { Foo } from './foo'`
+- [ ] Type-only exports: `export type { Foo }`
+- [ ] tsconfig.json support for path mappings
+- [ ] JSX/TSX support for React-like syntax
+- [ ] Const enums (inlined at compile time)
+- [ ] Source map support for debugging
 
 ---
 
-## Testing Strategy
+## Testing
 
-1. **Unit tests**: Each new token/parse rule
-2. **Integration tests**: Full TypeScript files
-3. **Compatibility tests**: Run TypeScript test suite
-4. **Error tests**: Proper error messages for invalid TS
+All TypeScript parsing features are covered by unit tests:
+
+```bash
+# Run TypeScript-specific tests
+cargo test -p spacey-spidermonkey test_parse_typescript
+```
+
+Tests cover:
+- Variable type annotations
+- Function parameter and return types
+- Arrow functions with types
+- Optional parameters
+- Type assertions (`as` and `!`)
+- Type aliases (skipped)
+- Interfaces (skipped)
+- Declare statements (skipped)
+- Namespaces (skipped)
+- Generic functions
+- Union types
+- Intersection types
+- Complex nested types
+- Numeric enums
+- String enums
+- Enums with explicit values
 
 ---
 

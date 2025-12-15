@@ -71,6 +71,10 @@ impl<'a> Parser<'a> {
                     self.advance();
                     // Continue to parse class normally
                 }
+                TokenKind::Enum => {
+                    // Parse enum and convert to JavaScript
+                    return self.parse_enum_declaration();
+                }
                 _ => {}
             }
         }
@@ -1482,6 +1486,26 @@ impl<'a> Parser<'a> {
 
     // ==================== TypeScript Support ====================
 
+    /// Enable or disable TypeScript mode.
+    ///
+    /// When TypeScript mode is enabled, the parser will recognize TypeScript
+    /// keywords and syntax, and strip type annotations at parse time.
+    ///
+    /// # Arguments
+    ///
+    /// * `enabled` - Set to `true` to enable TypeScript parsing
+    ///
+    /// # Examples
+    ///
+    /// ```rust,ignore
+    /// let mut parser = Parser::new("const x: number = 42;");
+    /// parser.set_typescript_mode(true);
+    /// let ast = parser.parse_program()?;
+    /// ```
+    pub fn set_typescript_mode(&mut self, enabled: bool) {
+        self.scanner.set_typescript_mode(enabled);
+    }
+
     /// Check if the parser is in TypeScript mode.
     fn is_typescript_mode(&self) -> bool {
         self.scanner.is_typescript_mode()
@@ -1879,6 +1903,141 @@ impl<'a> Parser<'a> {
             }
         }
         Ok(())
+    }
+
+    /// Parse a TypeScript enum declaration and convert it to JavaScript.
+    ///
+    /// Converts:
+    /// ```typescript
+    /// enum Color { Red, Green, Blue }
+    /// ```
+    /// To equivalent AST for:
+    /// ```javascript
+    /// var Color = {};
+    /// Color["Red"] = 0; Color[0] = "Red";
+    /// Color["Green"] = 1; Color[1] = "Green";
+    /// Color["Blue"] = 2; Color[2] = "Blue";
+    /// ```
+    fn parse_enum_declaration(&mut self) -> Result<Statement, Error> {
+        self.expect(&TokenKind::Enum)?;
+
+        // Get the enum name
+        let enum_name = self.expect_identifier()?;
+        self.expect(&TokenKind::LeftBrace)?;
+
+        // Collect enum members
+        let mut members: Vec<(String, Option<Expression>)> = Vec::new();
+
+        while !self.check(&TokenKind::RightBrace) && !self.is_at_end() {
+            let member_name = self.expect_identifier()?;
+
+            // Check for explicit value
+            let value = if self.check(&TokenKind::Equal) {
+                self.advance();
+                Some(self.parse_expression()?)
+            } else {
+                None
+            };
+
+            members.push((member_name.name, value));
+
+            if !self.check(&TokenKind::RightBrace) {
+                if self.check(&TokenKind::Comma) {
+                    self.advance();
+                }
+            }
+        }
+
+        self.expect(&TokenKind::RightBrace)?;
+
+        // Generate JavaScript AST
+        // var EnumName = {};
+        let var_decl = Statement::VariableDeclaration(VariableDeclaration {
+            kind: VariableKind::Var,
+            declarations: vec![VariableDeclarator {
+                id: enum_name.clone(),
+                init: Some(Expression::Object(ObjectExpression {
+                    properties: vec![],
+                })),
+            }],
+        });
+
+        // Generate assignment statements for each member
+        let mut statements = vec![var_decl];
+        let mut current_value: i64 = 0;
+
+        for (name, explicit_value) in members {
+            // Determine the value for this member
+            let value_expr = match explicit_value {
+                Some(Expression::Literal(Literal::Number(n))) => {
+                    current_value = n as i64 + 1;
+                    Expression::Literal(Literal::Number(n))
+                }
+                Some(Expression::Literal(Literal::String(s))) => {
+                    // String enum - no reverse mapping
+                    let assign_stmt = Statement::Expression(ExpressionStatement {
+                        expression: Expression::Assignment(AssignmentExpression {
+                            operator: AssignmentOperator::Assign,
+                            left: Box::new(Expression::Member(MemberExpression {
+                                object: Box::new(Expression::Identifier(enum_name.clone())),
+                                property: MemberProperty::Expression(Box::new(Expression::Literal(
+                                    Literal::String(name.clone()),
+                                ))),
+                                computed: true,
+                            })),
+                            right: Box::new(Expression::Literal(Literal::String(s))),
+                        }),
+                    });
+                    statements.push(assign_stmt);
+                    continue;
+                }
+                Some(expr) => {
+                    // For complex expressions, just use them
+                    current_value += 1;
+                    expr
+                }
+                None => {
+                    let val = current_value;
+                    current_value += 1;
+                    Expression::Literal(Literal::Number(val as f64))
+                }
+            };
+
+            // EnumName["MemberName"] = value
+            let forward_assign = Statement::Expression(ExpressionStatement {
+                expression: Expression::Assignment(AssignmentExpression {
+                    operator: AssignmentOperator::Assign,
+                    left: Box::new(Expression::Member(MemberExpression {
+                        object: Box::new(Expression::Identifier(enum_name.clone())),
+                        property: MemberProperty::Expression(Box::new(Expression::Literal(
+                            Literal::String(name.clone()),
+                        ))),
+                        computed: true,
+                    })),
+                    right: Box::new(value_expr.clone()),
+                }),
+            });
+            statements.push(forward_assign);
+
+            // EnumName[value] = "MemberName" (reverse mapping for numeric enums)
+            if let Expression::Literal(Literal::Number(_)) = value_expr {
+                let reverse_assign = Statement::Expression(ExpressionStatement {
+                    expression: Expression::Assignment(AssignmentExpression {
+                        operator: AssignmentOperator::Assign,
+                        left: Box::new(Expression::Member(MemberExpression {
+                            object: Box::new(Expression::Identifier(enum_name.clone())),
+                            property: MemberProperty::Expression(Box::new(value_expr)),
+                            computed: true,
+                        })),
+                        right: Box::new(Expression::Literal(Literal::String(name))),
+                    }),
+                });
+                statements.push(reverse_assign);
+            }
+        }
+
+        // Return a block containing all statements
+        Ok(Statement::Block(BlockStatement { body: statements }))
     }
 }
 
@@ -2304,5 +2463,51 @@ mod tests {
         // let x: A & B = {};
         let program = parse_ts_ok("let x: A & B = {};");
         assert_eq!(program.body.len(), 1);
+    }
+
+    #[test]
+    fn test_parse_typescript_enum() {
+        // enum Color { Red, Green, Blue }
+        let program = parse_ts_ok("enum Color { Red, Green, Blue }");
+        assert_eq!(program.body.len(), 1);
+
+        // The enum should be converted to a block with statements
+        match &program.body[0] {
+            Statement::Block(block) => {
+                // var Color = {};
+                // Color["Red"] = 0; Color[0] = "Red";
+                // Color["Green"] = 1; Color[1] = "Green";
+                // Color["Blue"] = 2; Color[2] = "Blue";
+                // = 7 statements
+                assert_eq!(block.body.len(), 7);
+            }
+            _ => panic!("Expected block statement for enum"),
+        }
+    }
+
+    #[test]
+    fn test_parse_typescript_enum_with_values() {
+        // enum Status { Active = 1, Inactive = 0 }
+        let program = parse_ts_ok("enum Status { Active = 1, Inactive = 0 }");
+        assert_eq!(program.body.len(), 1);
+    }
+
+    #[test]
+    fn test_parse_typescript_string_enum() {
+        // enum Direction { Up = "UP", Down = "DOWN" }
+        let program = parse_ts_ok("enum Direction { Up = \"UP\", Down = \"DOWN\" }");
+        assert_eq!(program.body.len(), 1);
+
+        // String enums don't have reverse mapping, so fewer statements
+        match &program.body[0] {
+            Statement::Block(block) => {
+                // var Direction = {};
+                // Direction["Up"] = "UP";
+                // Direction["Down"] = "DOWN";
+                // = 3 statements (no reverse mapping for strings)
+                assert_eq!(block.body.len(), 3);
+            }
+            _ => panic!("Expected block statement for enum"),
+        }
     }
 }

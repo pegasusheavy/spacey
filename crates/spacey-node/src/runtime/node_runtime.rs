@@ -99,6 +99,28 @@ impl NodeRuntime {
         Ok(result)
     }
 
+    /// Evaluate TypeScript code
+    ///
+    /// TypeScript syntax (type annotations, interfaces, etc.) is parsed and
+    /// stripped at parse time. No separate transpilation step is required.
+    pub async fn eval_typescript(&mut self, code: &str) -> Result<Value> {
+        // Check for process.exit() before running
+        {
+            let exit = self.exit_code.read();
+            if let Some(code) = *exit {
+                return Err(NodeError::Process(format!("Process exited with code {}", code)));
+            }
+        }
+
+        // Evaluate the TypeScript code using the engine's native TypeScript mode
+        let result = self.engine.eval_typescript(code)?;
+
+        // Run the event loop until no more pending work
+        self.run_event_loop().await?;
+
+        Ok(result)
+    }
+
     /// Run a JavaScript file
     pub async fn run_file(&mut self, path: &Path) -> Result<i32> {
         // Resolve the path
@@ -147,8 +169,15 @@ impl NodeRuntime {
         // Wrap in module context
         let wrapped = self.wrap_module_code(&code, dirname, filename);
 
-        // Execute
-        self.engine.eval(&wrapped)?;
+        // Detect TypeScript by extension
+        let is_typescript = crate::typescript::is_typescript_file(abs_path);
+
+        // Execute (TypeScript or JavaScript)
+        if is_typescript {
+            self.engine.eval_typescript(&wrapped)?;
+        } else {
+            self.engine.eval(&wrapped)?;
+        }
 
         Ok(())
     }
@@ -170,8 +199,15 @@ impl NodeRuntime {
         // Wrap in ESM context
         let wrapped = self.wrap_esm_code(&code, abs_path, &import_meta);
 
-        // Execute
-        self.engine.eval(&wrapped)?;
+        // Detect TypeScript by extension
+        let is_typescript = crate::typescript::is_typescript_file(abs_path);
+
+        // Execute (TypeScript or JavaScript)
+        if is_typescript {
+            self.engine.eval_typescript(&wrapped)?;
+        } else {
+            self.engine.eval(&wrapped)?;
+        }
 
         Ok(())
     }

@@ -129,6 +129,72 @@ impl Engine {
         let source = std::fs::read_to_string(path).map_err(|e| Error::Io(e.to_string()))?;
         self.eval(&source)
     }
+
+    /// Evaluates TypeScript source code and returns the result.
+    ///
+    /// TypeScript syntax (type annotations, interfaces, type aliases, etc.)
+    /// is parsed and stripped at parse time, producing a JavaScript AST
+    /// that is then compiled and executed.
+    ///
+    /// # Arguments
+    ///
+    /// * `source` - The TypeScript source code to evaluate
+    ///
+    /// # Returns
+    ///
+    /// The result of evaluating the expression, or an error if parsing
+    /// or execution fails.
+    ///
+    /// # Examples
+    ///
+    /// ```rust,ignore
+    /// let mut engine = Engine::new();
+    /// let result = engine.eval_typescript("const x: number = 2 + 2; x;")?;
+    /// assert_eq!(result, Value::Number(4.0));
+    /// ```
+    pub fn eval_typescript(&mut self, source: &str) -> Result<Value, Error> {
+        // 1. Parse source into AST with TypeScript mode enabled
+        let mut parser = Parser::new(source);
+        parser.set_typescript_mode(true);
+        let ast = parser.parse_program()?;
+
+        // 2. Compile AST to bytecode
+        let mut compiler = Compiler::new();
+        let bytecode = compiler.compile(&ast)?;
+
+        // 3. Execute bytecode in VM
+        self.vm.execute(&bytecode)
+    }
+
+    /// Evaluates TypeScript source code from a file.
+    ///
+    /// The file is treated as TypeScript regardless of extension.
+    /// For automatic detection based on extension, use `eval_file_auto()`.
+    pub fn eval_file_typescript(&mut self, path: &std::path::Path) -> Result<Value, Error> {
+        let source = std::fs::read_to_string(path).map_err(|e| Error::Io(e.to_string()))?;
+        self.eval_typescript(&source)
+    }
+
+    /// Evaluates source code from a file, automatically detecting
+    /// whether it's TypeScript or JavaScript based on the file extension.
+    ///
+    /// TypeScript extensions: `.ts`, `.tsx`, `.mts`, `.cts`
+    /// JavaScript extensions: `.js`, `.jsx`, `.mjs`, `.cjs` (and others)
+    pub fn eval_file_auto(&mut self, path: &std::path::Path) -> Result<Value, Error> {
+        let source = std::fs::read_to_string(path).map_err(|e| Error::Io(e.to_string()))?;
+
+        // Detect TypeScript by extension
+        let is_typescript = match path.extension().and_then(|e| e.to_str()) {
+            Some("ts" | "tsx" | "mts" | "cts") => true,
+            _ => false,
+        };
+
+        if is_typescript {
+            self.eval_typescript(&source)
+        } else {
+            self.eval(&source)
+        }
+    }
 }
 
 impl Default for Engine {

@@ -12,9 +12,28 @@
 //! compatibility, including:
 //!
 //! - CommonJS module system (`require()`)
+//! - ESM module system (`import`/`export`)
+//! - **Native TypeScript execution** (no transpilation step)
 //! - Node.js globals (`process`, `Buffer`, `__dirname`, `__filename`)
 //! - Built-in modules (`fs`, `path`, `http`, `crypto`, etc.)
 //! - Event loop with async I/O
+//!
+//! ## TypeScript Support
+//!
+//! Spacey natively parses and executes TypeScript by stripping type annotations
+//! at parse time. No separate transpilation step is required:
+//!
+//! ```rust,ignore
+//! use spacey_node::NodeRuntime;
+//!
+//! #[tokio::main]
+//! async fn main() -> anyhow::Result<()> {
+//!     let mut runtime = NodeRuntime::new(vec![]);
+//!     // TypeScript files are automatically detected and handled
+//!     runtime.run_file(Path::new("server.ts")).await?;
+//!     Ok(())
+//! }
+//! ```
 //!
 //! ## Quick Start
 //!
@@ -23,8 +42,8 @@
 //!
 //! #[tokio::main]
 //! async fn main() -> anyhow::Result<()> {
-//!     let mut runtime = NodeRuntime::new();
-//!     runtime.run_file("server.js").await?;
+//!     let mut runtime = NodeRuntime::new(vec![]);
+//!     runtime.run_file(Path::new("server.js")).await?;
 //!     Ok(())
 //! }
 //! ```
@@ -34,6 +53,9 @@
 //! ```bash
 //! # Run a JavaScript file
 //! spacey-node server.js
+//!
+//! # Run a TypeScript file (native execution)
+//! spacey-node server.ts
 //!
 //! # Start REPL
 //! spacey-node --repl
@@ -50,10 +72,12 @@ pub mod globals;
 pub mod module_system;
 pub mod modules;
 pub mod runtime;
+pub mod typescript;
 
 // Re-exports
 pub use error::{NodeError, Result};
 pub use runtime::NodeRuntime;
+pub use typescript::{is_typescript_file, is_jsx_file, TS_EXTENSIONS, ALL_EXTENSIONS};
 
 /// Version of the spacey-node runtime
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");

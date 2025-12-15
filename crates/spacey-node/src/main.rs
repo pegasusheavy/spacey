@@ -4,31 +4,41 @@
 //
 // Copyright (c) 2025 Pegasus Heavy Industries, LLC
 
-//! spacey-node CLI - Node.js-compatible JavaScript runtime
+//! spacey-node CLI - Node.js-compatible JavaScript/TypeScript runtime
 
 use clap::Parser;
 use owo_colors::OwoColorize;
-use spacey_node::{NodeRuntime, VERSION};
+use spacey_node::{NodeRuntime, VERSION, is_typescript_file};
 use std::path::PathBuf;
 
 #[derive(Parser)]
 #[command(
     name = "spacey-node",
-    about = "Node.js-compatible JavaScript runtime powered by Spacey",
+    about = "Node.js-compatible JavaScript/TypeScript runtime powered by Spacey\n\n\
+             TypeScript files (.ts, .tsx, .mts, .cts) are natively executed without\n\
+             transpilation. Type annotations are stripped at parse time.",
     version = VERSION,
     author = "Pegasus Heavy Industries"
 )]
 struct Cli {
-    /// JavaScript file to execute
+    /// JavaScript or TypeScript file to execute
     script: Option<PathBuf>,
 
-    /// Evaluate script from command line
+    /// Evaluate script from command line (JavaScript)
     #[arg(short = 'e', long = "eval")]
     eval: Option<String>,
+
+    /// Evaluate TypeScript from command line
+    #[arg(long = "eval-ts")]
+    eval_typescript: Option<String>,
 
     /// Start interactive REPL
     #[arg(short = 'i', long = "interactive", alias = "repl")]
     interactive: bool,
+
+    /// Force TypeScript parsing for the script (even without .ts extension)
+    #[arg(long = "typescript", short = 'T')]
+    force_typescript: bool,
 
     /// Print version and exit
     #[arg(short = 'v', long = "version")]
@@ -69,8 +79,21 @@ async fn main() -> anyhow::Result<()> {
     let mut runtime = NodeRuntime::new(cli.args.clone());
 
     // Determine execution mode
-    if let Some(code) = cli.eval {
-        // Evaluate inline code
+    if let Some(code) = cli.eval_typescript {
+        // Evaluate inline TypeScript
+        match runtime.eval_typescript(&code).await {
+            Ok(result) => {
+                if !result.is_undefined() {
+                    println!("{}", result);
+                }
+            }
+            Err(e) => {
+                eprintln!("{}: {}", "Error".red().bold(), e);
+                std::process::exit(1);
+            }
+        }
+    } else if let Some(code) = cli.eval {
+        // Evaluate inline JavaScript
         match runtime.eval(&code).await {
             Ok(result) => {
                 if !result.is_undefined() {
@@ -84,6 +107,13 @@ async fn main() -> anyhow::Result<()> {
         }
     } else if let Some(script_path) = cli.script {
         // Run script file
+        // Force TypeScript mode if flag is set, otherwise auto-detect
+        let use_typescript = cli.force_typescript || is_typescript_file(&script_path);
+        
+        if use_typescript && !is_typescript_file(&script_path) {
+            tracing::info!("Forcing TypeScript mode for {}", script_path.display());
+        }
+        
         match runtime.run_file(&script_path).await {
             Ok(exit_code) => {
                 std::process::exit(exit_code);
