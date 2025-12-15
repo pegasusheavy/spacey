@@ -88,7 +88,7 @@ fn print_package(
     long: bool,
 ) -> Result<()> {
     let pkg_json_path = path.join("package.json");
-    
+
     let indent = "  ".repeat(current_depth);
     let prefix = if current_depth == 0 { "├── " } else { "├── " };
 
@@ -97,13 +97,13 @@ fn print_package(
             let version = pkg.version.as_deref().unwrap_or("0.0.0");
             print!("{}{}{}", indent, prefix, name.cyan());
             print!("@{}", version.dimmed());
-            
+
             if long {
                 if let Some(ref desc) = pkg.description {
                     print!(" - {}", desc.dimmed());
                 }
             }
-            
+
             println!();
         }
     } else {

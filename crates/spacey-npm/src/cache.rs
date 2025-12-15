@@ -16,10 +16,10 @@ impl PackageCache {
     /// Create a new package cache.
     pub fn new(cache_dir: Option<PathBuf>) -> Result<Self> {
         let cache_dir = cache_dir.unwrap_or_else(default_cache_dir);
-        
+
         // Create cache directory if it doesn't exist
         std::fs::create_dir_all(&cache_dir)?;
-        
+
         Ok(Self { cache_dir })
     }
 
@@ -41,16 +41,16 @@ impl PackageCache {
     /// Store a tarball in the cache.
     pub async fn store_tarball(&self, name: &str, version: &str, data: &[u8]) -> Result<PathBuf> {
         let tarball_path = self.tarball_path(name, version);
-        
+
         // Create parent directory
         if let Some(parent) = tarball_path.parent() {
             fs::create_dir_all(parent).await?;
         }
-        
+
         // Write tarball
         fs::write(&tarball_path, data).await?;
         debug!("Cached tarball at {}", tarball_path.display());
-        
+
         Ok(tarball_path)
     }
 
@@ -72,11 +72,11 @@ impl PackageCache {
     /// Store package metadata.
     pub async fn store_metadata(&self, name: &str, metadata: &str) -> Result<()> {
         let metadata_path = self.metadata_path(name);
-        
+
         if let Some(parent) = metadata_path.parent() {
             fs::create_dir_all(parent).await?;
         }
-        
+
         fs::write(&metadata_path, metadata).await?;
         Ok(())
     }
@@ -92,11 +92,11 @@ impl PackageCache {
     /// Clear the entire cache.
     pub async fn clear(&self) -> Result<()> {
         info!("Clearing cache at {}", self.cache_dir.display());
-        
+
         if self.cache_dir.exists() {
             fs::remove_dir_all(&self.cache_dir).await?;
         }
-        
+
         fs::create_dir_all(&self.cache_dir).await?;
         Ok(())
     }
@@ -104,7 +104,7 @@ impl PackageCache {
     /// Get cache size in bytes.
     pub fn size(&self) -> Result<u64> {
         let mut total = 0u64;
-        
+
         for entry in walkdir::WalkDir::new(&self.cache_dir) {
             let entry = entry.map_err(|e| SnpmError::Other(e.to_string()))?;
             if entry.file_type().is_file() {
@@ -113,7 +113,7 @@ impl PackageCache {
                 }
             }
         }
-        
+
         Ok(total)
     }
 
@@ -121,15 +121,15 @@ impl PackageCache {
     pub fn list(&self) -> Result<Vec<CachedPackage>> {
         let mut packages = Vec::new();
         let tarballs_dir = self.cache_dir.join("tarballs");
-        
+
         if !tarballs_dir.exists() {
             return Ok(packages);
         }
-        
+
         for entry in std::fs::read_dir(&tarballs_dir)? {
             let entry = entry?;
             let path = entry.path();
-            
+
             if path.extension().map_or(false, |e| e == "tgz") {
                 if let Some(file_name) = path.file_stem() {
                     let name = file_name.to_string_lossy();
@@ -137,7 +137,7 @@ impl PackageCache {
                     if let Some(last_dash) = name.rfind('-') {
                         let package_name = &name[..last_dash];
                         let version = &name[last_dash + 1..];
-                        
+
                         packages.push(CachedPackage {
                             name: package_name.to_string(),
                             version: version.to_string(),
@@ -148,7 +148,7 @@ impl PackageCache {
                 }
             }
         }
-        
+
         Ok(packages)
     }
 
@@ -157,17 +157,17 @@ impl PackageCache {
         let mut valid = 0;
         let mut invalid = 0;
         let mut missing = 0;
-        
+
         let tarballs_dir = self.cache_dir.join("tarballs");
-        
+
         if !tarballs_dir.exists() {
             return Ok(VerifyResult { valid, invalid, missing });
         }
-        
+
         for entry in std::fs::read_dir(&tarballs_dir)? {
             let entry = entry?;
             let path = entry.path();
-            
+
             if path.extension().map_or(false, |e| e == "tgz") {
                 if path.exists() {
                     // Basic check: try to read the file
@@ -180,7 +180,7 @@ impl PackageCache {
                 }
             }
         }
-        
+
         Ok(VerifyResult { valid, invalid, missing })
     }
 }

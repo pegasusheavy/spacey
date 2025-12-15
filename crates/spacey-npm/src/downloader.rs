@@ -119,6 +119,11 @@ impl PackageDownloader {
         &self.stats
     }
 
+    /// Get the registry client for direct downloads.
+    pub fn downloader_client(&self) -> &RegistryClient {
+        &self.registry
+    }
+
     #[instrument(skip(self, tasks))]
     pub async fn download_packages(&self, tasks: Vec<DownloadTask>) -> Result<Vec<DownloadResult>> {
         if tasks.is_empty() {

@@ -18,6 +18,8 @@ mod installer;
 mod downloader;
 mod integrity;
 mod cache;
+mod store;
+mod peer_deps;
 
 use cli::{Cli, Commands};
 use error::Result;
@@ -61,6 +63,7 @@ async fn main() -> Result<()> {
         Some(Commands::Exec(args)) => commands::exec::run(args, &cli).await,
         Some(Commands::Version(args)) => commands::version::run(args, &cli).await,
         Some(Commands::Ci(args)) => commands::ci::run(args, &cli).await,
+        Some(Commands::Store(args)) => commands::store::run(args, &cli).await,
         None => {
             // Default: run install if package.json exists, otherwise show help
             if std::path::Path::new("package.json").exists() {
@@ -79,7 +82,7 @@ fn print_banner() {
     println!(
         r#"
 {}
-  _____ _   _ ____  __  __ 
+  _____ _   _ ____  __  __
  / ____| \ | |  _ \|  \/  |
 | (___ |  \| | |_) | \  / |
  \___ \| . ` |  __/| |\/| |

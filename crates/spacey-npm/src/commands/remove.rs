@@ -10,7 +10,7 @@ use crate::package::PackageJson;
 /// Run the remove command.
 pub async fn run(args: &RemoveArgs, cli: &Cli) -> Result<()> {
     let pkg_json_path = PathBuf::from("package.json");
-    
+
     if !pkg_json_path.exists() {
         println!("{}", "No package.json found.".yellow());
         return Ok(());

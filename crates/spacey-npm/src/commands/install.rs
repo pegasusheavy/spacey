@@ -44,7 +44,7 @@ pub async fn run(args: &InstallArgs, cli: &Cli) -> Result<()> {
     if !args.packages.is_empty() {
         for pkg_spec in &args.packages {
             let (name, version) = parse_package_spec(pkg_spec);
-            
+
             let dep_type = if args.save_dev {
                 crate::package::DependencyType::Development
             } else if args.save_optional {
@@ -151,7 +151,7 @@ pub async fn run(args: &InstallArgs, cli: &Cli) -> Result<()> {
             result.packages_installed,
             elapsed.as_secs_f64()
         );
-        
+
         if result.packages_from_cache > 0 {
             println!(
                 "  {} packages from cache",

@@ -12,21 +12,21 @@ use crate::error::{Result, SnpmError};
 pub struct PackageLock {
     /// Lock file name
     pub name: String,
-    
+
     /// Lock file version
     pub version: String,
-    
+
     /// Lock file format version
     pub lockfile_version: u32,
-    
+
     /// Whether to require lock file
     #[serde(default)]
     pub requires: bool,
-    
+
     /// Packages (lockfileVersion >= 2)
     #[serde(default)]
     pub packages: BTreeMap<String, LockPackage>,
-    
+
     /// Dependencies (lockfileVersion 1)
     #[serde(default)]
     pub dependencies: BTreeMap<String, LockDependency>,
@@ -38,61 +38,61 @@ pub struct PackageLock {
 pub struct LockPackage {
     /// Package version
     pub version: String,
-    
+
     /// Resolved URL
     pub resolved: Option<String>,
-    
+
     /// Integrity hash
     pub integrity: Option<String>,
-    
+
     /// Whether this is the root project
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub link: bool,
-    
+
     /// Dependencies
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub dependencies: BTreeMap<String, String>,
-    
+
     /// Dev dependencies (only for root)
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub dev_dependencies: BTreeMap<String, String>,
-    
+
     /// Peer dependencies
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub peer_dependencies: BTreeMap<String, String>,
-    
+
     /// Peer dependencies meta
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub peer_dependencies_meta: BTreeMap<String, PeerDependencyMeta>,
-    
+
     /// Optional dependencies
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub optional_dependencies: BTreeMap<String, String>,
-    
+
     /// Engines
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub engines: BTreeMap<String, String>,
-    
+
     /// Whether this is a dev dependency
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub dev: bool,
-    
+
     /// Whether this is optional
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub optional: bool,
-    
+
     /// Whether this is a peer dependency
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub peer: bool,
-    
+
     /// Whether this has install scripts
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub has_install_script: bool,
-    
+
     /// Binary executables
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub bin: Option<BTreeMap<String, String>>,
-    
+
     /// License
     pub license: Option<String>,
 }
@@ -103,25 +103,25 @@ pub struct LockPackage {
 pub struct LockDependency {
     /// Version
     pub version: String,
-    
+
     /// Resolved URL
     pub resolved: Option<String>,
-    
+
     /// Integrity hash
     pub integrity: Option<String>,
-    
+
     /// Whether this is a dev dependency
     #[serde(default)]
     pub dev: bool,
-    
+
     /// Whether this is optional
     #[serde(default)]
     pub optional: bool,
-    
+
     /// Nested dependencies
     #[serde(default)]
     pub dependencies: BTreeMap<String, LockDependency>,
-    
+
     /// Required packages
     #[serde(default)]
     pub requires: BTreeMap<String, String>,
@@ -262,7 +262,7 @@ mod tests {
     #[test]
     fn test_add_package() {
         let mut lock = PackageLock::new("test".into(), "1.0.0".into());
-        
+
         lock.add_package(
             "node_modules/lodash",
             LockPackage {
@@ -272,7 +272,7 @@ mod tests {
                 ..Default::default()
             },
         );
-        
+
         assert!(lock.is_locked("lodash", "4.17.21"));
         assert!(!lock.is_locked("lodash", "4.17.20"));
     }

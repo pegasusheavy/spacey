@@ -13,62 +13,62 @@ use crate::registry::DEFAULT_REGISTRY;
 pub struct Config {
     /// Registry URL
     pub registry: String,
-    
+
     /// Cache directory
     pub cache: Option<PathBuf>,
-    
+
     /// Global packages directory
     pub prefix: Option<PathBuf>,
-    
+
     /// Authentication tokens (registry -> token)
     #[serde(default)]
     pub auth_tokens: BTreeMap<String, String>,
-    
+
     /// Number of concurrent downloads
     pub concurrency: usize,
-    
+
     /// Request timeout in seconds
     pub timeout: u64,
-    
+
     /// Whether to skip SSL verification
     pub strict_ssl: bool,
-    
+
     /// Proxy URL
     pub proxy: Option<String>,
-    
+
     /// HTTPS proxy URL
     pub https_proxy: Option<String>,
-    
+
     /// Whether to save dependencies by default
     pub save: bool,
-    
+
     /// Whether to save exact versions
     pub save_exact: bool,
-    
+
     /// Default save type (prod, dev, optional)
     pub save_prefix: String,
-    
+
     /// Legacy peer dependencies mode
     pub legacy_peer_deps: bool,
-    
+
     /// Strict peer dependencies
     pub strict_peer_deps: bool,
-    
+
     /// Package lock enabled
     pub package_lock: bool,
-    
+
     /// Audit enabled
     pub audit: bool,
-    
+
     /// Scripts enabled
     pub scripts: bool,
-    
+
     /// Progress bar enabled
     pub progress: bool,
-    
+
     /// Log level
     pub loglevel: String,
-    
+
     /// Custom config values
     #[serde(flatten)]
     pub extra: BTreeMap<String, serde_json::Value>,
@@ -105,51 +105,51 @@ impl Config {
     /// Load configuration from default locations.
     pub fn load() -> Result<Self> {
         let mut config = Config::default();
-        
+
         // Load from global config file
         if let Some(global_config_path) = global_config_path() {
             if global_config_path.exists() {
                 config.merge_from_file(&global_config_path)?;
             }
         }
-        
+
         // Load from user config file
         if let Some(user_config_path) = user_config_path() {
             if user_config_path.exists() {
                 config.merge_from_file(&user_config_path)?;
             }
         }
-        
+
         // Load from project .npmrc
         let project_npmrc = PathBuf::from(".npmrc");
         if project_npmrc.exists() {
             config.merge_from_file(&project_npmrc)?;
         }
-        
+
         // Load from environment variables
         config.load_from_env();
-        
+
         Ok(config)
     }
 
     /// Merge configuration from a file.
     fn merge_from_file(&mut self, path: &Path) -> Result<()> {
         let content = std::fs::read_to_string(path)?;
-        
+
         // Parse .npmrc format (key=value pairs)
         for line in content.lines() {
             let line = line.trim();
-            
+
             // Skip comments and empty lines
             if line.is_empty() || line.starts_with('#') || line.starts_with(';') {
                 continue;
             }
-            
+
             if let Some((key, value)) = line.split_once('=') {
                 self.set(key.trim(), value.trim());
             }
         }
-        
+
         Ok(())
     }
 
@@ -251,13 +251,13 @@ impl Config {
         if let Some(token) = self.auth_tokens.get(registry) {
             return Some(token);
         }
-        
+
         // Try without protocol
         let registry_host = registry
             .trim_start_matches("https://")
             .trim_start_matches("http://")
             .trim_end_matches('/');
-        
+
         self.auth_tokens.get(registry_host)
     }
 
@@ -265,30 +265,30 @@ impl Config {
     pub fn save(&self) -> Result<()> {
         let config_path = user_config_path()
             .ok_or_else(|| SnpmError::Config("Could not determine config path".into()))?;
-        
+
         // Create parent directory
         if let Some(parent) = config_path.parent() {
             std::fs::create_dir_all(parent)?;
         }
-        
+
         // Write .npmrc format
         let mut content = String::new();
         content.push_str(&format!("registry={}\n", self.registry));
-        
+
         if let Some(ref cache) = self.cache {
             content.push_str(&format!("cache={}\n", cache.display()));
         }
-        
+
         content.push_str(&format!("concurrency={}\n", self.concurrency));
         content.push_str(&format!("timeout={}\n", self.timeout));
         content.push_str(&format!("strict-ssl={}\n", self.strict_ssl));
-        
+
         for (registry, token) in &self.auth_tokens {
             content.push_str(&format!("//{}:_authToken={}\n", registry, token));
         }
-        
+
         std::fs::write(config_path, content)?;
-        
+
         Ok(())
     }
 }

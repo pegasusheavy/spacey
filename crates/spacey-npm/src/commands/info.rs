@@ -18,7 +18,7 @@ pub async fn run(args: &InfoArgs, cli: &Cli) -> Result<()> {
 
     println!();
     println!("{}", format!("{}@{}", package.name, package.dist_tags.get("latest").unwrap_or(&"unknown".to_string())).cyan().bold());
-    
+
     if let Some(ref desc) = package.description {
         println!("{}", desc);
     }

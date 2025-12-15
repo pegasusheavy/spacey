@@ -81,6 +81,9 @@ urlencoding = "2.1"
 # Bytes for HTTP responses
 bytes = "1.5"
 
+# Path manipulation
+pathdiff = "0.2"
+
 [dev-dependencies]
 tokio-test = "0.4"
 

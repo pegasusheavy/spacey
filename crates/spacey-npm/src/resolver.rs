@@ -114,7 +114,7 @@ impl Resolver {
             // Try to resolve from lockfile first
             if let Some(resolved) = self.resolve_from_lockfile(&name, &version_req) {
                 debug!("Resolved {} from lockfile: {}", name, resolved.version);
-                
+
                 // Queue transitive dependencies
                 for (dep_name, dep_version) in &resolved.dependencies {
                     queue.push_back((
@@ -124,7 +124,7 @@ impl Resolver {
                         false,
                     ));
                 }
-                
+
                 self.resolved.insert(name.clone(), resolved);
                 continue;
             }
@@ -133,7 +133,7 @@ impl Resolver {
             match self.resolve_from_registry(&name, &version_req, dep_type, optional).await {
                 Ok(resolved) => {
                     debug!("Resolved {} from registry: {}", name, resolved.version);
-                    
+
                     // Queue transitive dependencies
                     for (dep_name, dep_version) in &resolved.dependencies {
                         queue.push_back((
@@ -143,7 +143,7 @@ impl Resolver {
                             false,
                         ));
                     }
-                    
+
                     // Queue optional dependencies
                     for (dep_name, dep_version) in &resolved.optional_dependencies {
                         queue.push_back((
@@ -153,7 +153,7 @@ impl Resolver {
                             true,
                         ));
                     }
-                    
+
                     self.resolved.insert(name.clone(), resolved);
                 }
                 Err(e) => {

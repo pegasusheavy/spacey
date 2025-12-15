@@ -117,6 +117,9 @@ pub enum Commands {
     /// Install dependencies in CI mode (clean install)
     #[command(alias = "clean-install")]
     Ci(CiArgs),
+
+    /// Manage the package store (pnpm-style)
+    Store(StoreArgs),
 }
 
 #[derive(Args, Debug, Default, Clone)]
@@ -188,6 +191,18 @@ pub struct InstallArgs {
     /// Don't execute any lifecycle scripts
     #[arg(long)]
     pub no_scripts: bool,
+
+    /// Use symlinked node_modules (pnpm-style)
+    #[arg(long)]
+    pub symlink: bool,
+
+    /// Use hard-linked node_modules (better compatibility than symlink)
+    #[arg(long)]
+    pub hardlink: bool,
+
+    /// Auto-install missing peer dependencies
+    #[arg(long, default_value = "true")]
+    pub auto_install_peers: bool,
 }
 
 #[derive(Args, Debug, Clone)]
@@ -530,5 +545,37 @@ pub struct CiArgs {
     /// Only install production dependencies
     #[arg(long)]
     pub production: bool,
+}
+
+#[derive(Args, Debug, Clone)]
+pub struct StoreArgs {
+    #[command(subcommand)]
+    pub action: StoreAction,
+}
+
+#[derive(Subcommand, Debug, Clone)]
+pub enum StoreAction {
+    /// Show store path
+    Path,
+    /// Show store status and statistics
+    Status,
+    /// Prune unused packages from the store
+    Prune {
+        /// Perform a dry run
+        #[arg(long)]
+        dry_run: bool,
+    },
+    /// Add packages to the store
+    Add {
+        /// Package specifiers to add
+        packages: Vec<String>,
+    },
+    /// List packages in the store
+    #[command(alias = "ls")]
+    List {
+        /// Filter by package name
+        #[arg(long)]
+        filter: Option<String>,
+    },
 }
 

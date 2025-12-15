@@ -11,7 +11,7 @@ use crate::package::PackageJson;
 /// Run the run command.
 pub async fn run(args: &RunArgs, cli: &Cli) -> Result<()> {
     let pkg_json_path = PathBuf::from("package.json");
-    
+
     if !pkg_json_path.exists() {
         return Err(SnpmError::PackageJsonNotFound(".".into()));
     }

@@ -17,6 +17,7 @@ pub mod publish;
 pub mod remove;
 pub mod run;
 pub mod search;
+pub mod store;
 pub mod test;
 pub mod unlink;
 pub mod update;

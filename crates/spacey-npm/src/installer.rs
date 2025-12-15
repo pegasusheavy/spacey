@@ -1,15 +1,34 @@
 //! Package installation.
 
+use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use tracing::{debug, info, warn};
 
-use crate::cache::PackageCache;
 use crate::downloader::{DownloadTask, PackageDownloader, TarballExtractor};
 use crate::error::{Result, SnpmError};
 use crate::lockfile::{LockPackage, PackageLock};
 use crate::package::PackageJson;
+use crate::peer_deps::{PeerDependencyConfig, PeerDependencyManager};
 use crate::resolver::ResolvedPackage;
+use crate::store::{PackageStore, VirtualStore};
+
+/// Installation mode.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum InstallMode {
+    /// Classic npm-style: copy packages to node_modules
+    Classic,
+    /// pnpm-style: use store and symlinks
+    Symlinked,
+    /// Hard link from store (better compatibility)
+    HardLinked,
+}
+
+impl Default for InstallMode {
+    fn default() -> Self {
+        Self::Symlinked
+    }
+}
 
 /// Package installer.
 pub struct Installer {
@@ -17,6 +36,12 @@ pub struct Installer {
     extractor: TarballExtractor,
     node_modules: PathBuf,
     run_scripts: bool,
+    /// Package store for symlinked mode
+    store: Option<PackageStore>,
+    /// Installation mode
+    mode: InstallMode,
+    /// Peer dependency manager
+    peer_manager: PeerDependencyManager,
 }
 
 impl Installer {
@@ -32,7 +57,36 @@ impl Installer {
             extractor: TarballExtractor::new(num_workers),
             node_modules,
             run_scripts,
+            store: None,
+            mode: InstallMode::Classic,
+            peer_manager: PeerDependencyManager::new(PeerDependencyConfig::default()),
         }
+    }
+
+    /// Create a new installer with store support.
+    pub fn with_store(
+        downloader: PackageDownloader,
+        node_modules: PathBuf,
+        run_scripts: bool,
+        num_workers: usize,
+        store: PackageStore,
+        mode: InstallMode,
+    ) -> Self {
+        Self {
+            downloader,
+            extractor: TarballExtractor::new(num_workers),
+            node_modules,
+            run_scripts,
+            store: Some(store),
+            mode,
+            peer_manager: PeerDependencyManager::new(PeerDependencyConfig::default()),
+        }
+    }
+
+    /// Set peer dependency configuration.
+    pub fn with_peer_config(mut self, config: PeerDependencyConfig) -> Self {
+        self.peer_manager = PeerDependencyManager::new(config);
+        self
     }
 
     /// Install resolved packages.
@@ -41,8 +95,34 @@ impl Installer {
             return Ok(InstallResult::default());
         }
 
-        info!("Installing {} packages to {}", packages.len(), self.node_modules.display());
+        // Analyze peer dependencies
+        let peer_analysis = self.peer_manager.analyze(packages);
+        self.peer_manager.validate(&peer_analysis)?;
 
+        // Log peer dependency info
+        if !peer_analysis.missing.is_empty() {
+            info!("Auto-installing {} missing peer dependencies", peer_analysis.missing.len());
+        }
+        if !peer_analysis.conflicts.is_empty() {
+            warn!("{} peer dependency conflicts detected", peer_analysis.conflicts.len());
+        }
+
+        info!(
+            "Installing {} packages to {} (mode: {:?})",
+            packages.len(),
+            self.node_modules.display(),
+            self.mode
+        );
+
+        match self.mode {
+            InstallMode::Classic => self.install_classic(packages).await,
+            InstallMode::Symlinked => self.install_symlinked(packages).await,
+            InstallMode::HardLinked => self.install_hardlinked(packages).await,
+        }
+    }
+
+    /// Classic installation: download and extract to node_modules.
+    async fn install_classic(&self, packages: &[ResolvedPackage]) -> Result<InstallResult> {
         // Create node_modules directory
         std::fs::create_dir_all(&self.node_modules)?;
 
@@ -78,7 +158,148 @@ impl Installer {
         self.create_bin_links(packages)?;
 
         // Run install scripts
+        let scripts_run = self.run_install_scripts(packages)?;
+
+        let stats = self.downloader.stats();
+
+        Ok(InstallResult {
+            packages_installed: packages.len(),
+            packages_from_cache: stats.from_cache.load(std::sync::atomic::Ordering::Relaxed),
+            bytes_downloaded: stats.bytes_downloaded.load(std::sync::atomic::Ordering::Relaxed),
+            scripts_run,
+            install_mode: self.mode,
+        })
+    }
+
+    /// Symlinked installation: use store and create symlinks.
+    async fn install_symlinked(&self, packages: &[ResolvedPackage]) -> Result<InstallResult> {
+        let store = self.store.as_ref().ok_or_else(|| {
+            SnpmError::Other("Store not configured for symlinked installation".into())
+        })?;
+
+        let virtual_store = VirtualStore::new(self.node_modules.clone(), store.clone());
+        virtual_store.init().await?;
+
+        // Download and import packages to store
+        let mut imported = 0;
+        let mut from_cache = 0;
+
+        for pkg in packages {
+            let integrity = pkg.integrity.as_deref().unwrap_or("");
+
+            // Check if already in store
+            if store.has_package(integrity) {
+                from_cache += 1;
+            } else {
+                // Download tarball
+                let tarball = self.downloader
+                    .downloader_client()
+                    .download_tarball(&pkg.tarball_url)
+                    .await?;
+
+                // Import to store
+                store.import_package(
+                    &pkg.name,
+                    &pkg.version,
+                    &tarball,
+                    pkg.integrity.as_deref(),
+                ).await?;
+
+                imported += 1;
+            }
+
+            // Build dependencies map
+            let deps: HashMap<String, String> = pkg.dependencies
+                .iter()
+                .chain(pkg.peer_dependencies.iter())
+                .map(|(k, v)| (k.clone(), v.clone()))
+                .collect();
+
+            // Install to virtual store
+            virtual_store.install_package(
+                &pkg.name,
+                &pkg.version,
+                integrity,
+                &deps,
+            ).await?;
+
+            // Create top-level link
+            virtual_store.create_top_level_link(&pkg.name, &pkg.version).await?;
+        }
+
+        // Create .bin symlinks
+        self.create_bin_links(packages)?;
+
+        // Run install scripts
+        let scripts_run = self.run_install_scripts(packages)?;
+
+        Ok(InstallResult {
+            packages_installed: packages.len(),
+            packages_from_cache: from_cache,
+            bytes_downloaded: 0, // TODO: track this
+            scripts_run,
+            install_mode: self.mode,
+        })
+    }
+
+    /// Hard-linked installation: use store with hard links.
+    async fn install_hardlinked(&self, packages: &[ResolvedPackage]) -> Result<InstallResult> {
+        let store = self.store.as_ref().ok_or_else(|| {
+            SnpmError::Other("Store not configured for hard-linked installation".into())
+        })?;
+
+        std::fs::create_dir_all(&self.node_modules)?;
+
+        let mut from_cache = 0;
+
+        for pkg in packages {
+            let integrity = pkg.integrity.as_deref().unwrap_or("");
+
+            // Check if already in store
+            if store.has_package(integrity) {
+                from_cache += 1;
+            } else {
+                // Download tarball
+                let tarball = self.downloader
+                    .downloader_client()
+                    .download_tarball(&pkg.tarball_url)
+                    .await?;
+
+                // Import to store
+                store.import_package(
+                    &pkg.name,
+                    &pkg.version,
+                    &tarball,
+                    pkg.integrity.as_deref(),
+                ).await?;
+            }
+
+            // Hard link from store to node_modules
+            let target = self.package_path(&pkg.name);
+            store.hard_link_package(integrity, &target).await?;
+        }
+
+        // Create .bin symlinks
+        self.create_bin_links(packages)?;
+
+        // Run install scripts
+        let scripts_run = self.run_install_scripts(packages)?;
+
+        let stats = self.downloader.stats();
+
+        Ok(InstallResult {
+            packages_installed: packages.len(),
+            packages_from_cache: from_cache,
+            bytes_downloaded: stats.bytes_downloaded.load(std::sync::atomic::Ordering::Relaxed),
+            scripts_run,
+            install_mode: self.mode,
+        })
+    }
+
+    /// Run install lifecycle scripts.
+    fn run_install_scripts(&self, packages: &[ResolvedPackage]) -> Result<usize> {
         let mut scripts_run = 0;
+
         if self.run_scripts {
             for pkg in packages.iter().filter(|p| p.has_install_script) {
                 if self.run_lifecycle_script(&pkg.name, "preinstall")? {
@@ -93,14 +314,7 @@ impl Installer {
             }
         }
 
-        let stats = self.downloader.stats();
-
-        Ok(InstallResult {
-            packages_installed: packages.len(),
-            packages_from_cache: stats.from_cache.load(std::sync::atomic::Ordering::Relaxed),
-            bytes_downloaded: stats.bytes_downloaded.load(std::sync::atomic::Ordering::Relaxed),
-            scripts_run,
-        })
+        Ok(scripts_run)
     }
 
     /// Get the path to a package in node_modules.
@@ -242,7 +456,7 @@ impl Installer {
 }
 
 /// Result of an install operation.
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct InstallResult {
     /// Number of packages installed
     pub packages_installed: usize,
@@ -252,6 +466,20 @@ pub struct InstallResult {
     pub bytes_downloaded: u64,
     /// Number of scripts run
     pub scripts_run: usize,
+    /// Installation mode used
+    pub install_mode: InstallMode,
+}
+
+impl Default for InstallResult {
+    fn default() -> Self {
+        Self {
+            packages_installed: 0,
+            packages_from_cache: 0,
+            bytes_downloaded: 0,
+            scripts_run: 0,
+            install_mode: InstallMode::Classic,
+        }
+    }
 }
 
 impl InstallResult {
