@@ -13,7 +13,7 @@ use std::collections::HashMap;
 /// Create the stream module exports
 pub fn create_module() -> Value {
     let mut exports = HashMap::new();
-    
+
     // Stream classes would be registered here
     exports.insert("Readable".to_string(), Value::Undefined);
     exports.insert("Writable".to_string(), Value::Undefined);
@@ -353,10 +353,10 @@ mod tests {
     #[test]
     fn test_readable_push_read() {
         let mut readable = Readable::new(None);
-        
+
         readable.push(Some(b"hello".to_vec()));
         readable.push(Some(b" world".to_vec()));
-        
+
         let data = readable.read(None).unwrap();
         assert_eq!(data, b"hello world");
     }
@@ -364,10 +364,10 @@ mod tests {
     #[test]
     fn test_writable_write() {
         let mut writable = Writable::new(None);
-        
+
         let result = writable.write(b"hello".to_vec(), None);
         assert!(result);
-        
+
         writable.end(Some(b" world".to_vec()));
         assert!(writable.state.finished);
     }
@@ -375,7 +375,7 @@ mod tests {
     #[test]
     fn test_readable_pause_resume() {
         let mut readable = Readable::new(None);
-        
+
         assert!(!readable.is_paused());
         readable.pause();
         assert!(readable.is_paused());

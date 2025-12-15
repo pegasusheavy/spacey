@@ -58,7 +58,7 @@ impl Url {
     /// Convert to JavaScript Value
     pub fn to_value(&self) -> Value {
         let mut obj = HashMap::new();
-        
+
         obj.insert("href".to_string(), Value::String(self.href.clone()));
         obj.insert(
             "protocol".to_string(),
@@ -101,7 +101,7 @@ impl Url {
             "hash".to_string(),
             self.hash.clone().map(Value::String).unwrap_or(Value::Null),
         );
-        
+
         Value::NativeObject(obj)
     }
 }
@@ -110,13 +110,13 @@ impl Url {
 pub fn parse(url_string: &str, parse_query_string: bool, slashes_denote_host: bool) -> Result<Url> {
     let parsed = url::Url::parse(url_string)
         .map_err(|e| NodeError::Generic(format!("Invalid URL: {}", e)))?;
-    
+
     let mut url = Url::new();
-    
+
     url.href = parsed.to_string();
     url.protocol = Some(format!("{}:", parsed.scheme()));
     url.slashes = parsed.scheme() == "http" || parsed.scheme() == "https" || slashes_denote_host;
-    
+
     if let Some(password) = parsed.password() {
         url.auth = Some(format!("{}:{}", parsed.username(), password));
         url.username = Some(parsed.username().to_string());
@@ -125,10 +125,10 @@ pub fn parse(url_string: &str, parse_query_string: bool, slashes_denote_host: bo
         url.auth = Some(parsed.username().to_string());
         url.username = Some(parsed.username().to_string());
     }
-    
+
     url.hostname = parsed.host_str().map(|s| s.to_string());
     url.port = parsed.port().map(|p| p.to_string());
-    
+
     if let Some(hostname) = &url.hostname {
         url.host = Some(if let Some(port) = &url.port {
             format!("{}:{}", hostname, port)
@@ -136,9 +136,9 @@ pub fn parse(url_string: &str, parse_query_string: bool, slashes_denote_host: bo
             hostname.clone()
         });
     }
-    
+
     url.pathname = Some(parsed.path().to_string());
-    
+
     if let Some(query) = parsed.query() {
         url.search = Some(format!("?{}", query));
         url.query = if parse_query_string {
@@ -147,7 +147,7 @@ pub fn parse(url_string: &str, parse_query_string: bool, slashes_denote_host: bo
             Some(query.to_string())
         };
     }
-    
+
     url.path = url.pathname.clone().map(|pathname| {
         if let Some(search) = &url.search {
             format!("{}{}", pathname, search)
@@ -155,30 +155,30 @@ pub fn parse(url_string: &str, parse_query_string: bool, slashes_denote_host: bo
             pathname
         }
     });
-    
+
     if let Some(fragment) = parsed.fragment() {
         url.hash = Some(format!("#{}", fragment));
     }
-    
+
     Ok(url)
 }
 
 /// Format a URL object to string (legacy API)
 pub fn format(url_obj: &Url) -> String {
     let mut result = String::new();
-    
+
     if let Some(protocol) = &url_obj.protocol {
         result.push_str(protocol);
         if url_obj.slashes {
             result.push_str("//");
         }
     }
-    
+
     if let Some(auth) = &url_obj.auth {
         result.push_str(auth);
         result.push('@');
     }
-    
+
     if let Some(host) = &url_obj.host {
         result.push_str(host);
     } else {
@@ -190,19 +190,19 @@ pub fn format(url_obj: &Url) -> String {
             result.push_str(port);
         }
     }
-    
+
     if let Some(pathname) = &url_obj.pathname {
         result.push_str(pathname);
     }
-    
+
     if let Some(search) = &url_obj.search {
         result.push_str(search);
     }
-    
+
     if let Some(hash) = &url_obj.hash {
         result.push_str(hash);
     }
-    
+
     result
 }
 
@@ -210,10 +210,10 @@ pub fn format(url_obj: &Url) -> String {
 pub fn resolve(from: &str, to: &str) -> Result<String> {
     let base = url::Url::parse(from)
         .map_err(|e| NodeError::Generic(format!("Invalid base URL: {}", e)))?;
-    
+
     let resolved = base.join(to)
         .map_err(|e| NodeError::Generic(format!("Failed to resolve URL: {}", e)))?;
-    
+
     Ok(resolved.to_string())
 }
 
@@ -221,7 +221,7 @@ pub fn resolve(from: &str, to: &str) -> Result<String> {
 pub fn url_to_http_options(url_string: &str) -> Result<HashMap<String, Value>> {
     let parsed = parse(url_string, false, true)?;
     let mut options = HashMap::new();
-    
+
     if let Some(protocol) = parsed.protocol {
         options.insert("protocol".to_string(), Value::String(protocol));
     }
@@ -242,7 +242,7 @@ pub fn url_to_http_options(url_string: &str) -> Result<HashMap<String, Value>> {
     if let Some(auth) = parsed.auth {
         options.insert("auth".to_string(), Value::String(auth));
     }
-    
+
     Ok(options)
 }
 
@@ -253,7 +253,7 @@ mod tests {
     #[test]
     fn test_parse() {
         let url = parse("https://user:pass@example.com:8080/path?query=1#hash", true, true).unwrap();
-        
+
         assert_eq!(url.protocol, Some("https:".to_string()));
         assert_eq!(url.hostname, Some("example.com".to_string()));
         assert_eq!(url.port, Some("8080".to_string()));
@@ -270,7 +270,7 @@ mod tests {
         url.slashes = true;
         url.hostname = Some("example.com".to_string());
         url.pathname = Some("/path".to_string());
-        
+
         let formatted = format(&url);
         assert_eq!(formatted, "https://example.com/path");
     }

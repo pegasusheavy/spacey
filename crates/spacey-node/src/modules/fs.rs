@@ -24,13 +24,13 @@ pub fn create_module() -> Value {
 
     // Constants
     let mut constants = HashMap::new();
-    
+
     // File access constants
     constants.insert("F_OK".to_string(), Value::Number(0.0));
     constants.insert("R_OK".to_string(), Value::Number(4.0));
     constants.insert("W_OK".to_string(), Value::Number(2.0));
     constants.insert("X_OK".to_string(), Value::Number(1.0));
-    
+
     // File open flags
     constants.insert("O_RDONLY".to_string(), Value::Number(0.0));
     constants.insert("O_WRONLY".to_string(), Value::Number(1.0));
@@ -39,7 +39,7 @@ pub fn create_module() -> Value {
     constants.insert("O_EXCL".to_string(), Value::Number(128.0));
     constants.insert("O_TRUNC".to_string(), Value::Number(512.0));
     constants.insert("O_APPEND".to_string(), Value::Number(1024.0));
-    
+
     exports.insert("constants".to_string(), Value::NativeObject(constants));
 
     // fs.promises - async API using promises
@@ -62,7 +62,7 @@ fn create_promises_module() -> Value {
 /// fs.readFileSync(path, options?)
 pub fn read_file_sync(path: &str, encoding: Option<&str>) -> Result<Value> {
     let content = fs::read(path)?;
-    
+
     match encoding {
         Some("utf8") | Some("utf-8") => {
             Ok(Value::String(String::from_utf8_lossy(&content).to_string()))
@@ -95,20 +95,20 @@ pub fn read_file_sync(path: &str, encoding: Option<&str>) -> Result<Value> {
 /// fs.writeFileSync(path, data, options?)
 pub fn write_file_sync(path: &str, data: &[u8], options: Option<WriteOptions>) -> Result<()> {
     let options = options.unwrap_or_default();
-    
+
     let mut file = OpenOptions::new()
         .write(true)
         .create(true)
         .truncate(!options.flag.contains('a'))
         .append(options.flag.contains('a'))
         .open(path)?;
-    
+
     file.write_all(data)?;
-    
+
     if let Some(mode) = options.mode {
         fs::set_permissions(path, fs::Permissions::from_mode(mode))?;
     }
-    
+
     Ok(())
 }
 
@@ -119,7 +119,7 @@ pub fn append_file_sync(path: &str, data: &[u8]) -> Result<()> {
         .create(true)
         .append(true)
         .open(path)?;
-    
+
     file.write_all(data)?;
     Ok(())
 }
@@ -133,17 +133,17 @@ pub fn exists_sync(path: &str) -> bool {
 pub fn access_sync(path: &str, mode: Option<u32>) -> Result<()> {
     let path = Path::new(path);
     let mode = mode.unwrap_or(0); // F_OK
-    
+
     if !path.exists() {
         return Err(NodeError::Fs(std::io::Error::new(
             std::io::ErrorKind::NotFound,
             "ENOENT: no such file or directory",
         )));
     }
-    
+
     let metadata = fs::metadata(path)?;
     let permissions = metadata.permissions();
-    
+
     // Check permissions
     if mode & 4 != 0 {
         // R_OK
@@ -158,7 +158,7 @@ pub fn access_sync(path: &str, mode: Option<u32>) -> Result<()> {
             )));
         }
     }
-    
+
     Ok(())
 }
 
@@ -177,30 +177,30 @@ pub fn lstat_sync(path: &str) -> Result<Stats> {
 /// fs.mkdirSync(path, options?)
 pub fn mkdir_sync(path: &str, options: Option<MkdirOptions>) -> Result<()> {
     let options = options.unwrap_or_default();
-    
+
     if options.recursive {
         fs::create_dir_all(path)?;
     } else {
         fs::create_dir(path)?;
     }
-    
+
     if let Some(mode) = options.mode {
         fs::set_permissions(path, fs::Permissions::from_mode(mode))?;
     }
-    
+
     Ok(())
 }
 
 /// fs.rmdirSync(path, options?)
 pub fn rmdir_sync(path: &str, options: Option<RmdirOptions>) -> Result<()> {
     let options = options.unwrap_or_default();
-    
+
     if options.recursive {
         fs::remove_dir_all(path)?;
     } else {
         fs::remove_dir(path)?;
     }
-    
+
     Ok(())
 }
 
@@ -208,7 +208,7 @@ pub fn rmdir_sync(path: &str, options: Option<RmdirOptions>) -> Result<()> {
 pub fn rm_sync(path: &str, options: Option<RmOptions>) -> Result<()> {
     let options = options.unwrap_or_default();
     let path = Path::new(path);
-    
+
     if !path.exists() {
         if options.force {
             return Ok(());
@@ -218,7 +218,7 @@ pub fn rm_sync(path: &str, options: Option<RmOptions>) -> Result<()> {
             "ENOENT: no such file or directory",
         )));
     }
-    
+
     if path.is_dir() {
         if options.recursive {
             fs::remove_dir_all(path)?;
@@ -228,7 +228,7 @@ pub fn rm_sync(path: &str, options: Option<RmOptions>) -> Result<()> {
     } else {
         fs::remove_file(path)?;
     }
-    
+
     Ok(())
 }
 
@@ -236,12 +236,12 @@ pub fn rm_sync(path: &str, options: Option<RmOptions>) -> Result<()> {
 pub fn readdir_sync(path: &str, options: Option<ReaddirOptions>) -> Result<Vec<Value>> {
     let options = options.unwrap_or_default();
     let entries = fs::read_dir(path)?;
-    
+
     let mut result = Vec::new();
     for entry in entries {
         let entry = entry?;
         let name = entry.file_name().to_string_lossy().to_string();
-        
+
         if options.with_file_types {
             let file_type = entry.file_type()?;
             let mut dirent = HashMap::new();
@@ -254,7 +254,7 @@ pub fn readdir_sync(path: &str, options: Option<ReaddirOptions>) -> Result<Vec<V
             result.push(Value::String(name));
         }
     }
-    
+
     Ok(result)
 }
 
@@ -267,7 +267,7 @@ pub fn rename_sync(old_path: &str, new_path: &str) -> Result<()> {
 /// fs.copyFileSync(src, dest, mode?)
 pub fn copy_file_sync(src: &str, dest: &str, mode: Option<u32>) -> Result<()> {
     let mode = mode.unwrap_or(0);
-    
+
     // COPYFILE_EXCL = 1 - fail if dest exists
     if mode & 1 != 0 && Path::new(dest).exists() {
         return Err(NodeError::Fs(std::io::Error::new(
@@ -275,7 +275,7 @@ pub fn copy_file_sync(src: &str, dest: &str, mode: Option<u32>) -> Result<()> {
             "EEXIST: file already exists",
         )));
     }
-    
+
     fs::copy(src, dest)?;
     Ok(())
 }
@@ -296,7 +296,7 @@ pub fn chmod_sync(path: &str, mode: u32) -> Result<()> {
 pub fn symlink_sync(target: &str, path: &str) -> Result<()> {
     #[cfg(unix)]
     std::os::unix::fs::symlink(target, path)?;
-    
+
     #[cfg(windows)]
     {
         let target_path = Path::new(target);
@@ -306,7 +306,7 @@ pub fn symlink_sync(target: &str, path: &str) -> Result<()> {
             std::os::windows::fs::symlink_file(target, path)?;
         }
     }
-    
+
     Ok(())
 }
 
@@ -361,7 +361,7 @@ impl Stats {
         let atime = metadata.accessed().ok();
         let mtime = metadata.modified().ok();
         let ctime = metadata.created().ok();
-        
+
         fn to_ms(time: Option<SystemTime>) -> f64 {
             time.and_then(|t| t.duration_since(SystemTime::UNIX_EPOCH).ok())
                 .map(|d| d.as_secs_f64() * 1000.0)
@@ -370,60 +370,60 @@ impl Stats {
 
         #[cfg(unix)]
         use std::os::unix::fs::MetadataExt;
-        
+
         Self {
             #[cfg(unix)]
             dev: metadata.dev(),
             #[cfg(not(unix))]
             dev: 0,
-            
+
             #[cfg(unix)]
             ino: metadata.ino(),
             #[cfg(not(unix))]
             ino: 0,
-            
+
             #[cfg(unix)]
             mode: metadata.mode(),
             #[cfg(not(unix))]
             mode: 0,
-            
+
             #[cfg(unix)]
             nlink: metadata.nlink(),
             #[cfg(not(unix))]
             nlink: 0,
-            
+
             #[cfg(unix)]
             uid: metadata.uid(),
             #[cfg(not(unix))]
             uid: 0,
-            
+
             #[cfg(unix)]
             gid: metadata.gid(),
             #[cfg(not(unix))]
             gid: 0,
-            
+
             #[cfg(unix)]
             rdev: metadata.rdev(),
             #[cfg(not(unix))]
             rdev: 0,
-            
+
             size: metadata.len(),
-            
+
             #[cfg(unix)]
             blksize: metadata.blksize(),
             #[cfg(not(unix))]
             blksize: 4096,
-            
+
             #[cfg(unix)]
             blocks: metadata.blocks(),
             #[cfg(not(unix))]
             blocks: 0,
-            
+
             atime_ms: to_ms(atime),
             mtime_ms: to_ms(mtime),
             ctime_ms: to_ms(ctime),
             birthtime_ms: to_ms(ctime),
-            
+
             is_file: metadata.is_file(),
             is_directory: metadata.is_dir(),
             is_symbolic_link: metadata.file_type().is_symlink(),

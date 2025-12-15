@@ -22,8 +22,8 @@ pub fn create_module() -> Value {
         "md5", "sha1", "sha224", "sha256", "sha384", "sha512",
         "sha3-224", "sha3-256", "sha3-384", "sha3-512",
     ];
-    
-    // getHashes as array-like object  
+
+    // getHashes as array-like object
     let mut hashes_obj: HashMap<String, Value> = hashes
         .iter()
         .enumerate()
@@ -38,7 +38,7 @@ pub fn create_module() -> Value {
         "aes-128-gcm", "aes-256-gcm",
         "chacha20-poly1305",
     ];
-    
+
     // getCiphers as array-like object
     let mut ciphers_obj: HashMap<String, Value> = ciphers
         .iter()
@@ -88,7 +88,7 @@ impl Hash {
     pub fn digest(self, encoding: Option<&str>) -> String {
         let result = self.context.finish();
         let bytes = result.as_ref();
-        
+
         match encoding {
             Some("hex") | None => hex::encode(bytes),
             Some("base64") => base64::Engine::encode(&base64::prelude::BASE64_STANDARD, bytes),
@@ -116,10 +116,10 @@ impl Hmac {
             "sha512" | "sha-512" => hmac::HMAC_SHA512,
             _ => return Err(NodeError::Crypto(format!("Unsupported HMAC algorithm: {}", algorithm))),
         };
-        
+
         let key = hmac::Key::new(alg, key);
         let context = hmac::Context::with_key(&key);
-        
+
         Ok(Self {
             key,
             context: Some(context),
@@ -138,7 +138,7 @@ impl Hmac {
     pub fn digest(mut self, encoding: Option<&str>) -> String {
         let tag = self.context.take().unwrap().sign();
         let bytes = tag.as_ref();
-        
+
         match encoding {
             Some("hex") | None => hex::encode(bytes),
             Some("base64") => base64::Engine::encode(&base64::prelude::BASE64_STANDARD, bytes),
@@ -182,11 +182,11 @@ pub fn random_int(min: i64, max: i64) -> Result<i64> {
     if min >= max {
         return Err(NodeError::range_error("min must be less than max"));
     }
-    
+
     let range = (max - min) as u64;
     let mut bytes = [0u8; 8];
     random_fill(&mut bytes)?;
-    
+
     let random_value = u64::from_le_bytes(bytes);
     Ok(min + (random_value % range) as i64)
 }
@@ -217,7 +217,7 @@ pub fn pbkdf2(
     digest: &str,
 ) -> Result<Vec<u8>> {
     use ring::pbkdf2 as ring_pbkdf2;
-    
+
     let algorithm = match digest.to_lowercase().as_str() {
         "sha1" => ring_pbkdf2::PBKDF2_HMAC_SHA1,
         "sha256" | "sha-256" => ring_pbkdf2::PBKDF2_HMAC_SHA256,
@@ -225,7 +225,7 @@ pub fn pbkdf2(
         "sha512" | "sha-512" => ring_pbkdf2::PBKDF2_HMAC_SHA512,
         _ => return Err(NodeError::Crypto(format!("Unsupported PBKDF2 digest: {}", digest))),
     };
-    
+
     let mut key = vec![0u8; key_length];
     ring_pbkdf2::derive(
         algorithm,
@@ -236,7 +236,7 @@ pub fn pbkdf2(
         password,
         &mut key,
     );
-    
+
     Ok(key)
 }
 

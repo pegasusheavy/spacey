@@ -197,13 +197,13 @@ impl ServerResponse {
     pub fn write_head(&mut self, status_code: u16, headers: Option<HashMap<String, String>>) {
         self.status_code = status_code;
         self.status_message = get_status_text(status_code).to_string();
-        
+
         if let Some(h) = headers {
             for (k, v) in h {
                 self.headers.insert(k.to_lowercase(), v);
             }
         }
-        
+
         self.headers_sent = true;
     }
 }
@@ -287,7 +287,7 @@ mod tests {
     fn test_server_response() {
         let mut res = ServerResponse::new();
         assert_eq!(res.status_code, 200);
-        
+
         res.set_status_code(404);
         assert_eq!(res.status_code, 404);
         assert_eq!(res.status_message, "Not Found");
@@ -297,7 +297,7 @@ mod tests {
     fn test_headers() {
         let mut res = ServerResponse::new();
         res.set_header("Content-Type", "application/json");
-        
+
         assert!(res.has_header("content-type"));
         assert_eq!(res.get_header("content-type"), Some(&"application/json".to_string()));
     }

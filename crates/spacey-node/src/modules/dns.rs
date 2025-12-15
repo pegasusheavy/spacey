@@ -12,7 +12,7 @@ use std::collections::HashMap;
 /// Create the dns module exports
 pub fn create_module() -> Value {
     let mut exports = HashMap::new();
-    
+
     // Error codes
     exports.insert("NODATA".to_string(), Value::String("ENODATA".to_string()));
     exports.insert("FORMERR".to_string(), Value::String("EFORMERR".to_string()));

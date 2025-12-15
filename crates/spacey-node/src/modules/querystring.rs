@@ -19,21 +19,21 @@ pub fn create_module() -> Value {
 pub fn parse(qs: &str, sep: Option<&str>, eq: Option<&str>) -> HashMap<String, Vec<String>> {
     let sep = sep.unwrap_or("&");
     let eq = eq.unwrap_or("=");
-    
+
     let mut result: HashMap<String, Vec<String>> = HashMap::new();
-    
+
     for part in qs.split(sep) {
         if part.is_empty() {
             continue;
         }
-        
+
         let mut iter = part.splitn(2, eq);
         let key = decode(iter.next().unwrap_or(""));
         let value = decode(iter.next().unwrap_or(""));
-        
+
         result.entry(key).or_default().push(value);
     }
-    
+
     result
 }
 
@@ -41,9 +41,9 @@ pub fn parse(qs: &str, sep: Option<&str>, eq: Option<&str>) -> HashMap<String, V
 pub fn stringify(obj: &HashMap<String, Vec<String>>, sep: Option<&str>, eq: Option<&str>) -> String {
     let sep = sep.unwrap_or("&");
     let eq = eq.unwrap_or("=");
-    
+
     let mut parts = Vec::new();
-    
+
     for (key, values) in obj {
         let encoded_key = encode(key);
         for value in values {
@@ -51,14 +51,14 @@ pub fn stringify(obj: &HashMap<String, Vec<String>>, sep: Option<&str>, eq: Opti
             parts.push(format!("{}{}{}", encoded_key, eq, encoded_value));
         }
     }
-    
+
     parts.join(sep)
 }
 
 /// URL-encode a string
 pub fn encode(s: &str) -> String {
     let mut result = String::new();
-    
+
     for c in s.chars() {
         match c {
             'A'..='Z' | 'a'..='z' | '0'..='9' | '-' | '_' | '.' | '~' => {
@@ -71,7 +71,7 @@ pub fn encode(s: &str) -> String {
             }
         }
     }
-    
+
     result
 }
 
@@ -85,7 +85,7 @@ pub fn decode(s: &str) -> String {
     let mut result = Vec::new();
     let bytes = s.as_bytes();
     let mut i = 0;
-    
+
     while i < bytes.len() {
         if bytes[i] == b'%' && i + 2 < bytes.len() {
             if let Ok(byte) = u8::from_str_radix(
@@ -97,7 +97,7 @@ pub fn decode(s: &str) -> String {
                 continue;
             }
         }
-        
+
         if bytes[i] == b'+' {
             result.push(b' ');
         } else {
@@ -105,7 +105,7 @@ pub fn decode(s: &str) -> String {
         }
         i += 1;
     }
-    
+
     String::from_utf8_lossy(&result).to_string()
 }
 
@@ -136,7 +136,7 @@ mod tests {
         let mut obj = HashMap::new();
         obj.insert("foo".to_string(), vec!["bar".to_string()]);
         obj.insert("baz".to_string(), vec!["qux".to_string()]);
-        
+
         let result = stringify(&obj, None, None);
         assert!(result.contains("foo=bar"));
         assert!(result.contains("baz=qux"));

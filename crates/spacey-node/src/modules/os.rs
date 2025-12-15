@@ -199,14 +199,14 @@ pub fn cpus() -> Vec<Value> {
     let s = System::new_with_specifics(
         RefreshKind::new().with_cpu(CpuRefreshKind::everything()),
     );
-    
+
     s.cpus()
         .iter()
         .map(|cpu| {
             let mut info = HashMap::new();
             info.insert("model".to_string(), Value::String(cpu.brand().to_string()));
             info.insert("speed".to_string(), Value::Number(cpu.frequency() as f64));
-            
+
             let mut times = HashMap::new();
             times.insert("user".to_string(), Value::Number(0.0));
             times.insert("nice".to_string(), Value::Number(0.0));
@@ -214,7 +214,7 @@ pub fn cpus() -> Vec<Value> {
             times.insert("idle".to_string(), Value::Number(0.0));
             times.insert("irq".to_string(), Value::Number(0.0));
             info.insert("times".to_string(), Value::NativeObject(times));
-            
+
             Value::NativeObject(info)
         })
         .collect()
@@ -235,15 +235,15 @@ pub fn network_interfaces() -> HashMap<String, Vec<Value>> {
 /// os.userInfo()
 pub fn user_info() -> Value {
     let mut info = HashMap::new();
-    
+
     info.insert("username".to_string(), Value::String(
         std::env::var("USER")
             .or_else(|_| std::env::var("USERNAME"))
             .unwrap_or_else(|_| "unknown".to_string())
     ));
-    
+
     info.insert("homedir".to_string(), Value::String(homedir()));
-    
+
     info.insert("shell".to_string(), Value::String(
         std::env::var("SHELL").unwrap_or_else(|_| {
             if cfg!(windows) {
@@ -253,19 +253,19 @@ pub fn user_info() -> Value {
             }
         })
     ));
-    
+
     #[cfg(unix)]
     {
         info.insert("uid".to_string(), Value::Number(nix::unistd::getuid().as_raw() as f64));
         info.insert("gid".to_string(), Value::Number(nix::unistd::getgid().as_raw() as f64));
     }
-    
+
     #[cfg(not(unix))]
     {
         info.insert("uid".to_string(), Value::Number(-1.0));
         info.insert("gid".to_string(), Value::Number(-1.0));
     }
-    
+
     Value::NativeObject(info)
 }
 

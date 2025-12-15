@@ -55,7 +55,7 @@ fn create_win32_module() -> Value {
 pub fn basename(path: &str, ext: Option<&str>) -> String {
     let p = Path::new(path);
     let name = p.file_name().map(|s| s.to_string_lossy().to_string()).unwrap_or_default();
-    
+
     if let Some(ext) = ext {
         if name.ends_with(ext) {
             name[..name.len() - ext.len()].to_string()
@@ -140,7 +140,7 @@ pub fn normalize(path: &str) -> String {
 /// path.parse(path)
 pub fn parse(path: &str) -> ParsedPath {
     let p = Path::new(path);
-    
+
     let root = if p.is_absolute() {
         if cfg!(windows) && path.chars().nth(1) == Some(':') {
             path[..3].to_string()
@@ -256,7 +256,7 @@ pub fn relative(from: &str, to: &str) -> String {
 
     // Build relative path
     let mut result = PathBuf::new();
-    
+
     // Add ".." for each remaining component in "from"
     for _ in common_len..from_components.len() {
         result.push("..");

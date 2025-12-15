@@ -12,7 +12,7 @@ use std::collections::HashMap;
 /// Create the https module exports
 pub fn create_module() -> Value {
     let mut exports = HashMap::new();
-    
+
     // Re-use most of http module functionality with TLS
     exports.insert("globalAgent".to_string(), Value::Undefined);
 

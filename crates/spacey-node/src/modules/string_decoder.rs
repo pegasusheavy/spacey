@@ -46,28 +46,28 @@ impl StringDecoder {
     /// Finish decoding and return remaining string
     pub fn end(&mut self, buf: Option<&[u8]>) -> String {
         let mut result = String::new();
-        
+
         if let Some(b) = buf {
             result.push_str(&self.write(b));
         }
-        
+
         // Flush remaining buffer
         if !self.buffer.is_empty() {
             result.push_str(&String::from_utf8_lossy(&self.buffer));
             self.buffer.clear();
         }
-        
+
         result
     }
 
     fn decode_utf8(&mut self, buf: &[u8]) -> String {
         // Combine with existing buffer
         self.buffer.extend_from_slice(buf);
-        
+
         // Try to decode as much as possible
         let mut result = String::new();
         let mut start = 0;
-        
+
         while start < self.buffer.len() {
             match std::str::from_utf8(&self.buffer[start..]) {
                 Ok(s) => {
@@ -81,7 +81,7 @@ impl StringDecoder {
                         result.push_str(std::str::from_utf8(&self.buffer[start..start + valid_up_to]).unwrap());
                         start += valid_up_to;
                     }
-                    
+
                     // Check if we have an incomplete sequence at the end
                     if e.error_len().is_none() {
                         // Incomplete sequence - keep in buffer
@@ -95,7 +95,7 @@ impl StringDecoder {
                 }
             }
         }
-        
+
         self.buffer.clear();
         result
     }
@@ -110,13 +110,13 @@ impl StringDecoder {
 
     fn decode_base64(&mut self, buf: &[u8]) -> String {
         self.buffer.extend_from_slice(buf);
-        
+
         // Base64 needs 4 bytes at a time
         let usable = (self.buffer.len() / 4) * 4;
         if usable == 0 {
             return String::new();
         }
-        
+
         let to_decode: Vec<u8> = self.buffer.drain(..usable).collect();
         base64::Engine::decode(&base64::prelude::BASE64_STANDARD, &to_decode)
             .map(|bytes| String::from_utf8_lossy(&bytes).to_string())
@@ -125,13 +125,13 @@ impl StringDecoder {
 
     fn decode_hex(&mut self, buf: &[u8]) -> String {
         self.buffer.extend_from_slice(buf);
-        
+
         // Hex needs 2 bytes at a time
         let usable = (self.buffer.len() / 2) * 2;
         if usable == 0 {
             return String::new();
         }
-        
+
         let to_decode: Vec<u8> = self.buffer.drain(..usable).collect();
         let hex_str = String::from_utf8_lossy(&to_decode);
         hex::decode(hex_str.as_ref())
@@ -141,19 +141,19 @@ impl StringDecoder {
 
     fn decode_utf16le(&mut self, buf: &[u8]) -> String {
         self.buffer.extend_from_slice(buf);
-        
+
         // UTF-16LE needs 2 bytes at a time
         let usable = (self.buffer.len() / 2) * 2;
         if usable == 0 {
             return String::new();
         }
-        
+
         let to_decode: Vec<u8> = self.buffer.drain(..usable).collect();
         let u16s: Vec<u16> = to_decode
             .chunks(2)
             .map(|chunk| u16::from_le_bytes([chunk[0], chunk.get(1).copied().unwrap_or(0)]))
             .collect();
-        
+
         String::from_utf16_lossy(&u16s)
     }
 }

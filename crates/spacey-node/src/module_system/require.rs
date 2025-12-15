@@ -23,10 +23,10 @@ pub fn require_resolve(
     parent_path: &Path,
 ) -> Result<String> {
     use crate::module_system::resolver::{ModuleResolver, ResolveResult};
-    
+
     let resolver = ModuleResolver::new();
     let resolved = resolver.resolve(specifier, parent_path)?;
-    
+
     match resolved {
         ResolveResult::BuiltIn(name) => Ok(name),
         ResolveResult::File(path) | ResolveResult::Json(path) | ResolveResult::Native(path) => {
@@ -39,7 +39,7 @@ pub fn require_resolve(
 pub fn require_cache(loader: &ModuleLoader) -> Value {
     let cache = loader.cache();
     let mut obj = std::collections::HashMap::new();
-    
+
     for path in cache.keys() {
         if let Some(module) = cache.get(&path) {
             obj.insert(
@@ -48,7 +48,7 @@ pub fn require_cache(loader: &ModuleLoader) -> Value {
             );
         }
     }
-    
+
     Value::NativeObject(obj)
 }
 

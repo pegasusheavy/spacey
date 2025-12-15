@@ -104,12 +104,12 @@ impl Buffer {
         let source_start = source_start.min(source.data.len());
         let source_end = source_end.min(source.data.len());
         let target_start = target_start.min(self.data.len());
-        
+
         let bytes_to_copy = (source_end - source_start).min(self.data.len() - target_start);
-        
+
         self.data[target_start..target_start + bytes_to_copy]
             .copy_from_slice(&source.data[source_start..source_start + bytes_to_copy]);
-        
+
         bytes_to_copy
     }
 

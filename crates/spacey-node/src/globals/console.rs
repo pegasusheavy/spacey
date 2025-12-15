@@ -104,7 +104,7 @@ pub fn assert(condition: bool, args: &[Value]) {
 pub fn dir(obj: &Value, options: Option<&DirOptions>) {
     let depth = options.map(|o| o.depth).unwrap_or(2);
     let colors = options.map(|o| o.colors).unwrap_or(true);
-    
+
     println!("{}", format_value_with_depth(obj, depth, colors));
 }
 

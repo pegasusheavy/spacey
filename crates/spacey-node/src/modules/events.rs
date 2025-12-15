@@ -63,7 +63,7 @@ impl EventEmitter {
     /// Add a listener (internal)
     fn add_listener(&mut self, event: &str, callback: Value, once: bool) -> &mut Self {
         let listeners = self.listeners.entry(event.to_string()).or_default();
-        
+
         if listeners.len() >= self.max_listeners && self.max_listeners > 0 {
             eprintln!(
                 "Warning: Possible EventEmitter memory leak detected. {} listeners added to event '{}'. Use emitter.setMaxListeners() to increase limit.",
@@ -71,7 +71,7 @@ impl EventEmitter {
                 event
             );
         }
-        
+
         listeners.push(Listener { callback, once });
         self
     }
@@ -128,7 +128,7 @@ impl EventEmitter {
 
         // Collect listeners to call (and track which to remove)
         let to_call: Vec<_> = listeners.clone();
-        
+
         // Remove once listeners
         listeners.retain(|l| !l.once);
 
@@ -205,7 +205,7 @@ mod tests {
     fn test_event_emitter_on() {
         let mut emitter = EventEmitter::new();
         let callback = Value::String("callback".to_string());
-        
+
         emitter.on("test", callback.clone());
         assert_eq!(emitter.listener_count("test"), 1);
     }
@@ -214,10 +214,10 @@ mod tests {
     fn test_event_emitter_remove() {
         let mut emitter = EventEmitter::new();
         let callback = Value::String("callback".to_string());
-        
+
         emitter.on("test", callback.clone());
         assert_eq!(emitter.listener_count("test"), 1);
-        
+
         emitter.remove_listener("test", &callback);
         assert_eq!(emitter.listener_count("test"), 0);
     }
@@ -226,10 +226,10 @@ mod tests {
     fn test_event_emitter_once() {
         let mut emitter = EventEmitter::new();
         let callback = Value::String("callback".to_string());
-        
+
         emitter.once("test", callback);
         assert_eq!(emitter.listener_count("test"), 1);
-        
+
         emitter.emit("test", &[]);
         assert_eq!(emitter.listener_count("test"), 0);
     }
@@ -239,7 +239,7 @@ mod tests {
         let mut emitter = EventEmitter::new();
         emitter.on("event1", Value::Null);
         emitter.on("event2", Value::Null);
-        
+
         let names = emitter.event_names();
         assert!(names.contains(&"event1".to_string()));
         assert!(names.contains(&"event2".to_string()));

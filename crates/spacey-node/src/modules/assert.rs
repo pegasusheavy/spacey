@@ -17,7 +17,7 @@ pub fn create_module() -> Value {
 
     // Strict mode
     exports.insert("strict".to_string(), Value::Undefined);
-    
+
     // AssertionError class
     exports.insert("AssertionError".to_string(), Value::Undefined);
 
@@ -148,7 +148,7 @@ pub fn if_error(value: &Value) -> Result<()> {
 pub fn matches(string: &str, pattern: &str, message: Option<&str>) -> Result<()> {
     let re = regex::Regex::new(pattern)
         .map_err(|e| NodeError::Assertion(format!("Invalid regex: {}", e)))?;
-    
+
     if !re.is_match(string) {
         Err(NodeError::Assertion(
             message.unwrap_or_else(|| "String does not match pattern").to_string()
@@ -162,7 +162,7 @@ pub fn matches(string: &str, pattern: &str, message: Option<&str>) -> Result<()>
 pub fn does_not_match(string: &str, pattern: &str, message: Option<&str>) -> Result<()> {
     let re = regex::Regex::new(pattern)
         .map_err(|e| NodeError::Assertion(format!("Invalid regex: {}", e)))?;
-    
+
     if re.is_match(string) {
         Err(NodeError::Assertion(
             message.unwrap_or_else(|| "String matches pattern").to_string()
@@ -236,7 +236,7 @@ mod tests {
         assert!(assert(&Value::Boolean(true), None).is_ok());
         assert!(assert(&Value::Number(1.0), None).is_ok());
         assert!(assert(&Value::String("hello".to_string()), None).is_ok());
-        
+
         assert!(assert(&Value::Boolean(false), None).is_err());
         assert!(assert(&Value::Number(0.0), None).is_err());
         assert!(assert(&Value::String("".to_string()), None).is_err());
@@ -248,7 +248,7 @@ mod tests {
     fn test_strict_equal() {
         assert!(strict_equal(&Value::Number(1.0), &Value::Number(1.0), None).is_ok());
         assert!(strict_equal(&Value::String("a".to_string()), &Value::String("a".to_string()), None).is_ok());
-        
+
         assert!(strict_equal(&Value::Number(1.0), &Value::String("1".to_string()), None).is_err());
     }
 
@@ -257,7 +257,7 @@ mod tests {
         let arr1 = Value::Array(vec![Value::Number(1.0), Value::Number(2.0)]);
         let arr2 = Value::Array(vec![Value::Number(1.0), Value::Number(2.0)]);
         let arr3 = Value::Array(vec![Value::Number(1.0), Value::Number(3.0)]);
-        
+
         assert!(deep_strict_equal(&arr1, &arr2, None).is_ok());
         assert!(deep_strict_equal(&arr1, &arr3, None).is_err());
     }

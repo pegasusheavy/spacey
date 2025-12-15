@@ -8,7 +8,7 @@
 
 use crate::error::{NodeError, Result};
 use crate::globals;
-use crate::module_system::ModuleLoader;
+use crate::module_system::{EsmLoader, ModuleLoader, ModuleType};
 use crate::modules;
 use crate::runtime::event_loop::{Callback, EventLoop};
 use owo_colors::OwoColorize;
@@ -27,8 +27,10 @@ pub struct NodeRuntime {
     engine: Engine,
     /// Event loop for async operations
     event_loop: Arc<EventLoop>,
-    /// Module loader and cache
+    /// CommonJS module loader and cache
     module_loader: Arc<RwLock<ModuleLoader>>,
+    /// ESM module loader
+    esm_loader: Arc<EsmLoader>,
     /// Process arguments
     args: Vec<String>,
     /// Current working directory
@@ -42,9 +44,10 @@ pub struct NodeRuntime {
 impl NodeRuntime {
     /// Create a new Node.js runtime
     pub fn new(args: Vec<String>) -> Self {
-        let mut engine = Engine::new();
+        let engine = Engine::new();
         let event_loop = Arc::new(EventLoop::new());
         let module_loader = Arc::new(RwLock::new(ModuleLoader::new()));
+        let esm_loader = Arc::new(EsmLoader::new());
         let exit_code = Arc::new(RwLock::new(None));
         let cwd = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
 
@@ -69,6 +72,7 @@ impl NodeRuntime {
             engine,
             event_loop,
             module_loader,
+            esm_loader,
             args,
             cwd,
             exit_code,
@@ -109,24 +113,102 @@ impl NodeRuntime {
             return Err(NodeError::ModuleNotFound(abs_path.display().to_string()));
         }
 
-        // Set __dirname and __filename for the main module
-        let dirname = abs_path.parent().unwrap_or(Path::new("."));
-        let filename = abs_path.clone();
+        // Determine module type
+        let module_type = self.esm_loader.get_module_type(&abs_path)?;
 
-        // Read and execute the file
-        let code = std::fs::read_to_string(&abs_path)?;
-
-        // Wrap in module context
-        let wrapped = self.wrap_module_code(&code, dirname, &filename);
-
-        // Execute
-        self.engine.eval(&wrapped)?;
+        match module_type {
+            ModuleType::ESM => {
+                self.run_esm_file(&abs_path).await?;
+            }
+            ModuleType::CommonJS | ModuleType::Unknown => {
+                self.run_cjs_file(&abs_path).await?;
+            }
+            ModuleType::Json => {
+                // JSON files can't be run directly
+                return Err(NodeError::TypeError("Cannot run JSON file directly".to_string()));
+            }
+        }
 
         // Run event loop
         self.run_event_loop().await?;
 
         // Return exit code
         Ok(self.exit_code.read().unwrap_or(0))
+    }
+
+    /// Run a CommonJS file
+    async fn run_cjs_file(&mut self, abs_path: &Path) -> Result<()> {
+        let dirname = abs_path.parent().unwrap_or(Path::new("."));
+        let filename = abs_path;
+
+        // Read and execute the file
+        let code = std::fs::read_to_string(abs_path)?;
+
+        // Wrap in module context
+        let wrapped = self.wrap_module_code(&code, dirname, filename);
+
+        // Execute
+        self.engine.eval(&wrapped)?;
+
+        Ok(())
+    }
+
+    /// Run an ESM file
+    async fn run_esm_file(&mut self, abs_path: &Path) -> Result<()> {
+        // Set as main module
+        self.esm_loader.set_main_module(abs_path.to_path_buf());
+
+        // Load the module and its dependencies
+        let _module = self.esm_loader.load_module(abs_path).await?;
+
+        // Read the source
+        let code = std::fs::read_to_string(abs_path)?;
+
+        // Create import.meta for this module
+        let import_meta = self.esm_loader.get_import_meta(abs_path);
+
+        // Wrap in ESM context
+        let wrapped = self.wrap_esm_code(&code, abs_path, &import_meta);
+
+        // Execute
+        self.engine.eval(&wrapped)?;
+
+        Ok(())
+    }
+
+    /// Wrap code in ESM context with import.meta
+    fn wrap_esm_code(&self, code: &str, filename: &Path, import_meta: &crate::module_system::ImportMeta) -> String {
+        // For ESM, we need to:
+        // 1. Transform imports to require() calls (simplified)
+        // 2. Provide import.meta object
+        // 3. Handle exports
+        
+        // This is a simplified transformation - real implementation would use the AST
+        format!(
+            r#"(function() {{
+    const __importMeta = {{
+        url: "{}",
+        dirname: "{}",
+        filename: "{}",
+        main: {},
+        resolve: function(specifier) {{
+            // TODO: Implement import.meta.resolve
+            return specifier;
+        }}
+    }};
+    Object.defineProperty(this, 'import', {{
+        value: {{ meta: __importMeta }}
+    }});
+    
+    // Module code
+    {}
+}})();"#,
+            import_meta.url.replace('\\', "\\\\").replace('"', "\\\""),
+            import_meta.dirname.replace('\\', "\\\\").replace('"', "\\\""),
+            import_meta.filename.replace('\\', "\\\\").replace('"', "\\\""),
+            import_meta.main,
+            code
+        )
     }
 
     /// Wrap code in a module context with __dirname, __filename, require, etc.
@@ -292,6 +374,24 @@ impl NodeRuntime {
     /// Get the event loop
     pub fn event_loop(&self) -> &Arc<EventLoop> {
         &self.event_loop
+    }
+
+    /// Get the ESM loader
+    pub fn esm_loader(&self) -> &Arc<EsmLoader> {
+        &self.esm_loader
+    }
+
+    /// Dynamic import (for ESM `import()` expression)
+    pub async fn dynamic_import(&self, specifier: &str, parent: &Path) -> Result<Value> {
+        crate::module_system::esm::dynamic_import(&self.esm_loader, specifier, parent).await
+    }
+
+    /// Check if a file is an ESM module
+    pub fn is_esm(&self, path: &Path) -> bool {
+        matches!(
+            self.esm_loader.get_module_type(path),
+            Ok(ModuleType::ESM)
+        )
     }
 }
 

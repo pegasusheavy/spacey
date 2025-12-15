@@ -20,7 +20,7 @@ pub fn create_module() -> Value {
 /// Execute a command synchronously
 pub fn exec_sync(command: &str, options: Option<ExecOptions>) -> Result<Vec<u8>> {
     let options = options.unwrap_or_default();
-    
+
     let shell = if cfg!(windows) {
         ("cmd", "/C")
     } else {
@@ -194,7 +194,7 @@ impl SpawnResult {
             .collect();
         stdout_obj.insert("length".to_string(), Value::Number(self.stdout.len() as f64));
         obj.insert("stdout".to_string(), Value::NativeObject(stdout_obj));
-        
+
         // stderr as array-like object
         let mut stderr_obj: HashMap<String, Value> = self.stderr
             .iter()

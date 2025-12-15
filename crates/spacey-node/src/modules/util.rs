@@ -494,7 +494,7 @@ mod tests {
     fn test_is_deep_strict_equal() {
         assert!(is_deep_strict_equal(&Value::Number(1.0), &Value::Number(1.0)));
         assert!(!is_deep_strict_equal(&Value::Number(1.0), &Value::Number(2.0)));
-        
+
         let arr1 = Value::Array(vec![Value::Number(1.0), Value::Number(2.0)]);
         let arr2 = Value::Array(vec![Value::Number(1.0), Value::Number(2.0)]);
         assert!(is_deep_strict_equal(&arr1, &arr2));
