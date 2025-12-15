@@ -206,10 +206,10 @@ fn test_es3_function() {
 fn test_es3_math() {
     let mut engine = Engine::new();
 
-    assert_eq!(engine.eval("Math_abs(-5);").unwrap().to_string(), "5");
-    assert_eq!(engine.eval("Math_floor(3.7);").unwrap().to_string(), "3");
-    assert_eq!(engine.eval("Math_ceil(3.2);").unwrap().to_string(), "4");
-    assert_eq!(engine.eval("Math_pow(2, 3);").unwrap().to_string(), "8");
+    assert_eq!(engine.eval("Math.abs(-5);").unwrap().to_string(), "5");
+    assert_eq!(engine.eval("Math.floor(3.7);").unwrap().to_string(), "3");
+    assert_eq!(engine.eval("Math.ceil(3.2);").unwrap().to_string(), "4");
+    assert_eq!(engine.eval("Math.pow(2, 3);").unwrap().to_string(), "8");
 }
 
 #[test]

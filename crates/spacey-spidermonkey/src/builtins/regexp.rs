@@ -2,7 +2,10 @@
 //!
 //! Provides RegExp constructor and prototype methods.
 
-use crate::runtime::function::CallFrame;
+use std::collections::HashMap;
+use std::sync::Arc;
+
+use crate::runtime::function::{CallFrame, Callable};
 use crate::runtime::value::Value;
 
 // ============================================================================
@@ -60,9 +63,48 @@ pub fn regexp_constructor(_frame: &mut CallFrame, args: &[Value]) -> Result<Valu
         }
     }
 
-    // In a full implementation, would create a RegExp object
-    // For now, return a string representation
-    Ok(Value::String(format!("/{}/{}", pattern, flags)))
+    // Create a RegExp object with properties and methods
+    let mut regexp_obj = HashMap::new();
+    
+    // Store the regex string representation for internal use
+    let regex_str = format!("/{}/{}", pattern, flags);
+    regexp_obj.insert("__regex__".to_string(), Value::String(regex_str.clone()));
+    regexp_obj.insert("__type__".to_string(), Value::String("RegExp".to_string()));
+    
+    // Instance properties
+    regexp_obj.insert("source".to_string(), Value::String(pattern));
+    regexp_obj.insert("global".to_string(), Value::Boolean(global));
+    regexp_obj.insert("ignoreCase".to_string(), Value::Boolean(ignore_case));
+    regexp_obj.insert("multiline".to_string(), Value::Boolean(multiline));
+    regexp_obj.insert("lastIndex".to_string(), Value::Number(0.0));
+    
+    // Methods as native functions
+    regexp_obj.insert(
+        "test".to_string(),
+        Value::Function(Arc::new(Callable::Native {
+            name: "RegExp.prototype.test".to_string(),
+            arity: 1,
+            func: test,
+        })),
+    );
+    regexp_obj.insert(
+        "exec".to_string(),
+        Value::Function(Arc::new(Callable::Native {
+            name: "RegExp.prototype.exec".to_string(),
+            arity: 1,
+            func: exec,
+        })),
+    );
+    regexp_obj.insert(
+        "toString".to_string(),
+        Value::Function(Arc::new(Callable::Native {
+            name: "RegExp.prototype.toString".to_string(),
+            arity: 0,
+            func: to_string,
+        })),
+    );
+    
+    Ok(Value::NativeObject(regexp_obj))
 }
 
 // ============================================================================
@@ -73,7 +115,8 @@ pub fn regexp_constructor(_frame: &mut CallFrame, args: &[Value]) -> Result<Valu
 ///
 /// ES3 Section 15.10.6.2
 pub fn exec(_frame: &mut CallFrame, args: &[Value]) -> Result<Value, String> {
-    let regexp_str = args.first().map(|v| v.to_js_string()).unwrap_or_default();
+    // First arg is 'this' (the regexp), second is the input string
+    let regexp_str = get_regexp_string(args.first());
     let input = args.get(1).map(|v| v.to_js_string()).unwrap_or_default();
 
     // Parse the regexp string (format: /pattern/flags)
@@ -81,7 +124,7 @@ pub fn exec(_frame: &mut CallFrame, args: &[Value]) -> Result<Value, String> {
 
     // Try to match using basic pattern matching
     match simple_regex_match(&pattern, &input, &flags) {
-        Some((start, matched)) => {
+        Some((_start, matched)) => {
             // In full impl, would return an array with match info
             // For now, return the matched string
             Ok(Value::String(matched))
@@ -94,7 +137,8 @@ pub fn exec(_frame: &mut CallFrame, args: &[Value]) -> Result<Value, String> {
 ///
 /// ES3 Section 15.10.6.3
 pub fn test(_frame: &mut CallFrame, args: &[Value]) -> Result<Value, String> {
-    let regexp_str = args.first().map(|v| v.to_js_string()).unwrap_or_default();
+    // First arg is 'this' (the regexp), second is the input string
+    let regexp_str = get_regexp_string(args.first());
     let input = args.get(1).map(|v| v.to_js_string()).unwrap_or_default();
 
     let (pattern, flags) = parse_regexp_string(&regexp_str);
@@ -107,7 +151,7 @@ pub fn test(_frame: &mut CallFrame, args: &[Value]) -> Result<Value, String> {
 ///
 /// ES3 Section 15.10.6.4
 pub fn to_string(_frame: &mut CallFrame, args: &[Value]) -> Result<Value, String> {
-    let regexp_str = args.first().map(|v| v.to_js_string()).unwrap_or_default();
+    let regexp_str = get_regexp_string(args.first());
 
     // If already in /pattern/flags format, return as-is
     if regexp_str.starts_with('/') {
@@ -116,6 +160,22 @@ pub fn to_string(_frame: &mut CallFrame, args: &[Value]) -> Result<Value, String
 
     // Otherwise, wrap in slashes
     Ok(Value::String(format!("/{}/", regexp_str)))
+}
+
+/// Get the regex string from a value (handles both NativeObject and String).
+fn get_regexp_string(value: Option<&Value>) -> String {
+    match value {
+        Some(Value::NativeObject(props)) => {
+            // Get the __regex__ property from the RegExp object
+            props
+                .get("__regex__")
+                .map(|v| v.to_js_string())
+                .unwrap_or_default()
+        }
+        Some(Value::String(s)) => s.clone(),
+        Some(v) => v.to_js_string(),
+        None => String::new(),
+    }
 }
 
 // ============================================================================
@@ -474,14 +534,24 @@ mod tests {
     fn test_regexp_constructor_empty() {
         let mut frame = make_frame();
         let result = regexp_constructor(&mut frame, &[]).unwrap();
-        assert!(matches!(result, Value::String(s) if s == "//"));
+        // RegExp now returns a NativeObject
+        if let Value::NativeObject(props) = result {
+            assert_eq!(props.get("__regex__"), Some(&Value::String("//".to_string())));
+        } else {
+            panic!("Expected NativeObject, got {:?}", result);
+        }
     }
 
     #[test]
     fn test_regexp_constructor_pattern_only() {
         let mut frame = make_frame();
         let result = regexp_constructor(&mut frame, &[Value::String("test".to_string())]).unwrap();
-        assert!(matches!(result, Value::String(s) if s == "/test/"));
+        // RegExp now returns a NativeObject
+        if let Value::NativeObject(props) = result {
+            assert_eq!(props.get("__regex__"), Some(&Value::String("/test/".to_string())));
+        } else {
+            panic!("Expected NativeObject, got {:?}", result);
+        }
     }
 
     #[test]
@@ -495,7 +565,12 @@ mod tests {
             ],
         )
         .unwrap();
-        assert!(matches!(result, Value::String(s) if s == "/test/gi"));
+        // RegExp now returns a NativeObject
+        if let Value::NativeObject(props) = result {
+            assert_eq!(props.get("__regex__"), Some(&Value::String("/test/gi".to_string())));
+        } else {
+            panic!("Expected NativeObject, got {:?}", result);
+        }
     }
 
     #[test]

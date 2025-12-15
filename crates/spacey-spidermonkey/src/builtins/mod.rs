@@ -345,12 +345,15 @@ fn register_number(globals: &mut HashMap<String, Value>) {
     number_obj.insert("NEGATIVE_INFINITY".to_string(), Value::Number(number::NEGATIVE_INFINITY));
     number_obj.insert("POSITIVE_INFINITY".to_string(), Value::Number(number::POSITIVE_INFINITY));
 
-    // Number constructor function
-    // Note: In a full implementation, this would be a callable that creates Number objects
-    // For now, we'll include it as part of the object
+    // Add constructor property so Number() is callable
+    number_obj.insert(
+        "constructor".to_string(),
+        make_native("Number", 1, number::number_constructor),
+    );
+
     globals.insert("Number".to_string(), Value::NativeObject(number_obj));
 
-    // Also register the constructor as a callable for Number(value) syntax
+    // Also register the constructor as a standalone callable for internal use
     globals.insert(
         "Number_constructor".to_string(),
         make_native("Number", 1, number::number_constructor),
@@ -697,11 +700,14 @@ mod tests {
         assert!(globals.contains_key("SyntaxError"));
         assert!(globals.contains_key("RangeError"));
 
-        // Check Math
-        assert!(globals.contains_key("Math_PI"));
-        assert!(globals.contains_key("Math_abs"));
-        assert!(globals.contains_key("Math_floor"));
-        assert!(globals.contains_key("Math_random"));
+        // Check Math (now a NativeObject)
+        assert!(globals.contains_key("Math"));
+        if let Some(Value::NativeObject(math_obj)) = globals.get("Math") {
+            assert!(math_obj.contains_key("PI"));
+            assert!(math_obj.contains_key("abs"));
+            assert!(math_obj.contains_key("floor"));
+            assert!(math_obj.contains_key("random"));
+        }
     }
 
     #[test]
@@ -727,16 +733,21 @@ mod tests {
     fn test_math_constants() {
         let globals = register_builtins();
 
-        if let Some(Value::Number(n)) = globals.get("Math_PI") {
-            assert!((n - std::f64::consts::PI).abs() < 0.0001);
-        } else {
-            panic!("Math_PI should be a number");
-        }
+        // Math is now a NativeObject with properties
+        if let Some(Value::NativeObject(math_obj)) = globals.get("Math") {
+            if let Some(Value::Number(n)) = math_obj.get("PI") {
+                assert!((n - std::f64::consts::PI).abs() < 0.0001);
+            } else {
+                panic!("Math.PI should be a number");
+            }
 
-        if let Some(Value::Number(n)) = globals.get("Math_E") {
-            assert!((n - std::f64::consts::E).abs() < 0.0001);
+            if let Some(Value::Number(n)) = math_obj.get("E") {
+                assert!((n - std::f64::consts::E).abs() < 0.0001);
+            } else {
+                panic!("Math.E should be a number");
+            }
         } else {
-            panic!("Math_E should be a number");
+            panic!("Math should be a NativeObject");
         }
     }
 
@@ -744,25 +755,34 @@ mod tests {
     fn test_number_constants() {
         let globals = register_builtins();
 
-        if let Some(Value::Number(n)) = globals.get("Number_MAX_VALUE") {
-            assert_eq!(*n, f64::MAX);
-        } else {
-            panic!("Number_MAX_VALUE should be a number");
-        }
+        // Number is now a NativeObject with properties
+        if let Some(Value::NativeObject(number_obj)) = globals.get("Number") {
+            if let Some(Value::Number(n)) = number_obj.get("MAX_VALUE") {
+                assert_eq!(*n, f64::MAX);
+            } else {
+                panic!("Number.MAX_VALUE should be a number");
+            }
 
-        if let Some(Value::Number(n)) = globals.get("Number_NaN") {
-            assert!(n.is_nan());
+            if let Some(Value::Number(n)) = number_obj.get("NaN") {
+                assert!(n.is_nan());
+            } else {
+                panic!("Number.NaN should be a number");
+            }
         } else {
-            panic!("Number_NaN should be a number");
+            panic!("Number should be a NativeObject");
         }
     }
 
     #[test]
     fn test_console_functions() {
         let globals = register_builtins();
-        assert!(globals.contains_key("console_log"));
-        assert!(globals.contains_key("console_error"));
-        assert!(globals.contains_key("console_warn"));
+        // Console is now a NativeObject
+        assert!(globals.contains_key("console"));
+        if let Some(Value::NativeObject(console_obj)) = globals.get("console") {
+            assert!(console_obj.contains_key("log"));
+            assert!(console_obj.contains_key("error"));
+            assert!(console_obj.contains_key("warn"));
+        }
         assert!(globals.contains_key("print"));
     }
 
@@ -776,10 +796,13 @@ mod tests {
                     // Functions are expected
                 }
                 Value::Number(_) => {
-                    // Constants like NaN, Infinity, Math_PI
+                    // Constants like NaN, Infinity
                 }
                 Value::Undefined => {
                     assert_eq!(name, "undefined");
+                }
+                Value::NativeObject(_) => {
+                    // NativeObjects like Math, Number, Date, RegExp
                 }
                 _ => {
                     panic!("Unexpected value type for {}: {:?}", name, value);

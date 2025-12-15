@@ -8,6 +8,67 @@ use crate::compiler::{Bytecode, OpCode, Operand};
 use crate::runtime::function::{CallFrame, Callable, Function};
 use crate::runtime::value::Value;
 
+/// Abstract equality comparison (ES3 Section 11.9.3)
+///
+/// The Abstract Equality Comparison Algorithm with type coercion.
+fn abstract_equals(a: &Value, b: &Value) -> bool {
+    // 1. If Type(x) is the same as Type(y), return strict equality
+    match (a, b) {
+        // Same type comparisons
+        (Value::Undefined, Value::Undefined) => true,
+        (Value::Null, Value::Null) => true,
+        (Value::Boolean(a), Value::Boolean(b)) => a == b,
+        (Value::Number(a), Value::Number(b)) => {
+            // NaN != NaN in JavaScript
+            if a.is_nan() || b.is_nan() {
+                false
+            } else {
+                a == b
+            }
+        }
+        (Value::String(a), Value::String(b)) => a == b,
+        (Value::Object(a), Value::Object(b)) => a == b,
+        (Value::Function(a), Value::Function(b)) => Arc::ptr_eq(a, b),
+
+        // 2. null == undefined is true
+        (Value::Null, Value::Undefined) | (Value::Undefined, Value::Null) => true,
+
+        // 3. If one is number and other is string, convert string to number
+        (Value::Number(n), Value::String(s)) | (Value::String(s), Value::Number(n)) => {
+            let s_num = s.parse::<f64>().unwrap_or(f64::NAN);
+            if s_num.is_nan() || n.is_nan() {
+                false
+            } else {
+                n == &s_num
+            }
+        }
+
+        // 4. If one is boolean, convert it to number and compare
+        (Value::Boolean(b_val), other) => {
+            let num = if *b_val { 1.0 } else { 0.0 };
+            abstract_equals(&Value::Number(num), other)
+        }
+        (other, Value::Boolean(b_val)) => {
+            let num = if *b_val { 1.0 } else { 0.0 };
+            abstract_equals(other, &Value::Number(num))
+        }
+
+        // 5. If one is number/string and other is object, convert object to primitive
+        // For now, simplified handling
+        (Value::Number(_) | Value::String(_), Value::Object(_)) => {
+            // ToPrimitive(object) - simplified, compare as false
+            false
+        }
+        (Value::Object(_), Value::Number(_) | Value::String(_)) => {
+            // ToPrimitive(object) - simplified, compare as false
+            false
+        }
+
+        // All other cases are not equal
+        _ => false,
+    }
+}
+
 /// A saved call frame for restoring after return.
 #[derive(Clone)]
 struct SavedFrame {
@@ -225,10 +286,75 @@ fn call_string_method(s: &str, method: &str, args: &[Value]) -> Value {
             Value::String(s.trim().to_string())
         }
         "replace" => {
-            let search = args.first().map(|v| v.to_js_string()).unwrap_or_default();
+            let (search, is_regexp) = match args.first() {
+                Some(Value::NativeObject(props)) => {
+                    // RegExp object - extract __regex__ property
+                    let regex_str = props.get("__regex__")
+                        .map(|v| v.to_js_string())
+                        .unwrap_or_default();
+                    (regex_str, true)
+                }
+                Some(v) => (v.to_js_string(), false),
+                None => (String::new(), false),
+            };
             let replacement = args.get(1).map(|v| v.to_js_string()).unwrap_or_default();
-            // ES3 replace only replaces first occurrence (when not using regex with g flag)
+            
+            // Check if search is a regexp string
+            if is_regexp || (search.starts_with('/') && search.len() > 1) {
+                let (pattern, flags) = parse_regexp_string(&search);
+                if flags.contains('g') {
+                    // Global replace
+                    let result = simple_regex_replace_all(&pattern, s, &replacement, &flags);
+                    return Value::String(result);
+                } else {
+                    // Replace first match
+                    let result = simple_regex_replace(&pattern, s, &replacement, &flags);
+                    return Value::String(result);
+                }
+            }
+            
+            // Simple string replace (first occurrence only)
             Value::String(s.replacen(&search, &replacement, 1))
+        }
+        "match" => {
+            let regexp_str = match args.first() {
+                Some(Value::NativeObject(props)) => {
+                    // RegExp object - extract __regex__ property
+                    props.get("__regex__")
+                        .map(|v| v.to_js_string())
+                        .unwrap_or_default()
+                }
+                Some(v) => v.to_js_string(),
+                None => String::new(),
+            };
+            let (pattern, flags) = parse_regexp_string(&regexp_str);
+            
+            if pattern.is_empty() && regexp_str.is_empty() {
+                return Value::Null;
+            }
+            
+            match simple_regex_match(&pattern, s, &flags) {
+                Some((_start, matched)) => Value::String(matched),
+                None => Value::Null,
+            }
+        }
+        "search" => {
+            let regexp_str = match args.first() {
+                Some(Value::NativeObject(props)) => {
+                    // RegExp object - extract __regex__ property
+                    props.get("__regex__")
+                        .map(|v| v.to_js_string())
+                        .unwrap_or_default()
+                }
+                Some(v) => v.to_js_string(),
+                None => String::new(),
+            };
+            let (pattern, flags) = parse_regexp_string(&regexp_str);
+            
+            match simple_regex_match(&pattern, s, &flags) {
+                Some((index, _)) => Value::Number(index as f64),
+                None => Value::Number(-1.0),
+            }
         }
         "concat" => {
             let mut result = s.to_string();
@@ -242,6 +368,163 @@ fn call_string_method(s: &str, method: &str, args: &[Value]) -> Value {
         }
         _ => Value::Undefined,
     }
+}
+
+/// Call a regexp method
+fn call_regexp_method(regex_str: &str, method: &str, args: &[Value]) -> Value {
+    // Parse the regex string (format: /pattern/flags)
+    let (pattern, flags) = parse_regexp_string(regex_str);
+    
+    match method {
+        "test" => {
+            let input = args.first().map(|v| v.to_js_string()).unwrap_or_default();
+            let result = simple_regex_match(&pattern, &input, &flags).is_some();
+            Value::Boolean(result)
+        }
+        "exec" => {
+            let input = args.first().map(|v| v.to_js_string()).unwrap_or_default();
+            match simple_regex_match(&pattern, &input, &flags) {
+                Some((_start, matched)) => Value::String(matched),
+                None => Value::Null,
+            }
+        }
+        "toString" => {
+            Value::String(regex_str.to_string())
+        }
+        _ => Value::Undefined,
+    }
+}
+
+/// Parse a regexp string like "/pattern/flags" into (pattern, flags).
+fn parse_regexp_string(s: &str) -> (String, String) {
+    if s.starts_with('/') {
+        // Find the last '/' to separate pattern from flags
+        if let Some(last_slash) = s.rfind('/') {
+            if last_slash > 0 {
+                let pattern = s[1..last_slash].to_string();
+                let flags = s[last_slash + 1..].to_string();
+                return (pattern, flags);
+            }
+        }
+    }
+    // Not in /pattern/flags format, treat entire string as pattern
+    (s.to_string(), String::new())
+}
+
+/// Simple regex matching (basic implementation without full regex crate).
+/// Returns (start_index, matched_string) or None.
+fn simple_regex_match(pattern: &str, input: &str, flags: &str) -> Option<(usize, String)> {
+    let ignore_case = flags.contains('i');
+
+    // Handle empty pattern
+    if pattern.is_empty() {
+        return Some((0, String::new()));
+    }
+
+    // Very basic pattern matching
+    let search_input = if ignore_case {
+        input.to_lowercase()
+    } else {
+        input.to_string()
+    };
+
+    let search_pattern = if ignore_case {
+        pattern.to_lowercase()
+    } else {
+        pattern.to_string()
+    };
+
+    // Handle special regex patterns (simplified)
+    match search_pattern.as_str() {
+        "^" => Some((0, String::new())),
+        "$" => Some((input.len(), String::new())),
+        "." => {
+            if !input.is_empty() {
+                Some((0, input.chars().next().unwrap().to_string()))
+            } else {
+                None
+            }
+        }
+        _ => {
+            // Literal string search
+            if let Some(idx) = search_input.find(&search_pattern) {
+                let matched = &input[idx..idx + pattern.len()];
+                Some((idx, matched.to_string()))
+            } else {
+                None
+            }
+        }
+    }
+}
+
+/// Replace first match in a string
+fn simple_regex_replace(pattern: &str, input: &str, replacement: &str, flags: &str) -> String {
+    let ignore_case = flags.contains('i');
+
+    if pattern.is_empty() {
+        return format!("{}{}", replacement, input);
+    }
+
+    let search_input = if ignore_case {
+        input.to_lowercase()
+    } else {
+        input.to_string()
+    };
+
+    let search_pattern = if ignore_case {
+        pattern.to_lowercase()
+    } else {
+        pattern.to_string()
+    };
+
+    if let Some(idx) = search_input.find(&search_pattern) {
+        let before = &input[..idx];
+        let after = &input[idx + pattern.len()..];
+        format!("{}{}{}", before, replacement, after)
+    } else {
+        input.to_string()
+    }
+}
+
+/// Replace all matches in a string
+fn simple_regex_replace_all(pattern: &str, input: &str, replacement: &str, flags: &str) -> String {
+    let ignore_case = flags.contains('i');
+
+    if pattern.is_empty() {
+        // Empty pattern: insert replacement at each position
+        let chars: Vec<char> = input.chars().collect();
+        let mut result = replacement.to_string();
+        for c in chars {
+            result.push(c);
+            result.push_str(replacement);
+        }
+        return result;
+    }
+
+    let search_input = if ignore_case {
+        input.to_lowercase()
+    } else {
+        input.to_string()
+    };
+
+    let search_pattern = if ignore_case {
+        pattern.to_lowercase()
+    } else {
+        pattern.to_string()
+    };
+
+    let mut result = String::new();
+    let mut start = 0;
+
+    while let Some(idx) = search_input[start..].find(&search_pattern) {
+        let abs_idx = start + idx;
+        result.push_str(&input[start..abs_idx]);
+        result.push_str(replacement);
+        start = abs_idx + pattern.len().max(1);
+    }
+
+    result.push_str(&input[start..]);
+    result
 }
 
 /// Runtime object representation
@@ -725,12 +1008,25 @@ impl VM {
                 OpCode::Le => self.compare_op(|a, b| a <= b)?,
                 OpCode::Gt => self.compare_op(|a, b| a > b)?,
                 OpCode::Ge => self.compare_op(|a, b| a >= b)?,
-                OpCode::Eq | OpCode::StrictEq => {
+                OpCode::Eq => {
+                    // Abstract equality (ES3 Section 11.9.3)
+                    let b = self.pop()?;
+                    let a = self.pop()?;
+                    self.stack.push(Value::Boolean(abstract_equals(&a, &b)));
+                }
+                OpCode::StrictEq => {
+                    // Strict equality (ES3 Section 11.9.6)
                     let b = self.pop()?;
                     let a = self.pop()?;
                     self.stack.push(Value::Boolean(a == b));
                 }
-                OpCode::Ne | OpCode::StrictNe => {
+                OpCode::Ne => {
+                    // Abstract inequality
+                    let b = self.pop()?;
+                    let a = self.pop()?;
+                    self.stack.push(Value::Boolean(!abstract_equals(&a, &b)));
+                }
+                OpCode::StrictNe => {
                     let b = self.pop()?;
                     let a = self.pop()?;
                     self.stack.push(Value::Boolean(a != b));
@@ -809,7 +1105,8 @@ impl VM {
                             // String prototype methods
                             "charAt" | "charCodeAt" | "indexOf" | "lastIndexOf" |
                             "substring" | "slice" | "substr" | "toLowerCase" | "toUpperCase" |
-                            "split" | "trim" | "replace" | "concat" | "toString" | "valueOf" => {
+                            "split" | "trim" | "replace" | "concat" | "toString" | "valueOf" |
+                            "match" | "search" => {
                                 // Store string value in a temporary location for method call
                                 // Use a marker that includes the string value encoded
                                 Value::String(format!("__string_method__{}:{}", prop_name, s))
@@ -937,6 +1234,16 @@ impl VM {
                                     let method = &rest[..colon_pos];
                                     let timestamp: f64 = rest[colon_pos + 1..].parse().unwrap_or(f64::NAN);
                                     let result = call_date_method(timestamp, method, &call_args);
+                                    self.stack.push(result);
+                                    continue;
+                                }
+                            }
+                            // Check for regexp method marker (__regexp_method__METHOD:/pattern/flags)
+                            if let Some(rest) = s.strip_prefix("__regexp_method__") {
+                                if let Some(colon_pos) = rest.find(':') {
+                                    let method = &rest[..colon_pos];
+                                    let regex_str = &rest[colon_pos + 1..];
+                                    let result = call_regexp_method(regex_str, method, &call_args);
                                     self.stack.push(result);
                                     continue;
                                 }
@@ -1332,13 +1639,25 @@ impl VM {
                 OpCode::Gt => self.compare_op(|a, b| a > b)?,
                 OpCode::Ge => self.compare_op(|a, b| a >= b)?,
 
-                OpCode::Eq | OpCode::StrictEq => {
+                OpCode::Eq => {
+                    // Abstract equality (ES3 Section 11.9.3)
+                    let b = self.pop()?;
+                    let a = self.pop()?;
+                    self.stack.push(Value::Boolean(abstract_equals(&a, &b)));
+                }
+                OpCode::StrictEq => {
+                    // Strict equality (ES3 Section 11.9.6)
                     let b = self.pop()?;
                     let a = self.pop()?;
                     self.stack.push(Value::Boolean(a == b));
                 }
-
-                OpCode::Ne | OpCode::StrictNe => {
+                OpCode::Ne => {
+                    // Abstract inequality
+                    let b = self.pop()?;
+                    let a = self.pop()?;
+                    self.stack.push(Value::Boolean(!abstract_equals(&a, &b)));
+                }
+                OpCode::StrictNe => {
                     let b = self.pop()?;
                     let a = self.pop()?;
                     self.stack.push(Value::Boolean(a != b));
@@ -1468,7 +1787,8 @@ impl VM {
                                 // String prototype methods
                                 "charAt" | "charCodeAt" | "indexOf" | "lastIndexOf" |
                                 "substring" | "slice" | "substr" | "toLowerCase" | "toUpperCase" |
-                                "split" | "trim" | "replace" | "concat" | "toString" | "valueOf" => {
+                                "split" | "trim" | "replace" | "concat" | "toString" | "valueOf" |
+                                "match" | "search" => {
                                     Value::String(format!("__string_method__{}:{}", prop_name, s))
                                 }
                                 _ => {
@@ -1528,8 +1848,27 @@ impl VM {
                             }
                         }
                         Value::NativeObject(props) => {
-                            // Native object property access (e.g., console.log)
-                            props.get(&prop_name).cloned().unwrap_or(Value::Undefined)
+                            // Check if this is a RegExp object
+                            if let Some(Value::String(type_str)) = props.get("__type__") {
+                                if type_str == "RegExp" {
+                                    match prop_name.as_str() {
+                                        "test" | "exec" | "toString" => {
+                                            // Return a marker for RegExp method
+                                            let regex_str = props
+                                                .get("__regex__")
+                                                .map(|v| v.to_js_string())
+                                                .unwrap_or_default();
+                                            Value::String(format!("__regexp_method__{}:{}", prop_name, regex_str))
+                                        }
+                                        _ => props.get(&prop_name).cloned().unwrap_or(Value::Undefined),
+                                    }
+                                } else {
+                                    props.get(&prop_name).cloned().unwrap_or(Value::Undefined)
+                                }
+                            } else {
+                                // Regular native object property access (e.g., console.log, Math.abs)
+                                props.get(&prop_name).cloned().unwrap_or(Value::Undefined)
+                            }
                         }
                         _ => Value::Undefined,
                     };
@@ -1686,12 +2025,40 @@ impl VM {
                                     continue;
                                 }
                             }
+                            // Check for regexp method marker (__regexp_method__METHOD:/pattern/flags)
+                            if let Some(rest) = s.strip_prefix("__regexp_method__") {
+                                if let Some(colon_pos) = rest.find(':') {
+                                    let method = &rest[..colon_pos];
+                                    let regex_str = &rest[colon_pos + 1..];
+                                    let result = call_regexp_method(regex_str, method, &args);
+                                    self.stack.push(result);
+                                    continue;
+                                }
+                            }
                         }
 
                         match callee {
                             Value::NativeObject(props) => {
-                                // NativeObject being called as constructor (e.g., new Date())
-                                // Check for known constructors
+                                // NativeObject being called as constructor (e.g., new Date(), Number())
+                                
+                                // First check for a "constructor" property (generic approach)
+                                if let Some(constructor) = props.get("constructor") {
+                                    if let Value::Function(callable) = constructor {
+                                        if let Callable::Native { func, .. } = callable.as_ref() {
+                                            let temp_func = Function::new(None, vec![], Bytecode::new(), 0);
+                                            let mut frame = CallFrame::new(temp_func, 0);
+                                            match func(&mut frame, &args) {
+                                                Ok(result) => {
+                                                    self.stack.push(result);
+                                                    continue;
+                                                }
+                                                Err(e) => return Err(Error::TypeError(e)),
+                                            }
+                                        }
+                                    }
+                                }
+                                
+                                // Check for Date constructor (legacy approach for Date)
                                 if props.contains_key("now") {
                                     // This is Date, call the Date constructor
                                     if let Some(constructor_fn) = self.globals.get("Date_constructor") {
@@ -2009,14 +2376,10 @@ impl VM {
         let b = self.pop()?;
         let a = self.pop()?;
 
-        match (a, b) {
-            (Value::Number(a), Value::Number(b)) => {
-                self.stack.push(Value::Number(op(a, b)));
-            }
-            _ => {
-                return Err(Error::TypeError("Expected numbers".into()));
-            }
-        }
+        // ES3: Coerce operands to numbers (returns NaN for non-numeric values)
+        let a_num = a.to_number();
+        let b_num = b.to_number();
+        self.stack.push(Value::Number(op(a_num, b_num)));
 
         Ok(())
     }
@@ -2028,14 +2391,10 @@ impl VM {
         let b = self.pop()?;
         let a = self.pop()?;
 
-        match (a, b) {
-            (Value::Number(a), Value::Number(b)) => {
-                self.stack.push(Value::Boolean(op(a, b)));
-            }
-            _ => {
-                return Err(Error::TypeError("Expected numbers".into()));
-            }
-        }
+        // ES3: Coerce operands to numbers for numeric comparison
+        let a_num = a.to_number();
+        let b_num = b.to_number();
+        self.stack.push(Value::Boolean(op(a_num, b_num)));
 
         Ok(())
     }
@@ -2047,15 +2406,11 @@ impl VM {
         let b = self.pop()?;
         let a = self.pop()?;
 
-        match (a, b) {
-            (Value::Number(a), Value::Number(b)) => {
-                let result = op(a as i32, b as i32);
-                self.stack.push(Value::Number(result as f64));
-            }
-            _ => {
-                return Err(Error::TypeError("Expected numbers".into()));
-            }
-        }
+        // ES3: Coerce operands to int32 for bitwise operations
+        let a_int = a.to_int32();
+        let b_int = b.to_int32();
+        let result = op(a_int, b_int);
+        self.stack.push(Value::Number(result as f64));
 
         Ok(())
     }

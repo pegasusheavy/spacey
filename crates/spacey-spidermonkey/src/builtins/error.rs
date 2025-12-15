@@ -263,7 +263,8 @@ mod tests {
         let mut frame = make_frame();
         let result =
             error_constructor(&mut frame, &[Value::String("test error".to_string())]).unwrap();
-        assert!(matches!(result, Value::Object(_)));
+        // Error constructors now return NativeObject
+        assert!(matches!(result, Value::NativeObject(_)));
     }
 
     #[test]
@@ -272,7 +273,8 @@ mod tests {
         let result =
             type_error_constructor(&mut frame, &[Value::String("not callable".to_string())])
                 .unwrap();
-        assert!(matches!(result, Value::Object(_)));
+        // Error constructors now return NativeObject
+        assert!(matches!(result, Value::NativeObject(_)));
     }
 
     #[test]
@@ -283,7 +285,8 @@ mod tests {
             &[Value::String("x is not defined".to_string())],
         )
         .unwrap();
-        assert!(matches!(result, Value::Object(_)));
+        // Error constructors now return NativeObject
+        assert!(matches!(result, Value::NativeObject(_)));
     }
 
     #[test]
@@ -292,7 +295,8 @@ mod tests {
         let result =
             syntax_error_constructor(&mut frame, &[Value::String("unexpected token".to_string())])
                 .unwrap();
-        assert!(matches!(result, Value::Object(_)));
+        // Error constructors now return NativeObject
+        assert!(matches!(result, Value::NativeObject(_)));
     }
 
     #[test]
@@ -303,14 +307,16 @@ mod tests {
             &[Value::String("invalid array length".to_string())],
         )
         .unwrap();
-        assert!(matches!(result, Value::Object(_)));
+        // Error constructors now return NativeObject
+        assert!(matches!(result, Value::NativeObject(_)));
     }
 
     #[test]
     fn test_eval_error_constructor() {
         let mut frame = make_frame();
         let result = eval_error_constructor(&mut frame, &[]).unwrap();
-        assert!(matches!(result, Value::Object(_)));
+        // Error constructors now return NativeObject
+        assert!(matches!(result, Value::NativeObject(_)));
     }
 
     #[test]
@@ -319,7 +325,8 @@ mod tests {
         let result =
             uri_error_constructor(&mut frame, &[Value::String("malformed URI".to_string())])
                 .unwrap();
-        assert!(matches!(result, Value::Object(_)));
+        // Error constructors now return NativeObject
+        assert!(matches!(result, Value::NativeObject(_)));
     }
 
     #[test]
