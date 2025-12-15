@@ -36,14 +36,14 @@ pub async fn run(args: &InstallArgs, cli: &Cli) -> Result<()> {
     // Load or create lockfile
     let lockfile_path = PathBuf::from("package-lock.json");
     let snpm_toml_path = PathBuf::from("snpm.toml");
-    
+
     // For frozen lockfile mode, require a lockfile to exist
     if args.frozen_lockfile && !snpm_toml_path.exists() && !lockfile_path.exists() {
         return Err(crate::error::SnpmError::InvalidLockfile(
             "Frozen lockfile mode requires snpm.toml or package-lock.json to exist".into()
         ));
     }
-    
+
     // Prefer snpm.toml if it exists (primary lockfile), otherwise use package-lock.json
     let lockfile = if snpm_toml_path.exists() && !args.no_package_lock {
         // Read snpm.toml and convert to PackageLock for resolver
@@ -145,7 +145,7 @@ pub async fn run(args: &InstallArgs, cli: &Cli) -> Result<()> {
             &resolved,
         );
         toml_lock.write(&snpm_toml_path)?;
-        
+
         if !cli.quiet {
             println!("  {} {}", "Wrote".dimmed(), "snpm.toml".cyan());
         }
@@ -173,7 +173,7 @@ pub async fn run(args: &InstallArgs, cli: &Cli) -> Result<()> {
 
         update_lockfile(&mut lock, &resolved);
         lock.write(&lockfile_path)?;
-        
+
         if !cli.quiet {
             println!("  {} {}", "Wrote".dimmed(), "package-lock.json".cyan());
         }

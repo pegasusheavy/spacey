@@ -8,10 +8,10 @@ use crate::error::{Result, SnpmError};
 pub async fn run(args: &CiArgs, cli: &Cli) -> Result<()> {
     let snpm_toml_path = PathBuf::from("snpm.toml");
     let package_lock_path = PathBuf::from("package-lock.json");
-    
+
     // Check for lockfile (prefer snpm.toml)
     let has_lockfile = snpm_toml_path.exists() || package_lock_path.exists();
-    
+
     if !has_lockfile {
         return Err(SnpmError::InvalidLockfile(
             "CI requires a lockfile. Neither snpm.toml nor package-lock.json found.".into()

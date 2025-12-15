@@ -6,96 +6,58 @@
 
 //! # spacey-node
 //!
-//! Node.js bindings for the spacey-spidermonkey JavaScript engine.
+//! A Node.js-compatible runtime built on the Spacey JavaScript engine.
 //!
-//! This crate provides a native Node.js addon that exposes the
-//! spacey-spidermonkey engine to Node.js applications.
+//! This crate provides a complete server-side JavaScript runtime with Node.js API
+//! compatibility, including:
 //!
-//! ## Usage (from Node.js)
+//! - CommonJS module system (`require()`)
+//! - Node.js globals (`process`, `Buffer`, `__dirname`, `__filename`)
+//! - Built-in modules (`fs`, `path`, `http`, `crypto`, etc.)
+//! - Event loop with async I/O
 //!
-//! ```javascript
-//! const spacey = require('spacey-node');
+//! ## Quick Start
 //!
-//! // Create a new engine instance
-//! const engine = new spacey.Engine();
+//! ```rust,ignore
+//! use spacey_node::NodeRuntime;
 //!
-//! // Evaluate JavaScript code
-//! const result = engine.eval('1 + 2');
-//! console.log(result); // 3
+//! #[tokio::main]
+//! async fn main() -> anyhow::Result<()> {
+//!     let mut runtime = NodeRuntime::new();
+//!     runtime.run_file("server.js").await?;
+//!     Ok(())
+//! }
+//! ```
+//!
+//! ## CLI Usage
+//!
+//! ```bash
+//! # Run a JavaScript file
+//! spacey-node server.js
+//!
+//! # Start REPL
+//! spacey-node --repl
+//!
+//! # Evaluate inline script
+//! spacey-node -e "console.log('Hello, World!')"
 //! ```
 
-#![deny(clippy::all)]
+#![warn(missing_docs)]
+#![warn(clippy::all)]
 
-use napi::bindgen_prelude::*;
-use napi_derive::napi;
-use spacey_spidermonkey::{Engine as SpaceyEngine, Value as SpaceyValue};
+pub mod error;
+pub mod globals;
+pub mod module_system;
+pub mod modules;
+pub mod runtime;
 
-/// A JavaScript engine instance exposed to Node.js.
-#[napi]
-pub struct Engine {
-    inner: SpaceyEngine,
-}
+// Re-exports
+pub use error::{NodeError, Result};
+pub use runtime::NodeRuntime;
 
-#[napi]
-impl Engine {
-    /// Creates a new JavaScript engine instance.
-    #[napi(constructor)]
-    pub fn new() -> Self {
-        Self {
-            inner: SpaceyEngine::new(),
-        }
-    }
+/// Version of the spacey-node runtime
+pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 
-    /// Evaluates JavaScript source code and returns the result.
-    #[napi]
-    pub fn eval(&mut self, source: String) -> Result<JsValue> {
-        match self.inner.eval(&source) {
-            Ok(value) => Ok(spacey_value_to_js(value)),
-            Err(e) => Err(Error::from_reason(e.to_string())),
-        }
-    }
+/// Node.js API version compatibility target
+pub const NODE_API_VERSION: &str = "20.0.0";
 
-    /// Evaluates JavaScript from a file.
-    #[napi]
-    pub fn eval_file(&mut self, path: String) -> Result<JsValue> {
-        match self.inner.eval_file(std::path::Path::new(&path)) {
-            Ok(value) => Ok(spacey_value_to_js(value)),
-            Err(e) => Err(Error::from_reason(e.to_string())),
-        }
-    }
-}
-
-impl Default for Engine {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-/// A wrapper for JavaScript values.
-#[napi(object)]
-pub struct JsValue {
-    /// The type of the value
-    pub value_type: String,
-    /// String representation of the value
-    pub value: String,
-}
-
-/// Converts a spacey Value to a JsValue for Node.js.
-fn spacey_value_to_js(value: SpaceyValue) -> JsValue {
-    JsValue {
-        value_type: value.type_of().to_string(),
-        value: value.to_string(),
-    }
-}
-
-/// Version information for the spacey-node module.
-#[napi]
-pub fn version() -> String {
-    env!("CARGO_PKG_VERSION").to_string()
-}
-
-/// Gets the name of this engine.
-#[napi]
-pub fn engine_name() -> String {
-    "spacey-spidermonkey".to_string()
-}
