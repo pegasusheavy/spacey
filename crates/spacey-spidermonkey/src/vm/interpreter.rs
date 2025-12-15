@@ -298,7 +298,7 @@ fn call_string_method(s: &str, method: &str, args: &[Value]) -> Value {
                 None => (String::new(), false),
             };
             let replacement = args.get(1).map(|v| v.to_js_string()).unwrap_or_default();
-            
+
             // Check if search is a regexp string
             if is_regexp || (search.starts_with('/') && search.len() > 1) {
                 let (pattern, flags) = parse_regexp_string(&search);
@@ -312,7 +312,7 @@ fn call_string_method(s: &str, method: &str, args: &[Value]) -> Value {
                     return Value::String(result);
                 }
             }
-            
+
             // Simple string replace (first occurrence only)
             Value::String(s.replacen(&search, &replacement, 1))
         }
@@ -328,11 +328,11 @@ fn call_string_method(s: &str, method: &str, args: &[Value]) -> Value {
                 None => String::new(),
             };
             let (pattern, flags) = parse_regexp_string(&regexp_str);
-            
+
             if pattern.is_empty() && regexp_str.is_empty() {
                 return Value::Null;
             }
-            
+
             match simple_regex_match(&pattern, s, &flags) {
                 Some((_start, matched)) => Value::String(matched),
                 None => Value::Null,
@@ -350,7 +350,7 @@ fn call_string_method(s: &str, method: &str, args: &[Value]) -> Value {
                 None => String::new(),
             };
             let (pattern, flags) = parse_regexp_string(&regexp_str);
-            
+
             match simple_regex_match(&pattern, s, &flags) {
                 Some((index, _)) => Value::Number(index as f64),
                 None => Value::Number(-1.0),
@@ -374,7 +374,7 @@ fn call_string_method(s: &str, method: &str, args: &[Value]) -> Value {
 fn call_regexp_method(regex_str: &str, method: &str, args: &[Value]) -> Value {
     // Parse the regex string (format: /pattern/flags)
     let (pattern, flags) = parse_regexp_string(regex_str);
-    
+
     match method {
         "test" => {
             let input = args.first().map(|v| v.to_js_string()).unwrap_or_default();
@@ -1508,6 +1508,68 @@ impl VM {
                 }
                 Ok(Value::Number(-1.0))
             }
+            "splice" => {
+                // Get array length first
+                let len = if let Some(arr) = self.heap.get(heap_idx) {
+                    if arr.is_array() {
+                        arr.array_elements.len() as i32
+                    } else {
+                        0
+                    }
+                } else {
+                    0
+                };
+
+                // Calculate start index
+                let start = args.first().map(|v| {
+                    let n = v.to_integer() as i32;
+                    if n < 0 {
+                        (len + n).max(0) as usize
+                    } else {
+                        n.min(len) as usize
+                    }
+                }).unwrap_or(0);
+
+                // Calculate delete count
+                let delete_count = args.get(1).map(|v| {
+                    let n = v.to_integer() as i32;
+                    n.max(0).min(len - start as i32) as usize
+                }).unwrap_or((len - start as i32).max(0) as usize);
+
+                // Items to insert
+                let items: Vec<Value> = args.iter().skip(2).cloned().collect();
+
+                // Perform splice operation
+                let removed = if let Some(arr) = self.heap.get_mut(heap_idx) {
+                    if arr.is_array() {
+                        let end = (start + delete_count).min(arr.array_elements.len());
+                        let removed: Vec<Value> = arr.array_elements.drain(start..end).collect();
+                        
+                        // Insert new items
+                        for (i, item) in items.into_iter().enumerate() {
+                            arr.array_elements.insert(start + i, item);
+                        }
+                        
+                        removed
+                    } else {
+                        vec![]
+                    }
+                } else {
+                    vec![]
+                };
+
+                // Return removed elements as new array
+                let new_idx = self.alloc_object(RuntimeObject::new_array(removed));
+                Ok(Value::Object(new_idx))
+            }
+            "length" => {
+                if let Some(arr) = self.heap.get(heap_idx) {
+                    if arr.is_array() {
+                        return Ok(Value::Number(arr.array_elements.len() as f64));
+                    }
+                }
+                Ok(Value::Number(0.0))
+            }
             _ => Err(Error::TypeError(format!("Array method '{}' not implemented", method))),
         }
     }
@@ -2040,7 +2102,7 @@ impl VM {
                         match callee {
                             Value::NativeObject(props) => {
                                 // NativeObject being called as constructor (e.g., new Date(), Number())
-                                
+
                                 // First check for a "constructor" property (generic approach)
                                 if let Some(constructor) = props.get("constructor") {
                                     if let Value::Function(callable) = constructor {
@@ -2057,7 +2119,7 @@ impl VM {
                                         }
                                     }
                                 }
-                                
+
                                 // Check for Date constructor (legacy approach for Date)
                                 if props.contains_key("now") {
                                     // This is Date, call the Date constructor

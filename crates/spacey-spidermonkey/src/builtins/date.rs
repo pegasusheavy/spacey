@@ -239,7 +239,7 @@ pub fn set_milliseconds(_frame: &mut CallFrame, args: &[Value]) -> Result<Value,
     if time.is_nan() || ms.is_nan() {
         return Ok(Value::Number(f64::NAN));
     }
-    let (h, m, s, _) = ms_to_time_components(time);
+    let (_h, _m, _s, _) = ms_to_time_components(time);
     let new_time = time - (time % 1000.0) + ms;
     Ok(Value::Number(new_time))
 }
@@ -252,7 +252,7 @@ pub fn set_seconds(_frame: &mut CallFrame, args: &[Value]) -> Result<Value, Stri
         return Ok(Value::Number(f64::NAN));
     }
     let ms = args.get(2).map(|v| v.to_number());
-    let (h, m, _, old_ms) = ms_to_time_components(time);
+    let (_h, _m, _, old_ms) = ms_to_time_components(time);
     let new_ms = ms.unwrap_or(old_ms as f64);
     // Simplified: just adjust seconds in current time
     Ok(Value::Number(
@@ -327,17 +327,174 @@ fn current_time_ms() -> f64 {
 
 /// Parse a date string (simplified).
 fn parse_date_string(s: &str) -> Option<f64> {
-    // Very simplified parsing - just handle ISO 8601 basic format
-    // Full implementation would need much more sophisticated parsing
     let s = s.trim();
     if s.is_empty() {
         return None;
     }
+
     // Try to parse as number (milliseconds)
     if let Ok(n) = s.parse::<f64>() {
         return Some(n);
     }
+
+    // Try ISO 8601 format: YYYY-MM-DDTHH:MM:SS.sssZ
+    if let Some(time) = parse_iso_date(s) {
+        return Some(time);
+    }
+
+    // Try RFC 2822 / JavaScript Date format: "Mon, 25 Dec 1995 13:30:00 GMT"
+    if let Some(time) = parse_rfc_date(s) {
+        return Some(time);
+    }
+
+    // Try simple date format: "MM/DD/YYYY" or "YYYY/MM/DD"
+    if let Some(time) = parse_simple_date(s) {
+        return Some(time);
+    }
+
     None
+}
+
+/// Parse ISO 8601 date format: YYYY-MM-DDTHH:MM:SS.sssZ or YYYY-MM-DD
+fn parse_iso_date(s: &str) -> Option<f64> {
+    // Check for basic ISO format
+    let parts: Vec<&str> = s.split('T').collect();
+    let date_part = parts.first()?;
+    let time_part = parts.get(1);
+
+    // Parse date: YYYY-MM-DD
+    let date_parts: Vec<&str> = date_part.split('-').collect();
+    if date_parts.len() < 1 {
+        return None;
+    }
+
+    let year: i32 = date_parts.get(0)?.parse().ok()?;
+    let month: i32 = date_parts.get(1).and_then(|s| s.parse().ok()).unwrap_or(1) - 1;
+    let day: i32 = date_parts.get(2).and_then(|s| s.parse().ok()).unwrap_or(1);
+
+    let (hours, minutes, seconds, ms) = if let Some(time_str) = time_part {
+        parse_time_part(time_str)
+    } else {
+        (0, 0, 0, 0)
+    };
+
+    Some(make_date(
+        year as f64,
+        month as f64,
+        day as f64,
+        hours as f64,
+        minutes as f64,
+        seconds as f64,
+        ms as f64,
+    ))
+}
+
+/// Parse time part of ISO date: HH:MM:SS.sssZ
+fn parse_time_part(s: &str) -> (i32, i32, i32, i32) {
+    // Remove timezone indicator
+    let s = s.trim_end_matches('Z').trim_end_matches(|c: char| c == '+' || c == '-' || c.is_ascii_digit());
+    let s = s.trim_end_matches(|c: char| c == ':' || c.is_ascii_digit());
+    let s_clean: &str = &s.chars().take_while(|c| *c != '+' && *c != '-' && *c != 'Z').collect::<String>();
+
+    let time_parts: Vec<&str> = s_clean.split(':').collect();
+
+    let hours: i32 = time_parts.get(0).and_then(|s| s.parse().ok()).unwrap_or(0);
+    let minutes: i32 = time_parts.get(1).and_then(|s| s.parse().ok()).unwrap_or(0);
+
+    // Seconds might have milliseconds: SS.sss
+    let (seconds, ms) = if let Some(sec_str) = time_parts.get(2) {
+        let sec_parts: Vec<&str> = sec_str.split('.').collect();
+        let secs: i32 = sec_parts.get(0).and_then(|s| s.parse().ok()).unwrap_or(0);
+        let millis: i32 = sec_parts.get(1).and_then(|s| {
+            let ms_str = format!("{:0<3}", s.chars().take(3).collect::<String>());
+            ms_str.parse().ok()
+        }).unwrap_or(0);
+        (secs, millis)
+    } else {
+        (0, 0)
+    };
+
+    (hours, minutes, seconds, ms)
+}
+
+/// Parse RFC 2822 style dates
+fn parse_rfc_date(s: &str) -> Option<f64> {
+    // Very simplified: look for month names
+    let months = [
+        "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
+    ];
+
+    let parts: Vec<&str> = s.split_whitespace().collect();
+    if parts.len() < 3 {
+        return None;
+    }
+
+    // Try to find month and extract date parts
+    let mut year: Option<i32> = None;
+    let mut month: Option<i32> = None;
+    let mut day: Option<i32> = None;
+
+    for part in &parts {
+        // Check if it's a month name
+        for (i, m) in months.iter().enumerate() {
+            if part.eq_ignore_ascii_case(m) {
+                month = Some(i as i32);
+                break;
+            }
+        }
+
+        // Check if it's a 4-digit year
+        if year.is_none() && part.len() == 4 && part.chars().all(|c| c.is_ascii_digit()) {
+            year = part.parse().ok();
+        }
+
+        // Check if it's a 1-2 digit day
+        if day.is_none() && part.len() <= 2 && part.chars().all(|c| c.is_ascii_digit()) {
+            if let Ok(d) = part.parse::<i32>() {
+                if d >= 1 && d <= 31 {
+                    day = Some(d);
+                }
+            }
+        }
+    }
+
+    if year.is_some() && month.is_some() && day.is_some() {
+        return Some(make_date(
+            year.unwrap() as f64,
+            month.unwrap() as f64,
+            day.unwrap() as f64,
+            0.0, 0.0, 0.0, 0.0,
+        ));
+    }
+
+    None
+}
+
+/// Parse simple date formats: MM/DD/YYYY, YYYY/MM/DD
+fn parse_simple_date(s: &str) -> Option<f64> {
+    let parts: Vec<&str> = s.split('/').collect();
+    if parts.len() != 3 {
+        return None;
+    }
+
+    let nums: Vec<i32> = parts.iter().filter_map(|p| p.parse().ok()).collect();
+    if nums.len() != 3 {
+        return None;
+    }
+
+    // Determine format based on first number
+    let (year, month, day) = if nums[0] > 31 {
+        // YYYY/MM/DD
+        (nums[0], nums[1] - 1, nums[2])
+    } else if nums[2] > 31 {
+        // MM/DD/YYYY
+        (nums[2], nums[0] - 1, nums[1])
+    } else {
+        // Assume MM/DD/YYYY
+        (nums[2], nums[0] - 1, nums[1])
+    };
+
+    Some(make_date(year as f64, month as f64, day as f64, 0.0, 0.0, 0.0, 0.0))
 }
 
 /// Make a date from components.

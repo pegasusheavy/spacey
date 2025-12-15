@@ -2,7 +2,11 @@
 //!
 //! Provides Function constructor and prototype methods.
 
-use crate::runtime::function::CallFrame;
+use std::sync::Arc;
+
+use crate::compiler::Compiler;
+use crate::parser::Parser;
+use crate::runtime::function::{CallFrame, Callable, Function};
 use crate::runtime::value::Value;
 
 // ============================================================================
@@ -12,11 +16,60 @@ use crate::runtime::value::Value;
 /// Function() constructor - creates a new function from strings.
 ///
 /// ES3 Section 15.3.1.1
-/// Note: This is a simplified stub - full implementation requires eval
-pub fn function_constructor(_frame: &mut CallFrame, _args: &[Value]) -> Result<Value, String> {
-    // Full implementation would parse the arguments as function body
-    // For now, return an error since this requires eval-like functionality
-    Err("Function constructor not fully implemented".to_string())
+/// Usage: new Function([arg1[, arg2[, ...argN]],] functionBody)
+pub fn function_constructor(_frame: &mut CallFrame, args: &[Value]) -> Result<Value, String> {
+    // Parse arguments: all but the last are parameter names, last is the body
+    let (params, body) = if args.is_empty() {
+        (vec![], String::new())
+    } else if args.len() == 1 {
+        // Only body provided
+        let body = args[0].to_js_string();
+        (vec![], body)
+    } else {
+        // Multiple arguments: params + body
+        let params: Vec<String> = args[..args.len() - 1]
+            .iter()
+            .map(|v| v.to_js_string())
+            .collect();
+        let body = args[args.len() - 1].to_js_string();
+        (params, body)
+    };
+
+    // Validate parameter names
+    for param in &params {
+        // Check for valid identifier (simplified check)
+        if param.is_empty()
+            || !param
+                .chars()
+                .next()
+                .map(|c| c.is_alphabetic() || c == '_' || c == '$')
+                .unwrap_or(false)
+        {
+            return Err(format!("SyntaxError: invalid parameter name '{}'", param));
+        }
+    }
+
+    // Create function source code
+    let params_str = params.join(", ");
+    let source = format!("function anonymous({}) {{ {} }}", params_str, body);
+
+    // Parse the function
+    let mut parser = Parser::new(&source);
+    let program = parser
+        .parse_program()
+        .map_err(|e| format!("SyntaxError: {}", e))?;
+
+    // Compile the function
+    let mut compiler = Compiler::new();
+    let bytecode = compiler
+        .compile(&program)
+        .map_err(|e| format!("SyntaxError: {}", e))?;
+
+    // Create the function object
+    let arity = params.len();
+    let func = Function::new(Some("anonymous".to_string()), params, bytecode, arity);
+
+    Ok(Value::Function(Arc::new(Callable::Function(func))))
 }
 
 // ============================================================================
@@ -335,8 +388,37 @@ mod tests {
     #[test]
     fn test_function_constructor() {
         let mut frame = make_frame();
-        // Should return error since not fully implemented
+        // Empty function should work
         let result = function_constructor(&mut frame, &[]);
-        assert!(result.is_err());
+        assert!(result.is_ok());
+        assert!(matches!(result.unwrap(), Value::Function(_)));
+    }
+
+    #[test]
+    fn test_function_constructor_with_body() {
+        let mut frame = make_frame();
+        // Function with body - note: body needs proper JS syntax
+        let result = function_constructor(
+            &mut frame,
+            &[Value::String("return 42;".to_string())],
+        );
+        assert!(result.is_ok(), "Function constructor failed: {:?}", result);
+        assert!(matches!(result.unwrap(), Value::Function(_)));
+    }
+
+    #[test]
+    fn test_function_constructor_with_params() {
+        let mut frame = make_frame();
+        // Function with params and body
+        let result = function_constructor(
+            &mut frame,
+            &[
+                Value::String("x".to_string()),
+                Value::String("y".to_string()),
+                Value::String("return x + y;".to_string()),
+            ],
+        );
+        assert!(result.is_ok(), "Function constructor failed: {:?}", result);
+        assert!(matches!(result.unwrap(), Value::Function(_)));
     }
 }

@@ -65,19 +65,19 @@ pub fn regexp_constructor(_frame: &mut CallFrame, args: &[Value]) -> Result<Valu
 
     // Create a RegExp object with properties and methods
     let mut regexp_obj = HashMap::new();
-    
+
     // Store the regex string representation for internal use
     let regex_str = format!("/{}/{}", pattern, flags);
     regexp_obj.insert("__regex__".to_string(), Value::String(regex_str.clone()));
     regexp_obj.insert("__type__".to_string(), Value::String("RegExp".to_string()));
-    
+
     // Instance properties
     regexp_obj.insert("source".to_string(), Value::String(pattern));
     regexp_obj.insert("global".to_string(), Value::Boolean(global));
     regexp_obj.insert("ignoreCase".to_string(), Value::Boolean(ignore_case));
     regexp_obj.insert("multiline".to_string(), Value::Boolean(multiline));
     regexp_obj.insert("lastIndex".to_string(), Value::Number(0.0));
-    
+
     // Methods as native functions
     regexp_obj.insert(
         "test".to_string(),
@@ -103,7 +103,7 @@ pub fn regexp_constructor(_frame: &mut CallFrame, args: &[Value]) -> Result<Valu
             func: to_string,
         })),
     );
-    
+
     Ok(Value::NativeObject(regexp_obj))
 }
 
