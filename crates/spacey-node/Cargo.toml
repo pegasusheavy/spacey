@@ -84,6 +84,9 @@ regex = "1.11"
 # Directories
 dirs = "5.0"
 
+# Glob patterns for tsconfig
+glob = "0.3"
+
 [dev-dependencies]
 tempfile = "3.14"
 
