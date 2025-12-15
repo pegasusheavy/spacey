@@ -88,7 +88,7 @@ export class BenchmarksComponent implements OnInit {
     try {
       // Try to fetch benchmark data from the public folder
       const response = await fetch('/spacey/benchmarks.json');
-      
+
       if (!response.ok) {
         // If no benchmark data exists yet, show placeholder
         this.benchmarkData.set(this.getPlaceholderData());
