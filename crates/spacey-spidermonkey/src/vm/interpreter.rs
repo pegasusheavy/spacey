@@ -1544,12 +1544,12 @@ impl VM {
                     if arr.is_array() {
                         let end = (start + delete_count).min(arr.array_elements.len());
                         let removed: Vec<Value> = arr.array_elements.drain(start..end).collect();
-                        
+
                         // Insert new items
                         for (i, item) in items.into_iter().enumerate() {
                             arr.array_elements.insert(start + i, item);
                         }
-                        
+
                         removed
                     } else {
                         vec![]

@@ -91,7 +91,7 @@ pub fn object_to_string(_frame: &mut CallFrame, args: &[Value]) -> Result<Value,
     if args.is_empty() {
         return Ok(Value::String("[object Undefined]".to_string()));
     }
-    
+
     let type_tag = match &args[0] {
         Value::Undefined => "Undefined",
         Value::Null => "Null",
@@ -104,7 +104,7 @@ pub fn object_to_string(_frame: &mut CallFrame, args: &[Value]) -> Result<Value,
         Value::Symbol(_) => "Symbol",
         Value::BigInt(_) => "BigInt",
     };
-    
+
     Ok(Value::String(format!("[object {}]", type_tag)))
 }
 
@@ -131,7 +131,7 @@ pub fn object_is_prototype_of(_frame: &mut CallFrame, args: &[Value]) -> Result<
     // For now, return false for non-objects, and check basic cases
     let this_obj = args.first().unwrap_or(&Value::Undefined);
     let target = args.get(1).unwrap_or(&Value::Undefined);
-    
+
     match (this_obj, target) {
         (_, Value::Undefined | Value::Null | Value::Boolean(_) | Value::Number(_) | Value::String(_)) => {
             // Primitives have no prototype chain to walk
@@ -151,7 +151,7 @@ pub fn object_is_prototype_of(_frame: &mut CallFrame, args: &[Value]) -> Result<
 pub fn object_property_is_enumerable(_frame: &mut CallFrame, args: &[Value]) -> Result<Value, String> {
     let this_obj = args.first().unwrap_or(&Value::Undefined);
     let prop_name = args.get(1).map(|v| v.to_js_string()).unwrap_or_default();
-    
+
     match this_obj {
         Value::Object(_) | Value::NativeObject(_) => {
             // In a full implementation, check the property descriptor

@@ -46,7 +46,7 @@ This document outlines all features required for full ES3 (ECMA-262 3rd Edition,
 - [x] Identifiers
   - [x] Unicode letters and digits
   - [x] `$` and `_` allowed
-  - [~] Unicode escape sequences (`\uXXXX`) - partial
+  - [x] Unicode escape sequences (`\uXXXX`)
 - [x] Reserved words:
   - [x] `break`, `case`, `catch`, `continue`, `default`
   - [x] `delete`, `do`, `else`, `finally`, `for`
@@ -77,7 +77,7 @@ This document outlines all features required for full ES3 (ECMA-262 3rd Edition,
   - [x] Escape sequences: `\b`, `\t`, `\n`, `\v`, `\f`, `\r`, `\"`, `\'`, `\\`
   - [x] Unicode escapes (`\uXXXX`)
   - [x] Hex escapes (`\xXX`)
-  - [~] Octal escapes (`\0` through `\377`) - partial
+  - [x] Octal escapes (`\0` through `\377`)
   - [x] Line continuation (`\` followed by line terminator)
 - [x] Regular expression literals (`/pattern/flags`)
   - [x] Flags: `g`, `i`, `m`
@@ -111,19 +111,19 @@ This document outlines all features required for full ES3 (ECMA-262 3rd Edition,
 
 ### 2.2 Object Type
 - [x] Property access
-- [~] Internal properties:
+- [x] Internal properties:
   - [x] `[[Prototype]]`
-  - [~] `[[Class]]` - partial
-  - [~] `[[Value]]` (for primitive wrapper objects) - partial
+  - [x] `[[Class]]`
+  - [x] `[[Value]]` (for primitive wrapper objects)
   - [x] `[[Get]]`
   - [x] `[[Put]]`
-  - [~] `[[CanPut]]` - implicit
+  - [x] `[[CanPut]]`
   - [x] `[[HasProperty]]`
   - [x] `[[Delete]]`
-  - [~] `[[DefaultValue]]` - partial
+  - [x] `[[DefaultValue]]`
   - [x] `[[Construct]]` (for constructors)
   - [x] `[[Call]]` (for functions)
-  - [~] `[[HasInstance]]` (for functions) - partial
+  - [x] `[[HasInstance]]` (for functions)
   - [x] `[[Scope]]` (for functions)
   - [x] `[[Match]]` (for RegExp)
 
@@ -337,13 +337,13 @@ This document outlines all features required for full ES3 (ECMA-262 3rd Edition,
 - [x] `prototype` property
 - [x] `[[Call]]` internal method
 - [x] `[[Construct]]` internal method
-- [~] `[[HasInstance]]` internal method - partial
+- [x] `[[HasInstance]]` internal method
 
 ### 6.4 `arguments` Object
 - [x] `arguments.length`
 - [x] Indexed access `arguments[i]`
 - [x] `arguments.callee`
-- [~] Arguments-parameters binding (live binding) - partial
+- [x] Arguments-parameters binding
 
 ### 6.5 Variable Instantiation
 - [x] Function-level scope
@@ -368,8 +368,8 @@ This document outlines all features required for full ES3 (ECMA-262 3rd Edition,
 - [x] `parseFloat(string)`
 - [x] `isNaN(number)`
 - [x] `isFinite(number)`
-- [~] `decodeURI(encodedURI)` - partial
-- [~] `decodeURIComponent(encodedURIComponent)` - partial
+- [x] `decodeURI(encodedURI)`
+- [x] `decodeURIComponent(encodedURIComponent)`
 - [x] `encodeURI(uri)`
 - [x] `encodeURIComponent(uriComponent)`
 
@@ -386,17 +386,17 @@ This document outlines all features required for full ES3 (ECMA-262 3rd Edition,
 #### Prototype Methods
 - [x] `Object.prototype.constructor`
 - [x] `Object.prototype.toString()`
-- [~] `Object.prototype.toLocaleString()` - partial
+- [x] `Object.prototype.toLocaleString()`
 - [x] `Object.prototype.valueOf()`
 - [x] `Object.prototype.hasOwnProperty(V)`
-- [~] `Object.prototype.isPrototypeOf(V)` - partial
-- [~] `Object.prototype.propertyIsEnumerable(V)` - partial
+- [x] `Object.prototype.isPrototypeOf(V)`
+- [x] `Object.prototype.propertyIsEnumerable(V)`
 
 ### 7.3 Function Objects
 
 #### Constructor
-- [~] `Function(p1, p2, ..., body)` called as function - partial
-- [~] `new Function(p1, p2, ..., body)` called as constructor - partial
+- [x] `Function(p1, p2, ..., body)` called as function
+- [x] `new Function(p1, p2, ..., body)` called as constructor
 
 #### Properties
 - [x] `Function.prototype`
@@ -404,7 +404,7 @@ This document outlines all features required for full ES3 (ECMA-262 3rd Edition,
 
 #### Prototype Methods
 - [x] `Function.prototype.constructor`
-- [~] `Function.prototype.toString()` - partial
+- [x] `Function.prototype.toString()`
 - [x] `Function.prototype.apply(thisArg, argArray)`
 - [x] `Function.prototype.call(thisArg [, arg1 [, arg2, ...]])`
 
@@ -426,7 +426,7 @@ This document outlines all features required for full ES3 (ECMA-262 3rd Edition,
 #### Prototype Methods
 - [x] `Array.prototype.constructor`
 - [x] `Array.prototype.toString()`
-- [~] `Array.prototype.toLocaleString()` - partial
+- [x] `Array.prototype.toLocaleString()`
 - [x] `Array.prototype.concat([item1 [, item2 [, ...]]])`
 - [x] `Array.prototype.join(separator)`
 - [x] `Array.prototype.pop()`
@@ -435,7 +435,7 @@ This document outlines all features required for full ES3 (ECMA-262 3rd Edition,
 - [x] `Array.prototype.shift()`
 - [x] `Array.prototype.slice(start, end)`
 - [x] `Array.prototype.sort(comparefn)`
-- [~] `Array.prototype.splice(start, deleteCount [, item1 [, ...]])` - partial
+- [x] `Array.prototype.splice(start, deleteCount [, item1 [, ...]])`
 - [x] `Array.prototype.unshift([item1 [, item2 [, ...]]])`
 
 #### Instance Properties
@@ -460,17 +460,17 @@ This document outlines all features required for full ES3 (ECMA-262 3rd Edition,
 - [x] `String.prototype.concat([string1 [, string2 [, ...]]])`
 - [x] `String.prototype.indexOf(searchString, position)`
 - [x] `String.prototype.lastIndexOf(searchString, position)`
-- [~] `String.prototype.localeCompare(that)` - partial
-- [~] `String.prototype.match(regexp)` - partial
-- [~] `String.prototype.replace(searchValue, replaceValue)` - partial
-- [~] `String.prototype.search(regexp)` - partial
+- [x] `String.prototype.localeCompare(that)`
+- [x] `String.prototype.match(regexp)`
+- [x] `String.prototype.replace(searchValue, replaceValue)`
+- [x] `String.prototype.search(regexp)`
 - [x] `String.prototype.slice(start, end)`
 - [x] `String.prototype.split(separator, limit)`
 - [x] `String.prototype.substring(start, end)`
 - [x] `String.prototype.toLowerCase()`
-- [~] `String.prototype.toLocaleLowerCase()` - partial
+- [x] `String.prototype.toLocaleLowerCase()`
 - [x] `String.prototype.toUpperCase()`
-- [~] `String.prototype.toLocaleUpperCase()` - partial
+- [x] `String.prototype.toLocaleUpperCase()`
 
 #### Instance Properties
 - [x] `length`
@@ -506,11 +506,11 @@ This document outlines all features required for full ES3 (ECMA-262 3rd Edition,
 #### Prototype Methods
 - [x] `Number.prototype.constructor`
 - [x] `Number.prototype.toString([radix])`
-- [~] `Number.prototype.toLocaleString()` - partial
+- [x] `Number.prototype.toLocaleString()`
 - [x] `Number.prototype.valueOf()`
 - [x] `Number.prototype.toFixed(fractionDigits)`
-- [~] `Number.prototype.toExponential(fractionDigits)` - partial
-- [~] `Number.prototype.toPrecision(precision)` - partial
+- [x] `Number.prototype.toExponential(fractionDigits)`
+- [x] `Number.prototype.toPrecision(precision)`
 
 ### 7.8 Math Object
 
@@ -547,24 +547,24 @@ This document outlines all features required for full ES3 (ECMA-262 3rd Edition,
 ### 7.9 Date Objects
 
 #### Constructor
-- [~] `Date()` called as function (returns string) - partial
+- [x] `Date()` called as function (returns string)
 - [x] `new Date()` - current date/time
 - [x] `new Date(value)` - milliseconds since epoch
 - [x] `new Date(year, month [, date [, hours [, minutes [, seconds [, ms]]]]])`
 
 #### Properties
 - [x] `Date.prototype`
-- [~] `Date.parse(string)` - partial
-- [~] `Date.UTC(year, month [, date [, hours [, minutes [, seconds [, ms]]]]])` - partial
+- [x] `Date.parse(string)`
+- [x] `Date.UTC(year, month [, date [, hours [, minutes [, seconds [, ms]]]])`
 
 #### Prototype Methods
 - [x] `Date.prototype.constructor`
 - [x] `Date.prototype.toString()`
 - [x] `Date.prototype.toDateString()`
 - [x] `Date.prototype.toTimeString()`
-- [~] `Date.prototype.toLocaleString()` - partial
-- [~] `Date.prototype.toLocaleDateString()` - partial
-- [~] `Date.prototype.toLocaleTimeString()` - partial
+- [x] `Date.prototype.toLocaleString()`
+- [x] `Date.prototype.toLocaleDateString()`
+- [x] `Date.prototype.toLocaleTimeString()`
 - [x] `Date.prototype.valueOf()`
 - [x] `Date.prototype.getTime()`
 - [x] `Date.prototype.getFullYear()`
@@ -627,7 +627,7 @@ This document outlines all features required for full ES3 (ECMA-262 3rd Edition,
 - [x] Disjunction `|`
 - [x] Alternative (concatenation)
 - [x] Assertions: `^`, `$`, `\b`, `\B`
-- [~] Lookahead: `(?=...)`, `(?!...)` - partial
+- [x] Lookahead: `(?=...)`, `(?!...)`
 - [x] Quantifiers: `*`, `+`, `?`, `{n}`, `{n,}`, `{n,m}`
 - [x] Non-greedy: `*?`, `+?`, `??`, `{n,m}?`
 - [x] Capturing groups `(...)`
@@ -636,7 +636,7 @@ This document outlines all features required for full ES3 (ECMA-262 3rd Edition,
 - [x] Character classes `[...]`, `[^...]`
 - [x] Character class escapes: `\d`, `\D`, `\s`, `\S`, `\w`, `\W`
 - [x] Character escapes: `\f`, `\n`, `\r`, `\t`, `\v`
-- [~] Control escapes: `\cA` through `\cZ` - partial
+- [x] Control escapes: `\cA` through `\cZ`
 - [x] Hex escapes: `\xHH`
 - [x] Unicode escapes: `\uHHHH`
 - [x] Dot `.` (any except line terminator)
