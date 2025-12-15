@@ -42,7 +42,7 @@ Source Code → Lexer → Parser → Compiler → VM
 ### Crates
 
 - `spacey-spidermonkey` - Core JavaScript engine library
-- `spacey-node` - Node.js compatibility layer  
+- `spacey-node` - Node.js compatibility layer
 - `spacey-npm` - NPM-compatible package manager
 - `spacey-macros` - Developer experience macros
 
@@ -74,6 +74,7 @@ cargo run
 
 ## Contact
 
+- Email: pegasusheavyindustries@gmail.com
 - GitHub: https://github.com/pegasusheavy/spacey
 - Organization: Pegasus Heavy Industries
 

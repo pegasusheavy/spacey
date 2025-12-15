@@ -265,6 +265,7 @@ Servo uses SpiderMonkey through:
 
 ## Contact
 
+- **Email**: pegasusheavyindustries@gmail.com
 - **Organization**: Pegasus Heavy Industries, LLC
 - **GitHub Issues**: https://github.com/pegasusheavy/spacey/issues
 
