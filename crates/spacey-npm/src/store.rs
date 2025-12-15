@@ -83,21 +83,21 @@ impl PackageStore {
     /// Create a new package store.
     pub fn new(store_dir: Option<PathBuf>) -> Result<Self> {
         let store_dir = store_dir.unwrap_or_else(default_store_dir);
-        
+
         // Create store directories
         std::fs::create_dir_all(store_dir.join(STORE_VERSION).join("files"))?;
         std::fs::create_dir_all(store_dir.join("tmp"))?;
-        
+
         let store = Self {
             store_dir,
             index: Arc::new(DashMap::new()),
             integrity: IntegrityChecker::new(),
             use_hard_links: true,
         };
-        
+
         // Load existing index
         store.load_index()?;
-        
+
         Ok(store)
     }
 
@@ -159,19 +159,19 @@ impl PackageStore {
         // Extract tarball
         let tarball_path = tmp_dir.join("package.tgz");
         fs::write(&tarball_path, tarball_data).await?;
-        
+
         extract_tarball_async(&tarball_path, &tmp_dir).await?;
 
         // Move extracted content to store
         let package_dir = tmp_dir.join("package");
         if package_dir.exists() {
             fs::create_dir_all(store_path.parent().unwrap()).await?;
-            
+
             // Remove existing if present (shouldn't happen but handle it)
             if store_path.exists() {
                 fs::remove_dir_all(&store_path).await?;
             }
-            
+
             fs::rename(&package_dir, &store_path).await?;
         }
 
@@ -295,7 +295,7 @@ impl PackageStore {
     /// Load the store index from disk.
     fn load_index(&self) -> Result<()> {
         let files_dir = self.store_dir.join(STORE_VERSION).join("files");
-        
+
         if !files_dir.exists() {
             return Ok(());
         }
@@ -517,7 +517,7 @@ fn hard_link_dir_sync(src: &Path, dst: &Path) -> Result<()> {
 }
 
 /// Virtual store for managing node_modules layout.
-/// 
+///
 /// Creates a pnpm-style node_modules structure:
 /// ```text
 /// node_modules/
@@ -556,13 +556,13 @@ impl VirtualStore {
     pub async fn init(&self) -> Result<()> {
         fs::create_dir_all(&self.node_modules).await?;
         fs::create_dir_all(&self.virtual_store).await?;
-        
+
         // Create lock file to prevent concurrent modifications
         let lock_file = self.virtual_store.join("lock.yaml");
         if !lock_file.exists() {
             fs::write(&lock_file, "lockfileVersion: '6.0'\n").await?;
         }
-        
+
         Ok(())
     }
 
@@ -600,10 +600,10 @@ impl VirtualStore {
                 // Create relative symlink
                 let relative_target = pathdiff::diff_paths(&dep_target, &pkg_node_modules)
                     .unwrap_or(dep_target);
-                
+
                 #[cfg(unix)]
                 tokio::fs::symlink(&relative_target, &dep_link).await.ok();
-                
+
                 #[cfg(windows)]
                 std::os::windows::fs::symlink_dir(&relative_target, &dep_link).ok();
             }

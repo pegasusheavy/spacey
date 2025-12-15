@@ -20,6 +20,7 @@ mod integrity;
 mod cache;
 mod store;
 mod peer_deps;
+mod toml_lock;
 
 use cli::{Cli, Commands};
 use error::Result;

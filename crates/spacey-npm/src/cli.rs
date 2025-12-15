@@ -203,6 +203,10 @@ pub struct InstallArgs {
     /// Auto-install missing peer dependencies
     #[arg(long, default_value = "true")]
     pub auto_install_peers: bool,
+
+    /// Use snpm.toml lockfile format instead of package-lock.json
+    #[arg(long)]
+    pub toml: bool,
 }
 
 #[derive(Args, Debug, Clone)]

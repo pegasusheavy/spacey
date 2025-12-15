@@ -84,6 +84,13 @@ bytes = "1.5"
 # Path manipulation
 pathdiff = "0.2"
 
+# TOML for snpm.toml lockfile
+toml = "0.8"
+toml_edit = "0.22"
+
+# Date/time for lockfile timestamps
+chrono = { version = "0.4", features = ["serde"] }
+
 [dev-dependencies]
 tokio-test = "0.4"
 

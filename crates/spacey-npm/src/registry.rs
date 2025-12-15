@@ -331,7 +331,7 @@ pub struct SearchScoreDetail {
 }
 
 /// Abbreviated package metadata (for faster installs).
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, serde::Deserialize)]
 pub struct AbbreviatedPackage {
     /// Package name
     pub name: String,
@@ -345,7 +345,7 @@ pub struct AbbreviatedPackage {
 }
 
 /// Abbreviated version information.
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AbbreviatedVersion {
     /// Package name

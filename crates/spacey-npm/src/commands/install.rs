@@ -12,6 +12,7 @@ use crate::error::Result;
 use crate::installer::update_lockfile;
 use crate::lockfile::PackageLock;
 use crate::package::PackageJson;
+use crate::toml_lock::SnpmToml;
 
 /// Run the install command.
 pub async fn run(args: &InstallArgs, cli: &Cli) -> Result<()> {
@@ -34,7 +35,14 @@ pub async fn run(args: &InstallArgs, cli: &Cli) -> Result<()> {
 
     // Load or create lockfile
     let lockfile_path = PathBuf::from("package-lock.json");
-    let mut lockfile = if lockfile_path.exists() && !args.no_package_lock {
+    let snpm_toml_path = PathBuf::from("snpm.toml");
+    
+    // Prefer snpm.toml if it exists, otherwise use package-lock.json
+    let lockfile = if snpm_toml_path.exists() && !args.no_package_lock {
+        // Read snpm.toml and convert to PackageLock for resolver
+        let toml_lock = SnpmToml::read(&snpm_toml_path)?;
+        Some(crate::toml_lock::convert_to_package_lock(&toml_lock))
+    } else if lockfile_path.exists() && !args.no_package_lock {
         Some(PackageLock::read(&lockfile_path)?)
     } else {
         None
@@ -117,28 +125,46 @@ pub async fn run(args: &InstallArgs, cli: &Cli) -> Result<()> {
 
     // Update lockfile
     if args.package_lock && !args.no_package_lock {
-        let mut lock = lockfile.unwrap_or_else(|| {
-            PackageLock::new(
+        // Determine lockfile format
+        let use_toml = args.toml || snpm_toml_path.exists();
+        
+        if use_toml {
+            // Use snpm.toml format
+            let toml_lock = SnpmToml::from_resolved(
                 package_json.name.clone().unwrap_or_default(),
                 package_json.version.clone().unwrap_or_default(),
-            )
-        });
+                &resolved,
+            );
+            toml_lock.write(&snpm_toml_path)?;
+            
+            if !cli.quiet {
+                println!("  {} {}", "Wrote".dimmed(), "snpm.toml".cyan());
+            }
+        } else {
+            // Use package-lock.json format
+            let mut lock = lockfile.unwrap_or_else(|| {
+                PackageLock::new(
+                    package_json.name.clone().unwrap_or_default(),
+                    package_json.version.clone().unwrap_or_default(),
+                )
+            });
 
-        // Add root package entry
-        lock.add_package(
-            "",
-            crate::lockfile::LockPackage {
-                version: package_json.version.clone().unwrap_or_default(),
-                dependencies: package_json.dependencies.clone(),
-                dev_dependencies: package_json.dev_dependencies.clone(),
-                peer_dependencies: package_json.peer_dependencies.clone(),
-                optional_dependencies: package_json.optional_dependencies.clone(),
-                ..Default::default()
-            },
-        );
+            // Add root package entry
+            lock.add_package(
+                "",
+                crate::lockfile::LockPackage {
+                    version: package_json.version.clone().unwrap_or_default(),
+                    dependencies: package_json.dependencies.clone(),
+                    dev_dependencies: package_json.dev_dependencies.clone(),
+                    peer_dependencies: package_json.peer_dependencies.clone(),
+                    optional_dependencies: package_json.optional_dependencies.clone(),
+                    ..Default::default()
+                },
+            );
 
-        update_lockfile(&mut lock, &resolved);
-        lock.write(&lockfile_path)?;
+            update_lockfile(&mut lock, &resolved);
+            lock.write(&lockfile_path)?;
+        }
     }
 
     // Print summary
