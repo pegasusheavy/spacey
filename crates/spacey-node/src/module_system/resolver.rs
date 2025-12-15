@@ -123,7 +123,7 @@ impl ModuleResolver {
     /// Create a new module resolver
     pub fn new() -> Self {
         let builtins = BUILTIN_MODULES.iter().map(|s| s.to_string()).collect();
-        
+
         let builtin_subpaths = BUILTIN_SUBPATHS
             .iter()
             .map(|(subpath, parent)| (subpath.to_string(), parent.to_string()))
@@ -161,12 +161,12 @@ impl ModuleResolver {
     pub fn is_builtin(&self, name: &str) -> bool {
         // Handle node: prefix
         let name = Self::strip_node_prefix(name);
-        
+
         // Check direct built-in
         if self.builtins.contains(&name.to_string()) {
             return true;
         }
-        
+
         // Check subpath built-in (e.g., fs/promises)
         self.builtin_subpaths.contains_key(name)
     }
@@ -174,7 +174,7 @@ impl ModuleResolver {
     /// Resolve a built-in module, handling subpaths
     pub fn resolve_builtin(&self, name: &str) -> Option<BuiltinResolveResult> {
         let name = Self::strip_node_prefix(name);
-        
+
         // Check direct built-in
         if self.builtins.contains(&name.to_string()) {
             return Some(BuiltinResolveResult {
@@ -182,7 +182,7 @@ impl ModuleResolver {
                 subpath: None,
             });
         }
-        
+
         // Check subpath built-in
         if let Some(parent) = self.builtin_subpaths.get(name) {
             return Some(BuiltinResolveResult {
@@ -190,7 +190,7 @@ impl ModuleResolver {
                 subpath: Some(name.to_string()),
             });
         }
-        
+
         None
     }
 
@@ -688,27 +688,27 @@ mod tests {
     #[test]
     fn test_resolve_builtin() {
         let resolver = ModuleResolver::new();
-        
+
         // Direct built-in
         let result = resolver.resolve_builtin("fs").unwrap();
         assert_eq!(result.module, "fs");
         assert!(result.subpath.is_none());
-        
+
         // With node: prefix
         let result = resolver.resolve_builtin("node:fs").unwrap();
         assert_eq!(result.module, "fs");
         assert!(result.subpath.is_none());
-        
+
         // Subpath built-in
         let result = resolver.resolve_builtin("fs/promises").unwrap();
         assert_eq!(result.module, "fs");
         assert_eq!(result.subpath, Some("fs/promises".to_string()));
-        
+
         // Subpath with node: prefix
         let result = resolver.resolve_builtin("node:fs/promises").unwrap();
         assert_eq!(result.module, "fs");
         assert_eq!(result.subpath, Some("fs/promises".to_string()));
-        
+
         // Non-builtin
         assert!(resolver.resolve_builtin("lodash").is_none());
     }
