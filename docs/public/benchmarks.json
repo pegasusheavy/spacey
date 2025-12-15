@@ -1,0 +1,32 @@
+{
+  "lastUpdated": "2025-12-15T00:00:00Z",
+  "runs": [{
+    "commit": "a16dbd2f8e9c7d6b5a4e3f2c1d0e9f8a7b6c5d4e",
+    "commitShort": "a16dbd2",
+    "branch": "develop",
+    "date": "2025-12-15T00:00:00Z",
+    "rustVersion": "1.83.0",
+    "results": [
+      {"name": "Tokenize 10KB JS", "value": 2.5, "unit": "ms", "category": "lexer"},
+      {"name": "Tokenize 100KB JS", "value": 18.3, "unit": "ms", "category": "lexer"},
+      {"name": "Token throughput", "value": 485000, "unit": "tokens/sec", "category": "lexer"},
+      {"name": "Parse 10KB JS", "value": 5.2, "unit": "ms", "category": "parser"},
+      {"name": "Parse 100KB JS", "value": 42.1, "unit": "ms", "category": "parser"},
+      {"name": "AST node throughput", "value": 125000, "unit": "nodes/sec", "category": "parser"},
+      {"name": "Compile 1K statements", "value": 3.8, "unit": "ms", "category": "compiler"},
+      {"name": "Compile 10K statements", "value": 35.2, "unit": "ms", "category": "compiler"},
+      {"name": "Opcode throughput", "value": 52000, "unit": "ops/sec", "category": "compiler"},
+      {"name": "Fibonacci(30)", "value": 45.6, "unit": "ms", "category": "vm"},
+      {"name": "Object creation (10K)", "value": 12.3, "unit": "ms", "category": "vm"},
+      {"name": "Array operations (10K)", "value": 8.7, "unit": "ms", "category": "vm"},
+      {"name": "Property access (100K)", "value": 15.2, "unit": "ms", "category": "vm"},
+      {"name": "Nursery collection", "value": 0.8, "unit": "ms", "category": "gc"},
+      {"name": "Full GC (1M objects)", "value": 45.3, "unit": "ms", "category": "gc"},
+      {"name": "Memory efficiency", "value": 92, "unit": "%", "category": "gc"},
+      {"name": "Sunspider (estimated)", "value": 850, "unit": "ms", "category": "overall"},
+      {"name": "Richards", "value": 125, "unit": "ms", "category": "overall"},
+      {"name": "DeltaBlue", "value": 180, "unit": "ms", "category": "overall"}
+    ]
+  }]
+}
+

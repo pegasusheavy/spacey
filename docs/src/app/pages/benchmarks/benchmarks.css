@@ -1,0 +1,11 @@
+/* Benchmarks page specific styles */
+
+:host {
+  display: block;
+}
+
+/* Divider color fix for dark theme */
+.divide-y > * + * {
+  border-color: var(--color-border);
+}
+

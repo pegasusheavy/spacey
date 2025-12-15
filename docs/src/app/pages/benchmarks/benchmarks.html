@@ -1,0 +1,177 @@
+<div class="min-h-screen text-white" style="background: var(--color-background);">
+  <!-- Header -->
+  <header class="px-6 lg:px-12 py-6 border-b" style="border-color: var(--color-border);">
+    <div class="max-w-6xl mx-auto flex items-center justify-between">
+      <div class="flex items-center gap-4">
+        <a routerLink="/" class="flex items-center gap-2 transition-colors hover:opacity-80" style="color: var(--color-text-muted);">
+          <fa-icon [icon]="faArrowLeft"></fa-icon>
+          Back
+        </a>
+        <div class="w-px h-6" style="background: var(--color-border);"></div>
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-xl flex items-center justify-center" style="background: linear-gradient(135deg, #ff7139 0%, #9059ff 100%);">
+            <fa-icon [icon]="faChartLine" class="text-lg"></fa-icon>
+          </div>
+          <div>
+            <h1 class="text-xl font-bold" style="font-family: var(--font-heading);">Benchmarks</h1>
+            <p class="text-xs" style="color: var(--color-text-muted);">Performance metrics from CI/CD</p>
+          </div>
+        </div>
+      </div>
+      <a href="https://github.com/pegasusheavy/spacey/actions" target="_blank" 
+         class="flex items-center gap-2 px-4 py-2 rounded-lg transition-all hover:scale-105"
+         style="background: rgba(255, 113, 57, 0.1); border: 1px solid rgba(255, 113, 57, 0.3);">
+        <fa-icon [icon]="faGithub"></fa-icon>
+        CI/CD
+      </a>
+    </div>
+  </header>
+
+  <!-- Loading State -->
+  @if (loading()) {
+    <div class="flex items-center justify-center py-32">
+      <fa-icon [icon]="faSpinner" class="text-4xl animate-spin" style="color: #ff7139;"></fa-icon>
+    </div>
+  }
+
+  <!-- Error State -->
+  @if (error()) {
+    <div class="max-w-6xl mx-auto px-6 lg:px-12 py-12">
+      <div class="p-6 rounded-xl text-center" style="background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.3);">
+        <fa-icon [icon]="faExclamationTriangle" class="text-3xl mb-4" style="color: #ef4444;"></fa-icon>
+        <p class="text-lg">{{ error() }}</p>
+      </div>
+    </div>
+  }
+
+  <!-- Benchmark Content -->
+  @if (!loading() && benchmarkData()) {
+    <main class="max-w-6xl mx-auto px-6 lg:px-12 py-12">
+      <!-- Latest Run Info -->
+      @if (getLatestRun(); as run) {
+        <div class="mb-12 p-6 rounded-2xl" style="background: var(--color-surface); border: 1px solid var(--color-border);">
+          <div class="flex flex-wrap items-center justify-between gap-4">
+            <div>
+              <h2 class="text-lg font-semibold mb-2">Latest Benchmark Run</h2>
+              <div class="flex flex-wrap items-center gap-4 text-sm" style="color: var(--color-text-muted);">
+                <span class="flex items-center gap-2">
+                  <fa-icon [icon]="faCodeBranch"></fa-icon>
+                  {{ run.branch }}
+                </span>
+                <span class="flex items-center gap-2">
+                  <fa-icon [icon]="faGithub"></fa-icon>
+                  <code class="px-2 py-0.5 rounded" style="background: var(--color-surface-muted);">{{ run.commitShort }}</code>
+                </span>
+                <span class="flex items-center gap-2">
+                  <fa-icon [icon]="faCalendar"></fa-icon>
+                  {{ formatDate(run.date) }}
+                </span>
+              </div>
+            </div>
+            <div class="text-right">
+              <div class="text-xs mb-1" style="color: var(--color-text-muted);">Rust Version</div>
+              <code class="px-3 py-1 rounded-lg text-sm" style="background: rgba(255, 113, 57, 0.1); color: #ff7139;">
+                {{ run.rustVersion }}
+              </code>
+            </div>
+          </div>
+        </div>
+      }
+
+      <!-- Benchmark Categories -->
+      <div class="grid gap-8">
+        @for (category of categories; track category.id) {
+          @if (getResultsByCategory(category.id).length > 0) {
+            <section class="rounded-2xl overflow-hidden" style="background: var(--color-surface); border: 1px solid var(--color-border);">
+              <div class="px-6 py-4 flex items-center justify-between" style="background: var(--color-surface-muted); border-bottom: 1px solid var(--color-border);">
+                <div>
+                  <h3 class="text-lg font-semibold">{{ category.name }}</h3>
+                  <p class="text-sm" style="color: var(--color-text-muted);">{{ category.description }}</p>
+                </div>
+                <fa-icon [icon]="faGaugeHigh" class="text-2xl" style="color: #ff7139;"></fa-icon>
+              </div>
+              
+              <div class="divide-y" style="border-color: var(--color-border);">
+                @for (result of getResultsByCategory(category.id); track result.name) {
+                  <div class="px-6 py-4 flex items-center justify-between hover:bg-white/5 transition-colors">
+                    <div class="flex-1">
+                      <div class="font-medium">{{ result.name }}</div>
+                    </div>
+                    <div class="flex items-center gap-6">
+                      <!-- Change indicator -->
+                      @if (result.change !== undefined) {
+                        <div class="flex items-center gap-1 text-sm" [class]="getChangeClass(result.change)">
+                          <fa-icon [icon]="getChangeIcon(result.change)" class="text-xs"></fa-icon>
+                          {{ result.change > 0 ? '+' : '' }}{{ result.change.toFixed(1) }}%
+                        </div>
+                      }
+                      <!-- Value -->
+                      <div class="text-right min-w-[120px]">
+                        <span class="text-xl font-bold" style="color: #ff7139;">
+                          {{ formatValue(result.value, result.unit) }}
+                        </span>
+                        <span class="text-sm ml-1" style="color: var(--color-text-muted);">{{ result.unit }}</span>
+                      </div>
+                    </div>
+                  </div>
+                }
+              </div>
+            </section>
+          }
+        }
+      </div>
+
+      <!-- Historical Data Note -->
+      <div class="mt-12 p-6 rounded-2xl text-center" style="background: var(--color-surface); border: 1px solid var(--color-border);">
+        <fa-icon [icon]="faChartLine" class="text-3xl mb-4" style="color: #9059ff;"></fa-icon>
+        <h3 class="text-lg font-semibold mb-2">Historical Trends</h3>
+        <p class="mb-4" style="color: var(--color-text-muted);">
+          Benchmark data is collected automatically on every push to the develop branch.
+          Historical trend charts coming soon!
+        </p>
+        <a href="https://github.com/pegasusheavy/spacey/actions/workflows/benchmarks.yml" target="_blank"
+           class="inline-flex items-center gap-2 px-6 py-3 rounded-xl font-semibold transition-all hover:scale-105"
+           style="background: rgba(144, 89, 255, 0.1); border: 1px solid rgba(144, 89, 255, 0.3);">
+          <fa-icon [icon]="faGithub"></fa-icon>
+          View CI Workflow
+        </a>
+      </div>
+
+      <!-- Methodology -->
+      <div class="mt-8 p-6 rounded-2xl" style="background: var(--color-surface); border: 1px solid var(--color-border);">
+        <h3 class="text-lg font-semibold mb-4">Benchmark Methodology</h3>
+        <div class="grid md:grid-cols-2 gap-6 text-sm" style="color: var(--color-text-muted);">
+          <div>
+            <h4 class="font-medium text-white mb-2">Environment</h4>
+            <ul class="space-y-1">
+              <li>• GitHub Actions Ubuntu runner</li>
+              <li>• Rust stable (latest)</li>
+              <li>• Release build with LTO</li>
+              <li>• 3 iterations, median taken</li>
+            </ul>
+          </div>
+          <div>
+            <h4 class="font-medium text-white mb-2">Metrics</h4>
+            <ul class="space-y-1">
+              <li>• Wall-clock time (ms)</li>
+              <li>• Throughput (ops/sec)</li>
+              <li>• Memory efficiency (%)</li>
+              <li>• Comparison vs previous run</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </main>
+  }
+
+  <!-- Footer -->
+  <footer class="px-6 lg:px-12 py-8 border-t mt-12" style="border-color: var(--color-border);">
+    <div class="max-w-6xl mx-auto text-center text-sm" style="color: var(--color-text-muted);">
+      <p>Benchmarks are automatically collected via GitHub Actions on every push.</p>
+      <p class="mt-2">
+        Last updated: {{ benchmarkData()?.lastUpdated ? formatDate(benchmarkData()!.lastUpdated) : 'N/A' }}
+      </p>
+    </div>
+  </footer>
+</div>
+

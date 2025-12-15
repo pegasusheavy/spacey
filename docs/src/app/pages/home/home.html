@@ -1,0 +1,517 @@
+<!-- Spacey Documentation Website - Mozilla Protocol Theme -->
+<!-- SEO: Hidden content for search engines -->
+<div class="sr-only" aria-hidden="true">
+  <h1>Spacey - Pure Rust JavaScript Engine for Servo Browser</h1>
+  <p>Spacey is an experimental JavaScript engine written in pure Rust, designed as a SpiderMonkey alternative for the Servo web browser. It offers memory safety, ES3 compliance, native TypeScript support, and seamless Servo integration.</p>
+  <p>Keywords: Servo browser JavaScript engine, SpiderMonkey alternative, Rust JavaScript engine, Servo web engine, pure Rust JS engine, Servo SpiderMonkey replacement, memory safe JavaScript runtime, Servo integration, web browser engine Rust</p>
+</div>
+
+<main class="min-h-screen text-white overflow-x-hidden" style="background: var(--color-background);" itemscope itemtype="https://schema.org/SoftwareApplication">
+  <meta itemprop="name" content="Spacey">
+  <meta itemprop="applicationCategory" content="JavaScript Engine">
+  <meta itemprop="operatingSystem" content="Linux, macOS, Windows">
+
+  <!-- Animated Background -->
+  <div class="fixed inset-0 overflow-hidden pointer-events-none">
+    <!-- Mozilla-style gradient orbs -->
+    <div class="absolute top-0 left-1/4 w-96 h-96 rounded-full blur-3xl animate-pulse" style="background: rgba(255, 113, 57, 0.15);"></div>
+    <div class="absolute bottom-1/4 right-1/4 w-80 h-80 rounded-full blur-3xl animate-pulse" style="background: rgba(144, 89, 255, 0.15); animation-delay: 1s;"></div>
+    <div class="absolute top-1/2 left-1/2 w-64 h-64 rounded-full blur-3xl animate-pulse" style="background: rgba(255, 113, 57, 0.1); animation-delay: 2s;"></div>
+    <!-- Stars -->
+    @for (star of stars; track star.id) {
+      <div
+        class="absolute w-1 h-1 bg-white rounded-full animate-twinkle"
+        [style.left.%]="star.x"
+        [style.top.%]="star.y"
+        [style.animation-delay]="star.delay + 's'"
+        [style.opacity]="star.opacity"
+      ></div>
+    }
+  </div>
+
+  <!-- Navigation -->
+  <nav class="relative z-10 flex items-center justify-between px-6 lg:px-12 py-6 border-b backdrop-blur-sm" style="border-color: var(--color-border); background: rgba(12, 0, 21, 0.8);">
+    <div class="flex items-center gap-3">
+      <div class="w-10 h-10 rounded-xl flex items-center justify-center" style="background: linear-gradient(135deg, #ff7139 0%, #9059ff 100%);">
+        <span class="text-xl font-bold text-white">S</span>
+      </div>
+      <span class="text-xl font-semibold tracking-tight" style="font-family: var(--font-heading);">Spacey</span>
+    </div>
+    <div class="hidden md:flex items-center gap-8">
+      <a href="#features" class="hover:text-white transition-colors" style="color: var(--color-text-muted);">Features</a>
+      <a href="#architecture" class="hover:text-white transition-colors" style="color: var(--color-text-muted);">Architecture</a>
+      <a href="#getting-started" class="hover:text-white transition-colors" style="color: var(--color-text-muted);">Getting Started</a>
+      <a routerLink="/benchmarks" class="flex items-center gap-2 hover:text-white transition-colors" style="color: var(--color-text-muted);">
+        <fa-icon [icon]="faChartLine" class="text-sm"></fa-icon>
+        Benchmarks
+      </a>
+      <a href="https://github.com/pegasusheavy/spacey" target="_blank" class="flex items-center gap-2 px-4 py-2 rounded-lg transition-all hover:scale-105" style="background: rgba(255, 113, 57, 0.1); border: 1px solid rgba(255, 113, 57, 0.3);">
+        <fa-icon [icon]="faGithub" class="text-lg"></fa-icon>
+        GitHub
+      </a>
+    </div>
+    <!-- Mobile menu button -->
+    <button class="md:hidden p-2" (click)="toggleMobileMenu()">
+      <fa-icon [icon]="faBars" class="text-2xl"></fa-icon>
+    </button>
+  </nav>
+
+  <!-- Mobile Menu -->
+  @if (mobileMenuOpen()) {
+    <div class="md:hidden fixed inset-0 z-50 backdrop-blur-lg" style="background: rgba(12, 0, 21, 0.95);">
+      <div class="flex flex-col items-center justify-center h-full gap-8 text-xl">
+        <button class="absolute top-6 right-6" (click)="toggleMobileMenu()">
+          <fa-icon [icon]="faXmark" class="text-3xl"></fa-icon>
+        </button>
+        <a href="#features" class="transition-colors" style="color: #ff7139;" (click)="toggleMobileMenu()">Features</a>
+        <a href="#architecture" class="transition-colors" style="color: #ff7139;" (click)="toggleMobileMenu()">Architecture</a>
+        <a href="#getting-started" class="transition-colors" style="color: #ff7139;" (click)="toggleMobileMenu()">Getting Started</a>
+        <a routerLink="/benchmarks" class="flex items-center gap-2 transition-colors" style="color: #ff7139;" (click)="toggleMobileMenu()">
+          <fa-icon [icon]="faChartLine"></fa-icon>
+          Benchmarks
+        </a>
+        <a href="https://github.com/pegasusheavy/spacey" target="_blank" class="flex items-center gap-2 px-6 py-3 rounded-lg" style="background: #ff7139;">
+          <fa-icon [icon]="faGithub" class="text-lg"></fa-icon>
+          GitHub
+        </a>
+      </div>
+    </div>
+  }
+
+  <!-- Hero Section -->
+  <section class="relative z-10 px-6 lg:px-12 py-24 lg:py-32">
+    <div class="max-w-6xl mx-auto text-center">
+      <div class="inline-flex items-center gap-2 px-4 py-2 mb-8 text-sm rounded-full" style="background: rgba(255, 113, 57, 0.1); border: 1px solid rgba(255, 113, 57, 0.3); color: #ff7139;">
+        <span class="relative flex h-2 w-2">
+          <span class="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75" style="background: #ff7139;"></span>
+          <span class="relative inline-flex rounded-full h-2 w-2" style="background: #ff7139;"></span>
+        </span>
+        Experimental · Targeting Servo Browser
+      </div>
+
+      <h1 class="text-5xl lg:text-7xl font-bold mb-6 leading-tight" style="font-family: var(--font-heading);">
+        <span class="text-gradient-mozilla">
+          JavaScript Engine
+        </span>
+        <br />
+        <span class="text-white">Written in Pure Rust</span>
+      </h1>
+
+      <p class="text-xl lg:text-2xl max-w-3xl mx-auto mb-12 leading-relaxed" style="color: var(--color-text-muted);">
+        A from-scratch JavaScript engine designed for the
+        <a href="https://servo.org" target="_blank" class="underline decoration-2 hover:opacity-80" style="color: #ff7139; text-decoration-color: rgba(255, 113, 57, 0.3);">Servo</a>
+        web browser. Memory-safe, modern, and built with Rust's power.
+      </p>
+
+      <div class="flex flex-col sm:flex-row items-center justify-center gap-4">
+        <a href="#getting-started" class="px-8 py-4 rounded-xl font-semibold text-lg transition-all shadow-lg hover:scale-105" style="background: linear-gradient(135deg, #ff7139 0%, #e85a22 100%); box-shadow: 0 0 30px rgba(255, 113, 57, 0.3);">
+          Get Started
+        </a>
+        <a href="https://github.com/pegasusheavy/spacey" target="_blank" class="px-8 py-4 rounded-xl font-semibold text-lg transition-colors flex items-center gap-2" style="background: rgba(144, 89, 255, 0.1); border: 1px solid rgba(144, 89, 255, 0.3);">
+          <fa-icon [icon]="faGithub" class="text-xl"></fa-icon>
+          View on GitHub
+        </a>
+      </div>
+
+      <!-- Tech badges -->
+      <div class="flex flex-wrap items-center justify-center gap-4 mt-16">
+        <span class="px-4 py-2 rounded-lg text-sm font-medium" style="background: rgba(255, 113, 57, 0.1); color: #ff7139;">Rust 2024</span>
+        <span class="px-4 py-2 rounded-lg text-sm font-medium" style="background: rgba(144, 89, 255, 0.1); color: #9059ff;">ES3 Compatible</span>
+        <span class="px-4 py-2 rounded-lg text-sm font-medium" style="background: rgba(59, 130, 246, 0.1); color: #60a5fa;">TypeScript Support</span>
+        <span class="px-4 py-2 rounded-lg text-sm font-medium" style="background: rgba(16, 185, 129, 0.1); color: #10b981;">Node.js APIs</span>
+        <span class="px-4 py-2 rounded-lg text-sm font-medium" style="background: rgba(245, 158, 11, 0.1); color: #f59e0b;">Async/Tokio</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- Features Section -->
+  <section id="features" class="relative z-10 px-6 lg:px-12 py-24" style="border-top: 1px solid var(--color-border);">
+    <div class="max-w-6xl mx-auto">
+      <div class="text-center mb-16">
+        <h2 class="text-3xl lg:text-5xl font-bold mb-4" style="font-family: var(--font-heading);">
+          Why <span style="color: #ff7139;">Spacey</span>?
+        </h2>
+        <p class="text-lg max-w-2xl mx-auto" style="color: var(--color-text-muted);">
+          Built from the ground up with modern web platform needs in mind
+        </p>
+      </div>
+
+      <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+<!-- Feature Card 1 -->
+        <div class="group p-6 rounded-2xl transition-all duration-300 card-mozilla">
+          <div class="w-12 h-12 mb-4 rounded-xl flex items-center justify-center transition-colors" style="background: rgba(255, 113, 57, 0.1);">
+            <fa-icon [icon]="faShieldHalved" class="text-2xl" style="color: #ff7139;"></fa-icon>
+          </div>
+          <h3 class="text-xl font-semibold mb-2">Memory Safe</h3>
+          <p style="color: var(--color-text-muted);">Leverages Rust's ownership model for a JavaScript runtime free of memory bugs and data races.</p>
+        </div>
+
+        <!-- Feature Card 2 -->
+        <div class="group p-6 rounded-2xl transition-all duration-300 card-mozilla">
+          <div class="w-12 h-12 mb-4 rounded-xl flex items-center justify-center transition-colors" style="background: rgba(144, 89, 255, 0.1);">
+            <fa-icon [icon]="faBolt" class="text-2xl" style="color: #9059ff;"></fa-icon>
+          </div>
+          <h3 class="text-xl font-semibold mb-2">Pure Rust</h3>
+          <p style="color: var(--color-text-muted);">No C++ dependencies. Enables tighter integration with Rust-based projects like Servo.</p>
+        </div>
+
+        <!-- Feature Card 3 -->
+        <div class="group p-6 rounded-2xl transition-all duration-300 card-mozilla">
+          <div class="w-12 h-12 mb-4 rounded-xl flex items-center justify-center transition-colors" style="background: rgba(59, 130, 246, 0.1);">
+            <fa-icon [icon]="faCubes" class="text-2xl" style="color: #3b82f6;"></fa-icon>
+          </div>
+          <h3 class="text-xl font-semibold mb-2">Modular Design</h3>
+          <p style="color: var(--color-text-muted);">Clean architecture with separate crates for engine, runtime, and Node.js compatibility.</p>
+        </div>
+
+        <!-- Feature Card 4 -->
+        <div class="group p-6 rounded-2xl transition-all duration-300 card-mozilla">
+          <div class="w-12 h-12 mb-4 rounded-xl flex items-center justify-center transition-colors" style="background: rgba(16, 185, 129, 0.1);">
+            <fa-icon [icon]="faWandMagicSparkles" class="text-2xl" style="color: #10b981;"></fa-icon>
+          </div>
+          <h3 class="text-xl font-semibold mb-2">TypeScript Native</h3>
+          <p style="color: var(--color-text-muted);">Direct TypeScript parsing without transpilation. Types are stripped at parse time for fast execution.</p>
+        </div>
+
+        <!-- Feature Card 5 -->
+        <div class="group p-6 rounded-2xl transition-all duration-300 card-mozilla">
+          <div class="w-12 h-12 mb-4 rounded-xl flex items-center justify-center transition-colors" style="background: rgba(245, 158, 11, 0.1);">
+            <fa-icon [icon]="faFlask" class="text-2xl" style="color: #f59e0b;"></fa-icon>
+          </div>
+          <h3 class="text-xl font-semibold mb-2">Generational GC</h3>
+          <p style="color: var(--color-text-muted);">High-performance garbage collector with nursery/old generation, incremental marking, and parallel sweeping.</p>
+        </div>
+
+        <!-- Feature Card 6 -->
+        <div class="group p-6 rounded-2xl transition-all duration-300 card-mozilla">
+          <div class="w-12 h-12 mb-4 rounded-xl flex items-center justify-center transition-colors" style="background: rgba(236, 72, 153, 0.1);">
+            <fa-icon [icon]="faGlobe" class="text-2xl" style="color: #ec4899;"></fa-icon>
+          </div>
+          <h3 class="text-xl font-semibold mb-2">Node.js Compatible</h3>
+          <p style="color: var(--color-text-muted);">Full Node.js API layer with CommonJS, ES Modules, and async I/O through Tokio.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Architecture Section -->
+  <section id="architecture" class="relative z-10 px-6 lg:px-12 py-24" style="border-top: 1px solid var(--color-border);">
+    <div class="max-w-6xl mx-auto">
+      <div class="text-center mb-16">
+        <h2 class="text-3xl lg:text-5xl font-bold mb-4" style="font-family: var(--font-heading);">Architecture</h2>
+        <p class="text-lg max-w-2xl mx-auto" style="color: var(--color-text-muted);">
+          A modern, modular design inspired by decades of JavaScript engine research
+        </p>
+      </div>
+
+      <!-- Architecture Diagram -->
+      <div class="relative p-8 rounded-3xl overflow-hidden" style="background: var(--color-surface); border: 1px solid var(--color-border);">
+        <div class="absolute inset-0" style="background: radial-gradient(circle at 50% 50%, rgba(255, 113, 57, 0.05), transparent 70%);"></div>
+
+        <div class="relative space-y-8">
+          <!-- Pipeline -->
+          <div class="flex flex-col lg:flex-row items-center justify-between gap-4">
+            <div class="flex-1 w-full">
+              <div class="p-4 rounded-xl text-center" style="background: rgba(255, 113, 57, 0.1); border: 1px solid rgba(255, 113, 57, 0.3);">
+                <div class="font-mono text-sm mb-1" style="color: #ff7139;">Source Code</div>
+                <div class="text-xs" style="color: var(--color-text-muted);">.js / .ts / .mjs</div>
+              </div>
+            </div>
+            <fa-icon [icon]="faArrowRight" class="text-2xl rotate-90 lg:rotate-0 flex-shrink-0" style="color: var(--color-border);"></fa-icon>
+            <div class="flex-1 w-full">
+              <div class="p-4 rounded-xl text-center" style="background: rgba(144, 89, 255, 0.1); border: 1px solid rgba(144, 89, 255, 0.3);">
+                <div class="font-mono text-sm mb-1" style="color: #9059ff;">Lexer</div>
+                <div class="text-xs" style="color: var(--color-text-muted);">Tokenization</div>
+              </div>
+            </div>
+            <fa-icon [icon]="faArrowRight" class="text-2xl rotate-90 lg:rotate-0 flex-shrink-0" style="color: var(--color-border);"></fa-icon>
+            <div class="flex-1 w-full">
+              <div class="p-4 rounded-xl text-center" style="background: rgba(59, 130, 246, 0.1); border: 1px solid rgba(59, 130, 246, 0.3);">
+                <div class="font-mono text-sm mb-1" style="color: #3b82f6;">Parser</div>
+                <div class="text-xs" style="color: var(--color-text-muted);">AST Generation</div>
+              </div>
+            </div>
+            <fa-icon [icon]="faArrowRight" class="text-2xl rotate-90 lg:rotate-0 flex-shrink-0" style="color: var(--color-border);"></fa-icon>
+            <div class="flex-1 w-full">
+              <div class="p-4 rounded-xl text-center" style="background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.3);">
+                <div class="font-mono text-sm mb-1" style="color: #10b981;">Compiler</div>
+                <div class="text-xs" style="color: var(--color-text-muted);">Bytecode</div>
+              </div>
+            </div>
+            <fa-icon [icon]="faArrowRight" class="text-2xl rotate-90 lg:rotate-0 flex-shrink-0" style="color: var(--color-border);"></fa-icon>
+            <div class="flex-1 w-full">
+              <div class="p-4 rounded-xl text-center" style="background: rgba(245, 158, 11, 0.1); border: 1px solid rgba(245, 158, 11, 0.3);">
+                <div class="font-mono text-sm mb-1" style="color: #f59e0b;">VM</div>
+                <div class="text-xs" style="color: var(--color-text-muted);">Execution</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Runtime Layer -->
+          <div class="p-6 rounded-xl" style="background: rgba(29, 17, 51, 0.5); border: 1px solid var(--color-border);">
+            <div class="text-center mb-4">
+              <span class="text-sm font-medium" style="color: var(--color-text-muted);">Runtime Layer</span>
+            </div>
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div class="p-3 rounded-lg text-center" style="background: var(--color-surface-muted);">
+                <div class="text-sm font-mono" style="color: #ff7139;">Values</div>
+              </div>
+              <div class="p-3 rounded-lg text-center" style="background: var(--color-surface-muted);">
+                <div class="text-sm font-mono" style="color: #ff7139;">Objects</div>
+              </div>
+              <div class="p-3 rounded-lg text-center" style="background: var(--color-surface-muted);">
+                <div class="text-sm font-mono" style="color: #ff7139;">Built-ins</div>
+              </div>
+              <div class="p-3 rounded-lg text-center" style="background: var(--color-surface-muted);">
+                <div class="text-sm font-mono" style="color: #ff7139;">GC</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Crates -->
+          <div class="grid md:grid-cols-3 gap-4">
+            <div class="p-4 rounded-xl" style="background: rgba(255, 113, 57, 0.05); border: 1px solid rgba(255, 113, 57, 0.2);">
+              <div class="font-mono mb-2" style="color: #ff7139;">spacey-spidermonkey</div>
+              <div class="text-xs" style="color: var(--color-text-muted);">Core JS engine library</div>
+            </div>
+            <div class="p-4 rounded-xl" style="background: rgba(144, 89, 255, 0.05); border: 1px solid rgba(144, 89, 255, 0.2);">
+              <div class="font-mono mb-2" style="color: #9059ff;">spacey-node</div>
+              <div class="text-xs" style="color: var(--color-text-muted);">Node.js compatibility layer</div>
+            </div>
+            <div class="p-4 rounded-xl" style="background: rgba(16, 185, 129, 0.05); border: 1px solid rgba(16, 185, 129, 0.2);">
+              <div class="font-mono mb-2" style="color: #10b981;">spacey-npm</div>
+              <div class="text-xs" style="color: var(--color-text-muted);">NPM-compatible package manager</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Getting Started Section -->
+  <section id="getting-started" class="relative z-10 px-6 lg:px-12 py-24" style="border-top: 1px solid var(--color-border);">
+    <div class="max-w-6xl mx-auto">
+      <div class="text-center mb-16">
+        <h2 class="text-3xl lg:text-5xl font-bold mb-4" style="font-family: var(--font-heading);">Getting Started</h2>
+        <p class="text-lg max-w-2xl mx-auto" style="color: var(--color-text-muted);">
+          Get up and running with Spacey in minutes
+        </p>
+      </div>
+
+      <div class="grid lg:grid-cols-2 gap-8">
+        <!-- Build Instructions -->
+        <div class="space-y-6">
+          <h3 class="text-xl font-semibold flex items-center gap-2">
+            <span class="w-8 h-8 rounded-lg flex items-center justify-center text-sm font-bold" style="background: rgba(255, 113, 57, 0.2); color: #ff7139;">1</span>
+            Build from Source
+          </h3>
+          <div class="rounded-xl overflow-hidden" style="background: var(--color-surface); border: 1px solid var(--color-border);">
+            <div class="flex items-center justify-between px-4 py-2" style="background: var(--color-surface-muted); border-bottom: 1px solid var(--color-border);">
+              <span class="text-xs font-mono" style="color: var(--color-text-muted);">terminal</span>
+              <button class="text-xs transition-colors hover:text-white" style="color: var(--color-text-muted);" (click)="copyCode('build')">Copy</button>
+            </div>
+            <pre class="p-4 overflow-x-auto text-sm"><code style="color: var(--color-text-muted);"><span style="color: #6b7280;"># Clone the repository</span>
+<span style="color: #9059ff;">git</span> clone https://github.com/pegasusheavy/spacey.git
+<span style="color: #9059ff;">cd</span> spacey
+
+<span style="color: #6b7280;"># Build all crates</span>
+<span style="color: #9059ff;">cargo</span> build --release
+
+<span style="color: #6b7280;"># Run the REPL</span>
+<span style="color: #9059ff;">cargo</span> run</code></pre>
+          </div>
+        </div>
+
+        <!-- Rust Usage -->
+        <div class="space-y-6">
+          <h3 class="text-xl font-semibold flex items-center gap-2">
+            <span class="w-8 h-8 rounded-lg flex items-center justify-center text-sm font-bold" style="background: rgba(144, 89, 255, 0.2); color: #9059ff;">2</span>
+            Use as a Library
+          </h3>
+          <div class="rounded-xl overflow-hidden" style="background: var(--color-surface); border: 1px solid var(--color-border);">
+            <div class="flex items-center justify-between px-4 py-2" style="background: var(--color-surface-muted); border-bottom: 1px solid var(--color-border);">
+              <span class="text-xs font-mono" style="color: var(--color-text-muted);">main.rs</span>
+              <button class="text-xs transition-colors hover:text-white" style="color: var(--color-text-muted);" (click)="copyCode('rust')">Copy</button>
+            </div>
+            <pre class="p-4 overflow-x-auto text-sm"><code style="color: var(--color-text-muted);"><span style="color: #9059ff;">use</span> spacey_spidermonkey::Engine;
+
+<span style="color: #9059ff;">fn</span> <span style="color: #ff7139;">main</span>() {{ '{' }}
+    <span style="color: #9059ff;">let mut</span> engine = Engine::new();
+
+    <span style="color: #9059ff;">match</span> engine.eval(<span style="color: #10b981;">"1 + 2 * 3"</span>) {{ '{' }}
+        <span style="color: #ff7139;">Ok</span>(result) =&gt; <span style="color: #ff7139;">println!</span>(<span style="color: #10b981;">"Result: {{ '{}' }}"</span>, result),
+        <span style="color: #ff7139;">Err</span>(e) =&gt; <span style="color: #ff7139;">eprintln!</span>(<span style="color: #10b981;">"Error: {{ '{}' }}"</span>, e),
+    {{ '}' }}
+{{ '}' }}</code></pre>
+          </div>
+        </div>
+
+        <!-- TypeScript Example -->
+        <div class="space-y-6">
+          <h3 class="text-xl font-semibold flex items-center gap-2">
+            <span class="w-8 h-8 rounded-lg flex items-center justify-center text-sm font-bold" style="background: rgba(59, 130, 246, 0.2); color: #3b82f6;">3</span>
+            Run TypeScript Directly
+          </h3>
+          <div class="rounded-xl overflow-hidden" style="background: var(--color-surface); border: 1px solid var(--color-border);">
+            <div class="flex items-center justify-between px-4 py-2" style="background: var(--color-surface-muted); border-bottom: 1px solid var(--color-border);">
+              <span class="text-xs font-mono" style="color: var(--color-text-muted);">example.ts</span>
+              <button class="text-xs transition-colors hover:text-white" style="color: var(--color-text-muted);" (click)="copyCode('typescript')">Copy</button>
+            </div>
+            <pre class="p-4 overflow-x-auto text-sm"><code style="color: var(--color-text-muted);"><span style="color: #6b7280;">// TypeScript runs natively!</span>
+<span style="color: #9059ff;">interface</span> <span style="color: #ff7139;">User</span> {{ '{' }}
+    name: <span style="color: #f59e0b;">string</span>;
+    age: <span style="color: #f59e0b;">number</span>;
+{{ '}' }}
+
+<span style="color: #9059ff;">const</span> greet = (user: <span style="color: #ff7139;">User</span>): <span style="color: #f59e0b;">string</span> =&gt; {{ '{' }}
+    <span style="color: #9059ff;">return</span> <span style="color: #10b981;">`Hello, ${{ '{' }}</span>user.name<span style="color: #10b981;">{{ '}' }}!`</span>;
+{{ '}' }};
+
+console.log(greet({{ '{' }} name: <span style="color: #10b981;">"World"</span>, age: <span style="color: #f59e0b;">42</span> {{ '}' }}));</code></pre>
+          </div>
+        </div>
+
+        <!-- Node.js Example -->
+        <div class="space-y-6">
+          <h3 class="text-xl font-semibold flex items-center gap-2">
+            <span class="w-8 h-8 rounded-lg flex items-center justify-center text-sm font-bold" style="background: rgba(16, 185, 129, 0.2); color: #10b981;">4</span>
+            Node.js Compatibility
+          </h3>
+          <div class="rounded-xl overflow-hidden" style="background: var(--color-surface); border: 1px solid var(--color-border);">
+            <div class="flex items-center justify-between px-4 py-2" style="background: var(--color-surface-muted); border-bottom: 1px solid var(--color-border);">
+              <span class="text-xs font-mono" style="color: var(--color-text-muted);">server.js</span>
+              <button class="text-xs transition-colors hover:text-white" style="color: var(--color-text-muted);" (click)="copyCode('node')">Copy</button>
+            </div>
+            <pre class="p-4 overflow-x-auto text-sm"><code style="color: var(--color-text-muted);"><span style="color: #9059ff;">const</span> fs = <span style="color: #ff7139;">require</span>(<span style="color: #10b981;">'node:fs'</span>);
+<span style="color: #9059ff;">const</span> path = <span style="color: #ff7139;">require</span>(<span style="color: #10b981;">'node:path'</span>);
+
+<span style="color: #6b7280;">// ES Modules also supported</span>
+<span style="color: #9059ff;">import</span> {{ '{' }} readFile {{ '}' }} <span style="color: #9059ff;">from</span> <span style="color: #10b981;">'node:fs/promises'</span>;
+
+<span style="color: #9059ff;">async function</span> <span style="color: #ff7139;">main</span>() {{ '{' }}
+    <span style="color: #9059ff;">const</span> data = <span style="color: #9059ff;">await</span> readFile(<span style="color: #10b981;">'./data.json'</span>);
+    console.log(data);
+{{ '}' }}</code></pre>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Status Section -->
+  <section class="relative z-10 px-6 lg:px-12 py-24" style="border-top: 1px solid var(--color-border);">
+    <div class="max-w-6xl mx-auto">
+      <div class="text-center mb-16">
+        <h2 class="text-3xl lg:text-5xl font-bold mb-4" style="font-family: var(--font-heading);">Development Status</h2>
+        <p class="text-lg max-w-2xl mx-auto" style="color: var(--color-text-muted);">
+          Spacey is under active development. Here's where we are:
+        </p>
+      </div>
+
+      <div class="grid md:grid-cols-2 gap-6">
+        @for (item of statusItems; track item.name) {
+          <div class="flex items-center gap-4 p-4 rounded-xl" style="background: var(--color-surface); border: 1px solid var(--color-border);">
+            @switch (item.status) {
+              @case ('complete') {
+                <div class="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0" style="background: rgba(16, 185, 129, 0.2);">
+                  <fa-icon [icon]="faCheck" class="text-lg" style="color: #10b981;"></fa-icon>
+                </div>
+              }
+              @case ('in-progress') {
+                <div class="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0" style="background: rgba(255, 113, 57, 0.2);">
+                  <fa-icon [icon]="faSpinner" class="text-lg animate-spin" style="color: #ff7139;"></fa-icon>
+                </div>
+              }
+              @case ('planned') {
+                <div class="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0" style="background: rgba(107, 114, 128, 0.2);">
+                  <fa-icon [icon]="faClock" class="text-lg" style="color: #6b7280;"></fa-icon>
+                </div>
+              }
+            }
+            <div class="flex-1">
+              <div class="font-medium">{{ item.name }}</div>
+              <div class="text-sm" style="color: var(--color-text-muted);">{{ item.description }}</div>
+            </div>
+            <span class="px-3 py-1 text-xs rounded-full"
+              [style.background]="item.status === 'complete' ? 'rgba(16, 185, 129, 0.1)' : item.status === 'in-progress' ? 'rgba(255, 113, 57, 0.1)' : 'rgba(107, 114, 128, 0.1)'"
+              [style.color]="item.status === 'complete' ? '#10b981' : item.status === 'in-progress' ? '#ff7139' : '#6b7280'">
+              {{ item.status === 'complete' ? 'Complete' : item.status === 'in-progress' ? 'In Progress' : 'Planned' }}
+            </span>
+    </div>
+        }
+      </div>
+    </div>
+  </section>
+
+  <!-- CTA Section -->
+  <section class="relative z-10 px-6 lg:px-12 py-24" style="border-top: 1px solid var(--color-border);">
+    <div class="max-w-4xl mx-auto text-center">
+      <div class="p-12 rounded-3xl" style="background: linear-gradient(135deg, rgba(255, 113, 57, 0.1) 0%, rgba(144, 89, 255, 0.1) 100%); border: 1px solid rgba(255, 113, 57, 0.2);">
+        <h2 class="text-3xl lg:text-4xl font-bold mb-4" style="font-family: var(--font-heading);">Ready to Contribute?</h2>
+        <p class="text-lg mb-8 max-w-2xl mx-auto" style="color: var(--color-text-muted);">
+          Spacey welcomes contributions! Help us build the future of JavaScript engines in Rust.
+        </p>
+        <div class="flex flex-col sm:flex-row items-center justify-center gap-4">
+          <a href="https://github.com/pegasusheavy/spacey" target="_blank" class="px-8 py-4 rounded-xl font-semibold transition-all hover:scale-105 flex items-center gap-2" style="background: #ff7139; color: white;">
+            <fa-icon [icon]="faGithub" class="text-xl"></fa-icon>
+            Star on GitHub
+          </a>
+          <a href="https://github.com/pegasusheavy/spacey/issues" target="_blank" class="px-8 py-4 rounded-xl font-semibold transition-colors" style="background: rgba(144, 89, 255, 0.1); border: 1px solid rgba(144, 89, 255, 0.3);">
+            Browse Issues
+        </a>
+      </div>
+    </div>
+  </div>
+  </section>
+
+  <!-- Footer -->
+  <footer class="relative z-10 px-6 lg:px-12 py-12" style="border-top: 1px solid var(--color-border);">
+    <div class="max-w-6xl mx-auto">
+      <div class="flex flex-col md:flex-row items-center justify-between gap-6">
+        <div class="flex items-center gap-3">
+          <div class="w-8 h-8 rounded-lg flex items-center justify-center" style="background: linear-gradient(135deg, #ff7139 0%, #9059ff 100%);">
+            <span class="text-sm font-bold text-white">S</span>
+          </div>
+          <span class="font-semibold" style="font-family: var(--font-heading);">Spacey</span>
+        </div>
+
+        <div class="flex items-center gap-6 text-sm" style="color: var(--color-text-muted);">
+          <a href="https://github.com/pegasusheavy/spacey" target="_blank" class="hover:text-white transition-colors">GitHub</a>
+          <a href="https://servo.org" target="_blank" class="hover:text-white transition-colors">Servo</a>
+          <a href="mailto:pegasusheavyindustries@gmail.com" class="hover:text-white transition-colors">Contact</a>
+          <span>MPL-2.0 License</span>
+        </div>
+
+        <div class="text-sm" style="color: var(--color-text-muted);">
+          © 2025 Pegasus Heavy Industries
+        </div>
+      </div>
+
+      <!-- Mozilla-style divider -->
+      <div class="mt-8 h-1 rounded-full" style="background: linear-gradient(90deg, #ff7139 0%, #9059ff 100%);"></div>
+    </div>
+  </footer>
+
+  <!-- SEO: Additional semantic content -->
+  <aside class="sr-only" aria-label="Additional information for search engines">
+    <article itemscope itemtype="https://schema.org/Article">
+      <h2 itemprop="headline">Why Choose Spacey for Servo Browser</h2>
+      <p itemprop="description">
+        Spacey is the ideal JavaScript engine replacement for Servo because it's written entirely in Rust,
+        eliminating the C++ FFI boundary that exists with SpiderMonkey. This means tighter integration,
+        unified memory management, and a simpler build process for the Servo project.
+      </p>
+      <p>
+        For Servo developers looking for a SpiderMonkey alternative, Spacey provides:
+        Native Rust API without FFI overhead, integrated garbage collection with Servo's memory model,
+        Cargo-only builds without complex C++ toolchain requirements, and community-driven development
+        aligned with Servo's goals.
+      </p>
+      <p itemprop="keywords">
+        Servo browser, Servo JavaScript engine, SpiderMonkey alternative, Rust JavaScript engine,
+        Servo web engine, pure Rust JS engine, memory safe JavaScript, Servo integration,
+        web browser engine, Rust web browser, JavaScript runtime Rust, Servo project
+      </p>
+    </article>
+  </aside>
+</main>
