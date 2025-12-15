@@ -26,6 +26,9 @@ importers:
       '@angular/router':
         specifier: ^21.0.0
         version: 21.0.5(@angular/common@21.0.5(@angular/core@21.0.5(@angular/compiler@21.0.5)(rxjs@7.8.2))(rxjs@7.8.2))(@angular/core@21.0.5(@angular/compiler@21.0.5)(rxjs@7.8.2))(@angular/platform-browser@21.0.5(@angular/common@21.0.5(@angular/core@21.0.5(@angular/compiler@21.0.5)(rxjs@7.8.2))(rxjs@7.8.2))(@angular/core@21.0.5(@angular/compiler@21.0.5)(rxjs@7.8.2)))(rxjs@7.8.2)
+      '@pegasusheavy/tailswatch':
+        specifier: ^1.1.0
+        version: 1.1.0(tailwindcss@4.1.18)
       rxjs:
         specifier: ~7.8.0
         version: 7.8.2
@@ -1147,6 +1150,12 @@ packages:
   '@parcel/watcher@2.5.1':
     resolution: {integrity: sha512-dfUnCxiN9H4ap84DvD2ubjw+3vUNpstxa0TneY/Paat8a3R4uQZDLSvWjmznAY/DoahqTHl9V46HF/Zs3F29pg==}
     engines: {node: '>= 10.0.0'}
+
+  '@pegasusheavy/tailswatch@1.1.0':
+    resolution: {integrity: sha512-9isqXI8xRfP+T5tvjOge4rrar6Ntcab1o26hr0g18pEF6y+U+M+m1dGkVhgsURFP74JRiXQTQYweBL5EayZNlQ==}
+    engines: {node: '>=18.0.0'}
+    peerDependencies:
+      tailwindcss: ^4.0.0
 
   '@rolldown/binding-android-arm64@1.0.0-beta.47':
     resolution: {integrity: sha512-vPP9/MZzESh9QtmvQYojXP/midjgkkc1E4AdnPPAzQXo668ncHJcVLKjJKzoBdsQmaIvNjrMdsCwES8vTQHRQw==}
@@ -3910,6 +3919,10 @@ snapshots:
       '@parcel/watcher-win32-ia32': 2.5.1
       '@parcel/watcher-win32-x64': 2.5.1
     optional: true
+
+  '@pegasusheavy/tailswatch@1.1.0(tailwindcss@4.1.18)':
+    dependencies:
+      tailwindcss: 4.1.18
 
   '@rolldown/binding-android-arm64@1.0.0-beta.47':
     optional: true

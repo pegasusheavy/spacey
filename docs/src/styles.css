@@ -1,5 +1,136 @@
 /* Spacey Documentation Website Styles */
+/* Mozilla Protocol-inspired theme using Tailswatch */
 @import "tailwindcss";
+@import "@pegasusheavy/tailswatch/themes/cyborg";
+
+/* ============================================ */
+/* MOZILLA PROTOCOL THEME OVERRIDES */
+/* Inspired by Firefox & Mozilla design language */
+/* ============================================ */
+
+:root {
+  /* Typography - Mozilla's Zilla Slab for headings, Inter for body */
+  --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, sans-serif;
+  --font-heading: "Zilla Slab", Georgia, "Times New Roman", serif;
+  --font-mono: "Fira Code", "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, monospace;
+
+  /* Primary - Firefox Orange (#FF7139) */
+  --color-primary-50: #fff4f0;
+  --color-primary-100: #ffe5dc;
+  --color-primary-200: #ffcbb9;
+  --color-primary-300: #ffab8c;
+  --color-primary-400: #ff8a5e;
+  --color-primary-500: #ff7139;
+  --color-primary-600: #e85a22;
+  --color-primary-700: #c4471a;
+  --color-primary-800: #9e3915;
+  --color-primary-900: #7a2d11;
+  --color-primary-950: #4a1a0a;
+
+  /* Secondary - Mozilla Ink (#1D1133) */
+  --color-secondary-50: #f0edf5;
+  --color-secondary-100: #ddd6ea;
+  --color-secondary-200: #b8acd4;
+  --color-secondary-300: #9382be;
+  --color-secondary-400: #6e58a8;
+  --color-secondary-500: #4a2f92;
+  --color-secondary-600: #3b2574;
+  --color-secondary-700: #2d1c57;
+  --color-secondary-800: #1f133a;
+  --color-secondary-900: #1d1133;
+  --color-secondary-950: #0f091a;
+
+  /* Accent - Mozilla Violet (#9059FF) */
+  --color-accent-50: #f5f0ff;
+  --color-accent-100: #ebe0ff;
+  --color-accent-200: #d6c2ff;
+  --color-accent-300: #bc99ff;
+  --color-accent-400: #a579ff;
+  --color-accent-500: #9059ff;
+  --color-accent-600: #7a3de8;
+  --color-accent-700: #6530c4;
+  --color-accent-800: #50269e;
+  --color-accent-900: #3c1d78;
+  --color-accent-950: #251148;
+
+  /* Success - Mozilla Green */
+  --color-success-50: #ecfdf5;
+  --color-success-100: #d1fae5;
+  --color-success-200: #a7f3d0;
+  --color-success-300: #6ee7b7;
+  --color-success-400: #34d399;
+  --color-success-500: #10b981;
+  --color-success-600: #059669;
+  --color-success-700: #047857;
+  --color-success-800: #065f46;
+  --color-success-900: #064e3b;
+  --color-success-950: #022c22;
+
+  /* Warning - Firefox Yellow */
+  --color-warning-50: #fffbeb;
+  --color-warning-100: #fef3c7;
+  --color-warning-200: #fde68a;
+  --color-warning-300: #fcd34d;
+  --color-warning-400: #fbbf24;
+  --color-warning-500: #f59e0b;
+  --color-warning-600: #d97706;
+  --color-warning-700: #b45309;
+  --color-warning-800: #92400e;
+  --color-warning-900: #78350f;
+  --color-warning-950: #451a03;
+
+  /* Error - Mozilla Red */
+  --color-error-50: #fef2f2;
+  --color-error-100: #fee2e2;
+  --color-error-200: #fecaca;
+  --color-error-300: #fca5a5;
+  --color-error-400: #f87171;
+  --color-error-500: #ef4444;
+  --color-error-600: #dc2626;
+  --color-error-700: #b91c1c;
+  --color-error-800: #991b1b;
+  --color-error-900: #7f1d1d;
+  --color-error-950: #450a0a;
+
+  /* Info - Mozilla Blue */
+  --color-info-50: #eff6ff;
+  --color-info-100: #dbeafe;
+  --color-info-200: #bfdbfe;
+  --color-info-300: #93c5fd;
+  --color-info-400: #60a5fa;
+  --color-info-500: #3b82f6;
+  --color-info-600: #2563eb;
+  --color-info-700: #1d4ed8;
+  --color-info-800: #1e40af;
+  --color-info-900: #1e3a8a;
+  --color-info-950: #172554;
+
+  /* Surface colors - Mozilla Ink Dark */
+  --color-background: #0c0015;
+  --color-foreground: #f9f9fb;
+  --color-surface: #1d1133;
+  --color-surface-elevated: #2b1e44;
+  --color-surface-muted: #130a24;
+  --color-border: #3d2d5c;
+  --color-text: #f9f9fb;
+  --color-text-muted: #b1a7c4;
+
+  /* Shadows with purple tint */
+  --shadow-sm: 0 1px 2px 0 rgba(144, 89, 255, 0.05);
+  --shadow-default: 0 1px 3px 0 rgba(144, 89, 255, 0.1), 0 1px 2px -1px rgba(144, 89, 255, 0.1);
+  --shadow-md: 0 4px 6px -1px rgba(144, 89, 255, 0.1), 0 2px 4px -2px rgba(144, 89, 255, 0.1);
+  --shadow-lg: 0 10px 15px -3px rgba(144, 89, 255, 0.1), 0 4px 6px -4px rgba(144, 89, 255, 0.1);
+  --shadow-glow: 0 0 20px rgba(255, 113, 57, 0.3);
+
+  /* Border radius */
+  --radius-sm: 0.25rem;
+  --radius-default: 0.5rem;
+  --radius-md: 0.75rem;
+  --radius-lg: 1rem;
+  --radius-xl: 1.5rem;
+
+  color-scheme: dark;
+}
 
 /* Custom Animations */
 @keyframes twinkle {
@@ -18,6 +149,11 @@
   100% { background-position: 0% 50%; }
 }
 
+@keyframes glow-pulse {
+  0%, 100% { box-shadow: 0 0 20px rgba(255, 113, 57, 0.3); }
+  50% { box-shadow: 0 0 40px rgba(255, 113, 57, 0.5); }
+}
+
 .animate-twinkle {
   animation: twinkle 3s ease-in-out infinite;
 }
@@ -31,23 +167,27 @@
   animation: gradient-shift 8s ease infinite;
 }
 
-/* Custom Scrollbar */
+.animate-glow-pulse {
+  animation: glow-pulse 2s ease-in-out infinite;
+}
+
+/* Custom Scrollbar - Mozilla style */
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 10px;
+  height: 10px;
 }
 
 ::-webkit-scrollbar-track {
-  background: #0f172a;
+  background: var(--color-background);
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #334155;
-  border-radius: 4px;
+  background: var(--color-border);
+  border-radius: 5px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #475569;
+  background: var(--color-accent-600);
 }
 
 /* Smooth Scrolling */
@@ -57,55 +197,93 @@ html {
 
 /* Base styles */
 body {
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+  font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  background: var(--color-background);
+  color: var(--color-foreground);
+}
+
+/* Headings use Zilla Slab */
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-heading);
+  font-weight: 700;
 }
 
 /* Code block styles */
-pre {
-  font-family: 'JetBrains Mono', 'Fira Code', 'SF Mono', Monaco, 'Andale Mono', 'Ubuntu Mono', monospace;
+pre, code {
+  font-family: var(--font-mono);
 }
 
-code {
-  font-family: 'JetBrains Mono', 'Fira Code', 'SF Mono', Monaco, 'Andale Mono', 'Ubuntu Mono', monospace;
-}
-
-/* Selection color */
+/* Selection color - Firefox orange */
 ::selection {
-  background-color: rgba(139, 92, 246, 0.3);
+  background-color: rgba(255, 113, 57, 0.3);
   color: white;
 }
 
-/* Focus styles */
+/* Focus styles - Mozilla violet */
 :focus-visible {
-  outline: 2px solid rgba(139, 92, 246, 0.5);
+  outline: 2px solid var(--color-accent-500);
   outline-offset: 2px;
 }
 
-/* Gradient text helper */
-.text-gradient {
-  background: linear-gradient(135deg, #a855f7 0%, #22d3ee 50%, #3b82f6 100%);
+/* Mozilla-style gradient text */
+.text-gradient-mozilla {
+  background: linear-gradient(135deg, #ff7139 0%, #9059ff 50%, #ff7139 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
+  background-size: 200% 200%;
+  animation: gradient-shift 5s ease infinite;
 }
 
-/* Glow effects */
-.glow-purple {
-  box-shadow: 0 0 40px rgba(139, 92, 246, 0.3);
+/* Firefox orange glow */
+.glow-firefox {
+  box-shadow: 0 0 30px rgba(255, 113, 57, 0.4);
 }
 
-.glow-cyan {
-  box-shadow: 0 0 40px rgba(34, 211, 238, 0.3);
+/* Mozilla violet glow */
+.glow-mozilla {
+  box-shadow: 0 0 30px rgba(144, 89, 255, 0.4);
 }
 
-/* Glass morphism */
+/* Glass morphism with purple tint */
 .glass {
-  background: rgba(255, 255, 255, 0.05);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(29, 17, 51, 0.7);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(144, 89, 255, 0.2);
+}
+
+/* Mozilla-style button */
+.btn-mozilla {
+  background: linear-gradient(135deg, var(--color-primary-500) 0%, var(--color-primary-600) 100%);
+  color: white;
+  padding: 0.75rem 1.5rem;
+  border-radius: var(--radius-md);
+  font-weight: 600;
+  transition: all 0.2s ease;
+  border: none;
+}
+
+.btn-mozilla:hover {
+  background: linear-gradient(135deg, var(--color-primary-400) 0%, var(--color-primary-500) 100%);
+  box-shadow: 0 0 20px rgba(255, 113, 57, 0.4);
+  transform: translateY(-1px);
+}
+
+/* Mozilla-style card */
+.card-mozilla {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  transition: all 0.3s ease;
+}
+
+.card-mozilla:hover {
+  border-color: var(--color-accent-500);
+  box-shadow: 0 0 30px rgba(144, 89, 255, 0.2);
+  transform: translateY(-4px);
 }
 
 /* Hover card lift effect */
@@ -131,4 +309,11 @@ code {
   -webkit-line-clamp: 3;
   -webkit-box-orient: vertical;
   overflow: hidden;
+}
+
+/* Mozilla Protocol-style divider */
+.divider-mozilla {
+  height: 4px;
+  background: linear-gradient(90deg, var(--color-primary-500) 0%, var(--color-accent-500) 100%);
+  border-radius: 2px;
 }

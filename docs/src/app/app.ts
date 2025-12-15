@@ -63,7 +63,7 @@ cargo run`,
 
 fn main() {
     let mut engine = Engine::new();
-    
+
     match engine.eval("1 + 2 * 3") {
         Ok(result) => println!("Result: {}", result),
         Err(e) => eprintln!("Error: {}", e),
