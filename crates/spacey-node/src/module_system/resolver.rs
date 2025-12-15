@@ -15,6 +15,8 @@ use std::path::{Path, PathBuf};
 pub enum ResolveResult {
     /// Built-in module (fs, path, http, etc.)
     BuiltIn(String),
+    /// Built-in module with subpath (fs/promises, stream/web, etc.)
+    BuiltInSubpath { module: String, subpath: String },
     /// File module (resolved path)
     File(PathBuf),
     /// JSON file
@@ -23,10 +25,96 @@ pub enum ResolveResult {
     Native(PathBuf),
 }
 
+/// Result of resolving a built-in module
+#[derive(Debug, Clone)]
+pub struct BuiltinResolveResult {
+    /// The base module name
+    pub module: String,
+    /// Optional subpath (e.g., "fs/promises" -> subpath = Some("fs/promises"))
+    pub subpath: Option<String>,
+}
+
+/// All Node.js built-in modules (including experimental)
+pub const BUILTIN_MODULES: &[&str] = &[
+    // Core modules
+    "assert",
+    "async_hooks",
+    "buffer",
+    "child_process",
+    "cluster",
+    "console",
+    "constants",
+    "crypto",
+    "dgram",
+    "diagnostics_channel",
+    "dns",
+    "domain",
+    "events",
+    "fs",
+    "http",
+    "http2",
+    "https",
+    "inspector",
+    "module",
+    "net",
+    "os",
+    "path",
+    "perf_hooks",
+    "process",
+    "punycode",
+    "querystring",
+    "readline",
+    "repl",
+    "stream",
+    "string_decoder",
+    "sys",
+    "timers",
+    "tls",
+    "trace_events",
+    "tty",
+    "url",
+    "util",
+    "v8",
+    "vm",
+    "wasi",
+    "worker_threads",
+    "zlib",
+    // Experimental modules
+    "test",
+    "sqlite",
+    "sea",
+];
+
+/// Built-in modules that have promise variants (node:fs/promises)
+pub const PROMISE_MODULES: &[&str] = &[
+    "fs",
+    "dns",
+    "readline",
+    "stream",
+    "timers",
+];
+
+/// Built-in module subpaths (e.g., node:fs/promises)
+pub const BUILTIN_SUBPATHS: &[(&str, &str)] = &[
+    ("fs/promises", "fs"),
+    ("dns/promises", "dns"),
+    ("readline/promises", "readline"),
+    ("stream/promises", "stream"),
+    ("stream/consumers", "stream"),
+    ("stream/web", "stream"),
+    ("timers/promises", "timers"),
+    ("util/types", "util"),
+    ("path/posix", "path"),
+    ("path/win32", "path"),
+    ("assert/strict", "assert"),
+];
+
 /// Module resolver implementing Node.js resolution algorithm
 pub struct ModuleResolver {
     /// Built-in module names
     builtins: Vec<String>,
+    /// Built-in subpath mappings
+    builtin_subpaths: std::collections::HashMap<String, String>,
     /// File extensions to try
     extensions: Vec<String>,
 }
@@ -34,81 +122,115 @@ pub struct ModuleResolver {
 impl ModuleResolver {
     /// Create a new module resolver
     pub fn new() -> Self {
+        let builtins = BUILTIN_MODULES.iter().map(|s| s.to_string()).collect();
+        
+        let builtin_subpaths = BUILTIN_SUBPATHS
+            .iter()
+            .map(|(subpath, parent)| (subpath.to_string(), parent.to_string()))
+            .collect();
+
         Self {
-            builtins: vec![
-                "assert".to_string(),
-                "buffer".to_string(),
-                "child_process".to_string(),
-                "cluster".to_string(),
-                "console".to_string(),
-                "constants".to_string(),
-                "crypto".to_string(),
-                "dgram".to_string(),
-                "dns".to_string(),
-                "domain".to_string(),
-                "events".to_string(),
-                "fs".to_string(),
-                "http".to_string(),
-                "https".to_string(),
-                "module".to_string(),
-                "net".to_string(),
-                "os".to_string(),
-                "path".to_string(),
-                "perf_hooks".to_string(),
-                "process".to_string(),
-                "punycode".to_string(),
-                "querystring".to_string(),
-                "readline".to_string(),
-                "repl".to_string(),
-                "stream".to_string(),
-                "string_decoder".to_string(),
-                "sys".to_string(),
-                "timers".to_string(),
-                "tls".to_string(),
-                "tty".to_string(),
-                "url".to_string(),
-                "util".to_string(),
-                "v8".to_string(),
-                "vm".to_string(),
-                "worker_threads".to_string(),
-                "zlib".to_string(),
-            ],
+            builtins,
+            builtin_subpaths,
             extensions: vec![
                 ".js".to_string(),
+                ".mjs".to_string(),
+                ".cjs".to_string(),
                 ".json".to_string(),
                 ".node".to_string(),
             ],
         }
     }
 
+    /// Get all built-in module names (for module.builtinModules)
+    pub fn builtin_modules() -> Vec<&'static str> {
+        BUILTIN_MODULES.to_vec()
+    }
+
+    /// Check if a specifier uses the node: prefix
+    pub fn has_node_prefix(specifier: &str) -> bool {
+        specifier.starts_with("node:")
+    }
+
+    /// Strip the node: prefix if present
+    pub fn strip_node_prefix(specifier: &str) -> &str {
+        specifier.strip_prefix("node:").unwrap_or(specifier)
+    }
+
     /// Check if a module is a built-in
     pub fn is_builtin(&self, name: &str) -> bool {
         // Handle node: prefix
-        let name = name.strip_prefix("node:").unwrap_or(name);
-        self.builtins.contains(&name.to_string())
+        let name = Self::strip_node_prefix(name);
+        
+        // Check direct built-in
+        if self.builtins.contains(&name.to_string()) {
+            return true;
+        }
+        
+        // Check subpath built-in (e.g., fs/promises)
+        self.builtin_subpaths.contains_key(name)
+    }
+
+    /// Resolve a built-in module, handling subpaths
+    pub fn resolve_builtin(&self, name: &str) -> Option<BuiltinResolveResult> {
+        let name = Self::strip_node_prefix(name);
+        
+        // Check direct built-in
+        if self.builtins.contains(&name.to_string()) {
+            return Some(BuiltinResolveResult {
+                module: name.to_string(),
+                subpath: None,
+            });
+        }
+        
+        // Check subpath built-in
+        if let Some(parent) = self.builtin_subpaths.get(name) {
+            return Some(BuiltinResolveResult {
+                module: parent.clone(),
+                subpath: Some(name.to_string()),
+            });
+        }
+        
+        None
     }
 
     /// Resolve a module specifier
     pub fn resolve(&self, specifier: &str, parent_path: &Path) -> Result<ResolveResult> {
-        // Handle node: prefix for built-ins
-        let specifier = specifier.strip_prefix("node:").unwrap_or(specifier);
+        // Check for node: prefix - these MUST be built-ins
+        let has_node_prefix = Self::has_node_prefix(specifier);
+        let bare_specifier = Self::strip_node_prefix(specifier);
 
         // Check if built-in module
-        if self.is_builtin(specifier) {
-            return Ok(ResolveResult::BuiltIn(specifier.to_string()));
+        if let Some(builtin) = self.resolve_builtin(specifier) {
+            return if let Some(subpath) = builtin.subpath {
+                Ok(ResolveResult::BuiltInSubpath {
+                    module: builtin.module,
+                    subpath,
+                })
+            } else {
+                Ok(ResolveResult::BuiltIn(builtin.module))
+            };
+        }
+
+        // If it had node: prefix but isn't a built-in, error
+        if has_node_prefix {
+            return Err(NodeError::ModuleNotFound(format!(
+                "Cannot find built-in module '{}'",
+                specifier
+            )));
         }
 
         // Check if relative or absolute path
-        if specifier.starts_with("./")
-            || specifier.starts_with("../")
-            || specifier.starts_with('/')
-            || (cfg!(windows) && specifier.chars().nth(1) == Some(':'))
+        if bare_specifier.starts_with("./")
+            || bare_specifier.starts_with("../")
+            || bare_specifier.starts_with('/')
+            || (cfg!(windows) && bare_specifier.chars().nth(1) == Some(':'))
         {
-            return self.resolve_file(specifier, parent_path);
+            return self.resolve_file(bare_specifier, parent_path);
         }
 
         // Otherwise, resolve as node_modules package
-        self.resolve_node_modules(specifier, parent_path)
+        self.resolve_node_modules(bare_specifier, parent_path)
     }
 
     /// Resolve a file path
@@ -312,25 +434,41 @@ impl ModuleResolver {
 
     /// Resolve for ESM (import)
     pub fn resolve_esm(&self, specifier: &str, parent_path: &Path) -> Result<ResolveResult> {
-        // Handle node: prefix for built-ins
-        let specifier = specifier.strip_prefix("node:").unwrap_or(specifier);
+        // Check for node: prefix - these MUST be built-ins
+        let has_node_prefix = Self::has_node_prefix(specifier);
+        let bare_specifier = Self::strip_node_prefix(specifier);
 
         // Check if built-in module
-        if self.is_builtin(specifier) {
-            return Ok(ResolveResult::BuiltIn(specifier.to_string()));
+        if let Some(builtin) = self.resolve_builtin(specifier) {
+            return if let Some(subpath) = builtin.subpath {
+                Ok(ResolveResult::BuiltInSubpath {
+                    module: builtin.module,
+                    subpath,
+                })
+            } else {
+                Ok(ResolveResult::BuiltIn(builtin.module))
+            };
+        }
+
+        // If it had node: prefix but isn't a built-in, error
+        if has_node_prefix {
+            return Err(NodeError::ModuleNotFound(format!(
+                "Cannot find built-in module '{}'",
+                specifier
+            )));
         }
 
         // Check if relative or absolute path
-        if specifier.starts_with("./")
-            || specifier.starts_with("../")
-            || specifier.starts_with('/')
-            || (cfg!(windows) && specifier.chars().nth(1) == Some(':'))
+        if bare_specifier.starts_with("./")
+            || bare_specifier.starts_with("../")
+            || bare_specifier.starts_with('/')
+            || (cfg!(windows) && bare_specifier.chars().nth(1) == Some(':'))
         {
-            return self.resolve_file_esm(specifier, parent_path);
+            return self.resolve_file_esm(bare_specifier, parent_path);
         }
 
         // Otherwise, resolve as node_modules package with ESM conditions
-        self.resolve_node_modules_esm(specifier, parent_path)
+        self.resolve_node_modules_esm(bare_specifier, parent_path)
     }
 
     /// Resolve a file path for ESM
@@ -529,7 +667,75 @@ mod tests {
         assert!(resolver.is_builtin("fs"));
         assert!(resolver.is_builtin("path"));
         assert!(resolver.is_builtin("node:fs"));
+        assert!(resolver.is_builtin("node:path"));
         assert!(!resolver.is_builtin("lodash"));
+        assert!(!resolver.is_builtin("node:lodash"));
+    }
+
+    #[test]
+    fn test_is_builtin_subpath() {
+        let resolver = ModuleResolver::new();
+        assert!(resolver.is_builtin("fs/promises"));
+        assert!(resolver.is_builtin("node:fs/promises"));
+        assert!(resolver.is_builtin("dns/promises"));
+        assert!(resolver.is_builtin("node:dns/promises"));
+        assert!(resolver.is_builtin("stream/web"));
+        assert!(resolver.is_builtin("node:stream/web"));
+        assert!(resolver.is_builtin("util/types"));
+        assert!(resolver.is_builtin("node:util/types"));
+    }
+
+    #[test]
+    fn test_resolve_builtin() {
+        let resolver = ModuleResolver::new();
+        
+        // Direct built-in
+        let result = resolver.resolve_builtin("fs").unwrap();
+        assert_eq!(result.module, "fs");
+        assert!(result.subpath.is_none());
+        
+        // With node: prefix
+        let result = resolver.resolve_builtin("node:fs").unwrap();
+        assert_eq!(result.module, "fs");
+        assert!(result.subpath.is_none());
+        
+        // Subpath built-in
+        let result = resolver.resolve_builtin("fs/promises").unwrap();
+        assert_eq!(result.module, "fs");
+        assert_eq!(result.subpath, Some("fs/promises".to_string()));
+        
+        // Subpath with node: prefix
+        let result = resolver.resolve_builtin("node:fs/promises").unwrap();
+        assert_eq!(result.module, "fs");
+        assert_eq!(result.subpath, Some("fs/promises".to_string()));
+        
+        // Non-builtin
+        assert!(resolver.resolve_builtin("lodash").is_none());
+    }
+
+    #[test]
+    fn test_has_node_prefix() {
+        assert!(ModuleResolver::has_node_prefix("node:fs"));
+        assert!(ModuleResolver::has_node_prefix("node:fs/promises"));
+        assert!(!ModuleResolver::has_node_prefix("fs"));
+        assert!(!ModuleResolver::has_node_prefix("./local"));
+    }
+
+    #[test]
+    fn test_strip_node_prefix() {
+        assert_eq!(ModuleResolver::strip_node_prefix("node:fs"), "fs");
+        assert_eq!(ModuleResolver::strip_node_prefix("node:fs/promises"), "fs/promises");
+        assert_eq!(ModuleResolver::strip_node_prefix("fs"), "fs");
+        assert_eq!(ModuleResolver::strip_node_prefix("./local"), "./local");
+    }
+
+    #[test]
+    fn test_builtin_modules() {
+        let modules = ModuleResolver::builtin_modules();
+        assert!(modules.contains(&"fs"));
+        assert!(modules.contains(&"path"));
+        assert!(modules.contains(&"http"));
+        assert!(modules.contains(&"test")); // Experimental
     }
 
     #[test]

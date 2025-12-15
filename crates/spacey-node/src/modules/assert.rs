@@ -254,9 +254,19 @@ mod tests {
 
     #[test]
     fn test_deep_strict_equal() {
-        let arr1 = Value::Array(vec![Value::Number(1.0), Value::Number(2.0)]);
-        let arr2 = Value::Array(vec![Value::Number(1.0), Value::Number(2.0)]);
-        let arr3 = Value::Array(vec![Value::Number(1.0), Value::Number(3.0)]);
+        // Create array-like objects (arrays are represented as NativeObject in spacey)
+        fn make_array(values: Vec<Value>) -> Value {
+            let mut obj = std::collections::HashMap::new();
+            for (i, v) in values.into_iter().enumerate() {
+                obj.insert(i.to_string(), v);
+            }
+            obj.insert("length".to_string(), Value::Number(obj.len() as f64 - 1.0 + 1.0));
+            Value::NativeObject(obj)
+        }
+
+        let arr1 = make_array(vec![Value::Number(1.0), Value::Number(2.0)]);
+        let arr2 = make_array(vec![Value::Number(1.0), Value::Number(2.0)]);
+        let arr3 = make_array(vec![Value::Number(1.0), Value::Number(3.0)]);
 
         assert!(deep_strict_equal(&arr1, &arr2, None).is_ok());
         assert!(deep_strict_equal(&arr1, &arr3, None).is_err());

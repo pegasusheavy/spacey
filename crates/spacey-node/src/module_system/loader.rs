@@ -45,7 +45,11 @@ impl ModuleLoader {
         match resolved {
             ResolveResult::BuiltIn(name) => {
                 // Return built-in module exports
-                self.load_builtin(&name)
+                self.load_builtin(&name, None)
+            }
+            ResolveResult::BuiltInSubpath { module, subpath } => {
+                // Return built-in module with subpath (e.g., fs/promises)
+                self.load_builtin(&module, Some(&subpath))
             }
             ResolveResult::File(path) => {
                 // Load JavaScript file
@@ -66,10 +70,15 @@ impl ModuleLoader {
     }
 
     /// Load a built-in module
-    fn load_builtin(&self, name: &str) -> Result<Value> {
+    fn load_builtin(&self, name: &str, subpath: Option<&str>) -> Result<Value> {
         // Built-in modules are registered separately
         // Return a marker that the runtime will resolve
-        Ok(Value::String(format!("__builtin__:{}", name)))
+        if let Some(subpath) = subpath {
+            // Subpath import (e.g., node:fs/promises)
+            Ok(Value::String(format!("__builtin__:{}:{}", name, subpath)))
+        } else {
+            Ok(Value::String(format!("__builtin__:{}", name)))
+        }
     }
 
     /// Load a JavaScript file

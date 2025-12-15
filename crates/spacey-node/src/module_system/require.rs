@@ -18,7 +18,7 @@ pub fn require(loader: &mut ModuleLoader, specifier: &str, parent_path: &Path) -
 
 /// require.resolve() - get the resolved path without loading
 pub fn require_resolve(
-    loader: &ModuleLoader,
+    _loader: &ModuleLoader,
     specifier: &str,
     parent_path: &Path,
 ) -> Result<String> {
@@ -28,11 +28,23 @@ pub fn require_resolve(
     let resolved = resolver.resolve(specifier, parent_path)?;
 
     match resolved {
-        ResolveResult::BuiltIn(name) => Ok(name),
+        ResolveResult::BuiltIn(name) => Ok(format!("node:{}", name)),
+        ResolveResult::BuiltInSubpath { module: _, subpath } => Ok(format!("node:{}", subpath)),
         ResolveResult::File(path) | ResolveResult::Json(path) | ResolveResult::Native(path) => {
             Ok(path.display().to_string())
         }
     }
+}
+
+/// Check if a module specifier is a built-in module
+pub fn is_builtin(specifier: &str) -> bool {
+    let resolver = crate::module_system::resolver::ModuleResolver::new();
+    resolver.is_builtin(specifier)
+}
+
+/// Get all built-in module names
+pub fn builtin_modules() -> Vec<&'static str> {
+    crate::module_system::resolver::ModuleResolver::builtin_modules()
 }
 
 /// require.cache - the module cache object

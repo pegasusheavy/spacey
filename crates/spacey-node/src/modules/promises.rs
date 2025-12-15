@@ -127,7 +127,7 @@ impl Promise {
         }
         self.state = PromiseState::Fulfilled;
         self.value = Some(value);
-        
+
         // Trigger reactions
         let reactions = std::mem::take(&mut self.reactions);
         for reaction in reactions {
@@ -144,7 +144,7 @@ impl Promise {
         }
         self.state = PromiseState::Rejected;
         self.reason = Some(reason);
-        
+
         // Trigger reactions
         let reactions = std::mem::take(&mut self.reactions);
         if reactions.is_empty() && !self.handled {
@@ -161,7 +161,7 @@ impl Promise {
         if reaction.on_rejected.is_some() {
             self.handled = true;
         }
-        
+
         match self.state {
             PromiseState::Pending => {
                 self.reactions.push(reaction);
@@ -210,7 +210,7 @@ impl PromiseCapability {
         let promise = Arc::new(RwLock::new(Promise::new()));
         let promise_clone = Arc::clone(&promise);
         let promise_clone2 = Arc::clone(&promise);
-        
+
         Self {
             promise,
             resolve: Arc::new(move |value| {
@@ -291,7 +291,7 @@ impl AggregateError {
         let mut obj = HashMap::new();
         obj.insert("name".to_string(), Value::String("AggregateError".to_string()));
         obj.insert("message".to_string(), Value::String(self.message.clone()));
-        
+
         // errors as array-like object
         let mut errors_obj: HashMap<String, Value> = self.errors
             .iter()
@@ -300,7 +300,7 @@ impl AggregateError {
             .collect();
         errors_obj.insert("length".to_string(), Value::Number(self.errors.len() as f64));
         obj.insert("errors".to_string(), Value::NativeObject(errors_obj));
-        
+
         Value::NativeObject(obj)
     }
 }
@@ -333,18 +333,18 @@ impl PromiseAll {
         if self.rejected.load(Ordering::SeqCst) {
             return;
         }
-        
+
         {
             let mut results = self.results.lock();
             results[index] = Some(value);
         }
-        
+
         let remaining = self.remaining.fetch_sub(1, Ordering::SeqCst) - 1;
         if remaining == 0 {
             // All fulfilled
             let results = self.results.lock();
             let values: Vec<Value> = results.iter().map(|v| v.clone().unwrap_or(Value::Undefined)).collect();
-            
+
             // Convert to array-like object
             let mut arr: HashMap<String, Value> = values
                 .into_iter()
@@ -352,7 +352,7 @@ impl PromiseAll {
                 .map(|(i, v)| (i.to_string(), v))
                 .collect();
             arr.insert("length".to_string(), Value::Number(results.len() as f64));
-            
+
             self.result.write().fulfill(Value::NativeObject(arr));
         }
     }
@@ -486,7 +486,7 @@ impl PromiseAllSettled {
             let mut results = self.results.lock();
             results[index] = Some(result);
         }
-        
+
         let remaining = self.remaining.fetch_sub(1, Ordering::SeqCst) - 1;
         if remaining == 0 {
             // All settled
@@ -495,7 +495,7 @@ impl PromiseAllSettled {
                 .iter()
                 .map(|r| r.as_ref().map(|s| s.to_value()).unwrap_or(Value::Undefined))
                 .collect();
-            
+
             // Convert to array-like object
             let mut arr: HashMap<String, Value> = values
                 .into_iter()
@@ -503,7 +503,7 @@ impl PromiseAllSettled {
                 .map(|(i, v)| (i.to_string(), v))
                 .collect();
             arr.insert("length".to_string(), Value::Number(results.len() as f64));
-            
+
             self.result.write().fulfill(Value::NativeObject(arr));
         }
     }
@@ -550,12 +550,12 @@ impl PromiseAny {
         if self.fulfilled.load(Ordering::SeqCst) {
             return;
         }
-        
+
         {
             let mut errors = self.errors.lock();
             errors[index] = Some(reason);
         }
-        
+
         let remaining = self.remaining.fetch_sub(1, Ordering::SeqCst) - 1;
         if remaining == 0 {
             // All rejected
@@ -564,7 +564,7 @@ impl PromiseAny {
                 .iter()
                 .map(|e| e.clone().unwrap_or(Value::Undefined))
                 .collect();
-            
+
             let agg_error = AggregateError::new(
                 "All promises were rejected",
                 error_values,
@@ -642,14 +642,14 @@ pub mod async_iter {
     pub trait AsyncIterator: Send + Sync {
         /// Get the next value (returns a promise)
         fn next(&mut self) -> Arc<RwLock<Promise>>;
-        
+
         /// Return early (optional)
         fn return_value(&mut self, _value: Value) -> Arc<RwLock<Promise>> {
             let promise = Arc::new(RwLock::new(Promise::new()));
             promise.write().fulfill(AsyncIteratorResult::done().to_value());
             promise
         }
-        
+
         /// Throw an error (optional)
         fn throw(&mut self, error: Value) -> Arc<RwLock<Promise>> {
             let promise = Arc::new(RwLock::new(Promise::new()));
@@ -686,7 +686,7 @@ pub mod async_iter {
     impl AsyncIterator for AsyncFromSyncIterator {
         fn next(&mut self) -> Arc<RwLock<Promise>> {
             let promise = Arc::new(RwLock::new(Promise::new()));
-            
+
             if self.index < self.values.len() {
                 let value = self.values[self.index].clone();
                 self.index += 1;
@@ -695,7 +695,7 @@ pub mod async_iter {
             } else {
                 promise.write().fulfill(AsyncIteratorResult::done().to_value());
             }
-            
+
             promise
         }
     }
@@ -716,7 +716,7 @@ pub mod for_await {
     {
         loop {
             let next_promise = iterator.next();
-            
+
             // Wait for the promise to settle
             // In real implementation, this would yield to the event loop
             let next_result = {
@@ -737,17 +737,17 @@ pub mod for_await {
                     let done = obj.get("done")
                         .map(|v| matches!(v, Value::Boolean(true)))
                         .unwrap_or(false);
-                    
+
                     if done {
                         break;
                     }
-                    
+
                     let value = obj.get("value").cloned().unwrap_or(Value::Undefined);
                     callback(value)?;
                 }
             }
         }
-        
+
         Ok(())
     }
 }
@@ -793,7 +793,7 @@ impl TopLevelAwait {
                     }
                     p.state.clone()
                 };
-                
+
                 if state == PromiseState::Pending {
                     // Yield to event loop
                     tokio::task::yield_now().await;
@@ -825,7 +825,7 @@ mod tests {
     fn test_promise_fulfill() {
         let mut promise = Promise::new();
         promise.fulfill(Value::Number(42.0));
-        
+
         assert!(promise.is_fulfilled());
         assert!(promise.is_settled());
         assert_eq!(promise.value, Some(Value::Number(42.0)));
@@ -835,7 +835,7 @@ mod tests {
     fn test_promise_reject() {
         let mut promise = Promise::new();
         promise.reject(Value::String("error".to_string()));
-        
+
         assert!(promise.is_rejected());
         assert!(promise.is_settled());
         assert_eq!(promise.reason, Some(Value::String("error".to_string())));
@@ -857,7 +857,7 @@ mod tests {
     fn test_promise_capability() {
         let cap = PromiseCapability::new();
         assert!(cap.promise.read().is_pending());
-        
+
         (cap.resolve)(Value::Number(42.0));
         assert!(cap.promise.read().is_fulfilled());
     }
@@ -866,7 +866,7 @@ mod tests {
     fn test_settled_result() {
         let fulfilled = SettledResult::fulfilled(Value::Number(42.0));
         assert_eq!(fulfilled.status, "fulfilled");
-        
+
         let rejected = SettledResult::rejected(Value::String("error".to_string()));
         assert_eq!(rejected.status, "rejected");
     }

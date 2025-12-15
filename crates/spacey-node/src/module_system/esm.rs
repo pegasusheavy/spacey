@@ -238,6 +238,15 @@ impl EsmLoader {
                     reason: format!("Built-in module '{}' cannot be imported as ESM yet", name),
                 })
             }
+            ResolveResult::BuiltInSubpath { module, subpath } => {
+                Err(NodeError::ModuleResolution {
+                    module: specifier.to_string(),
+                    reason: format!(
+                        "Built-in module '{}' (subpath '{}') cannot be imported as ESM yet",
+                        module, subpath
+                    ),
+                })
+            }
             ResolveResult::File(path) | ResolveResult::Json(path) => Ok(path),
             ResolveResult::Native(path) => {
                 Err(NodeError::ModuleResolution {
@@ -246,6 +255,16 @@ impl EsmLoader {
                 })
             }
         }
+    }
+
+    /// Resolve a module specifier (returns ResolveResult for built-ins)
+    pub fn resolve_with_builtins(&self, specifier: &str, parent: &Path) -> Result<ResolveResult> {
+        self.resolver.resolve(specifier, parent)
+    }
+
+    /// Check if a specifier is a built-in module
+    pub fn is_builtin(&self, specifier: &str) -> bool {
+        self.resolver.is_builtin(specifier)
     }
 
     /// Determine module type for a file

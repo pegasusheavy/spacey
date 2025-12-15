@@ -29,6 +29,9 @@ mod resolver;
 pub use cache::ModuleCache;
 pub use esm::{EsmLoader, EsmModule, ImportMeta, ModuleType};
 pub use loader::ModuleLoader;
-pub use require::require;
-pub use resolver::{ModuleResolver, ResolveResult};
+pub use require::{builtin_modules, is_builtin, require, require_cache, require_main, require_resolve};
+pub use resolver::{
+    BuiltinResolveResult, ModuleResolver, ResolveResult, BUILTIN_MODULES, BUILTIN_SUBPATHS,
+    PROMISE_MODULES,
+};
 
