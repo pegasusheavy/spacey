@@ -366,12 +366,12 @@ impl ModuleResolver {
         let mut current = parent_path.parent();
         while let Some(dir) = current {
             let node_modules = dir.join("node_modules").join(package_name);
-            
+
             if node_modules.exists() {
                 if let Some(sub) = subpath {
                     // Resolve subpath within package
                     let subpath_key = format!("./{}", sub);
-                    
+
                     // Check package.json exports
                     let pkg_json_path = node_modules.join("package.json");
                     if pkg_json_path.is_file() {

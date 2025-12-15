@@ -182,7 +182,7 @@ impl NodeRuntime {
         // 1. Transform imports to require() calls (simplified)
         // 2. Provide import.meta object
         // 3. Handle exports
-        
+
         // This is a simplified transformation - real implementation would use the AST
         format!(
             r#"(function() {{
@@ -199,7 +199,7 @@ impl NodeRuntime {
     Object.defineProperty(this, 'import', {{
         value: {{ meta: __importMeta }}
     }});
-    
+
     // Module code
     {}
 }})();"#,

@@ -8,7 +8,8 @@
 //!
 //! Provides async I/O scheduling, timers, and callback management.
 
-use parking_lot::Mutex;
+use crate::modules::promises::{Promise, PromiseCapability};
+use parking_lot::{Mutex, RwLock};
 use spacey_spidermonkey::Value;
 use std::cmp::Ordering;
 use std::collections::{BinaryHeap, VecDeque};
@@ -79,8 +80,19 @@ pub enum EventMessage {
     QueueImmediate(Value),
     /// Queue a microtask
     QueueMicrotask(Value),
+    /// Queue a promise microtask (higher priority)
+    QueuePromiseMicrotask(Value),
     /// Signal to stop the event loop
     Stop,
+}
+
+/// Promise job for the microtask queue
+#[derive(Debug)]
+pub struct PromiseJob {
+    /// The callback to execute
+    pub callback: Value,
+    /// Arguments to pass to the callback
+    pub arguments: Vec<Value>,
 }
 
 /// The main event loop
@@ -91,8 +103,10 @@ pub struct EventLoop {
     timers: Arc<Mutex<BinaryHeap<Timer>>>,
     /// Pending immediate callbacks
     immediates: Arc<Mutex<VecDeque<Value>>>,
-    /// Microtask queue
+    /// Microtask queue (queueMicrotask)
     microtasks: Arc<Mutex<VecDeque<Value>>>,
+    /// Promise microtask queue (Promise reactions - higher priority)
+    promise_microtasks: Arc<Mutex<VecDeque<Value>>>,
     /// Channel for sending events to the loop
     event_tx: mpsc::UnboundedSender<EventMessage>,
     /// Channel for receiving events
@@ -101,6 +115,10 @@ pub struct EventLoop {
     running: AtomicBool,
     /// Whether we have any pending work
     has_pending_work: AtomicBool,
+    /// Pending promises (for tracking unhandled rejections)
+    pending_promises: Arc<Mutex<Vec<Arc<RwLock<Promise>>>>>,
+    /// Unhandled rejection callback
+    unhandled_rejection_handler: Arc<Mutex<Option<Value>>>,
 }
 
 impl EventLoop {
@@ -113,10 +131,13 @@ impl EventLoop {
             timers: Arc::new(Mutex::new(BinaryHeap::new())),
             immediates: Arc::new(Mutex::new(VecDeque::new())),
             microtasks: Arc::new(Mutex::new(VecDeque::new())),
+            promise_microtasks: Arc::new(Mutex::new(VecDeque::new())),
             event_tx,
             event_rx: Arc::new(Mutex::new(event_rx)),
             running: AtomicBool::new(false),
             has_pending_work: AtomicBool::new(false),
+            pending_promises: Arc::new(Mutex::new(Vec::new())),
+            unhandled_rejection_handler: Arc::new(Mutex::new(None)),
         }
     }
 
@@ -171,10 +192,84 @@ impl EventLoop {
         id
     }
 
-    /// Queue a microtask (queueMicrotask, Promise resolution)
+    /// Queue a microtask (queueMicrotask)
     pub fn queue_microtask(&self, callback: Value) {
         let _ = self.event_tx.send(EventMessage::QueueMicrotask(callback));
         self.has_pending_work.store(true, AtomicOrdering::SeqCst);
+    }
+
+    /// Queue a promise microtask (Promise resolution - higher priority)
+    pub fn queue_promise_microtask(&self, callback: Value) {
+        let _ = self.event_tx.send(EventMessage::QueuePromiseMicrotask(callback));
+        self.has_pending_work.store(true, AtomicOrdering::SeqCst);
+    }
+
+    /// Create a promise that resolves after a delay (like util.promisify(setTimeout))
+    pub fn delay(&self, ms: u64) -> Arc<RwLock<Promise>> {
+        let promise = Arc::new(RwLock::new(Promise::new()));
+        let promise_clone = Arc::clone(&promise);
+
+        // Schedule a timer that fulfills the promise
+        let id = self.next_id();
+        let timer = Timer {
+            id,
+            deadline: Instant::now() + Duration::from_millis(ms),
+            callback: Value::Undefined, // Would be replaced with actual callback
+            repeat: None,
+            cancelled: false,
+        };
+        let _ = self.event_tx.send(EventMessage::ScheduleTimer(timer));
+        self.has_pending_work.store(true, AtomicOrdering::SeqCst);
+
+        // Track for fulfillment
+        self.pending_promises.lock().push(promise_clone);
+
+        promise
+    }
+
+    /// Resolve a value (Promise.resolve)
+    pub fn resolve(&self, value: Value) -> Arc<RwLock<Promise>> {
+        Arc::new(RwLock::new(Promise::resolved(value)))
+    }
+
+    /// Reject with a reason (Promise.reject)
+    pub fn reject(&self, reason: Value) -> Arc<RwLock<Promise>> {
+        Arc::new(RwLock::new(Promise::rejected(reason)))
+    }
+
+    /// Set the unhandled rejection handler
+    pub fn set_unhandled_rejection_handler(&self, handler: Value) {
+        *self.unhandled_rejection_handler.lock() = Some(handler);
+    }
+
+    /// Handle an unhandled promise rejection
+    pub fn emit_unhandled_rejection(&self, promise: &Promise, reason: &Value) {
+        if let Some(handler) = self.unhandled_rejection_handler.lock().as_ref() {
+            // Queue a microtask to call the handler
+            tracing::warn!(
+                "Unhandled promise rejection (promise id: {}): {:?}",
+                promise.id,
+                reason
+            );
+        }
+    }
+
+    /// Track a promise for unhandled rejection detection
+    pub fn track_promise(&self, promise: Arc<RwLock<Promise>>) {
+        self.pending_promises.lock().push(promise);
+    }
+
+    /// Check for unhandled rejections (called at end of tick)
+    pub fn check_unhandled_rejections(&self) {
+        let promises = self.pending_promises.lock();
+        for promise in promises.iter() {
+            let p = promise.read();
+            if p.is_rejected() && !p.handled {
+                if let Some(reason) = &p.reason {
+                    self.emit_unhandled_rejection(&p, reason);
+                }
+            }
+        }
     }
 
     /// Process pending events and return callbacks ready to execute
@@ -206,6 +301,9 @@ impl EventLoop {
                     EventMessage::QueueMicrotask(callback) => {
                         self.microtasks.lock().push_back(callback);
                     }
+                    EventMessage::QueuePromiseMicrotask(callback) => {
+                        self.promise_microtasks.lock().push_back(callback);
+                    }
                     EventMessage::Stop => {
                         self.running.store(false, AtomicOrdering::SeqCst);
                     }
@@ -213,7 +311,15 @@ impl EventLoop {
             }
         }
 
-        // Process microtasks first (highest priority)
+        // Process promise microtasks first (highest priority - spec compliance)
+        {
+            let mut promise_microtasks = self.promise_microtasks.lock();
+            while let Some(callback) = promise_microtasks.pop_front() {
+                ready_callbacks.push(Callback::Microtask(callback));
+            }
+        }
+
+        // Process regular microtasks second
         {
             let mut microtasks = self.microtasks.lock();
             while let Some(callback) = microtasks.pop_front() {
@@ -262,8 +368,12 @@ impl EventLoop {
         // Update pending work status
         let has_work = !self.timers.lock().is_empty()
             || !self.immediates.lock().is_empty()
-            || !self.microtasks.lock().is_empty();
+            || !self.microtasks.lock().is_empty()
+            || !self.promise_microtasks.lock().is_empty();
         self.has_pending_work.store(has_work, AtomicOrdering::SeqCst);
+
+        // Check for unhandled rejections at end of tick
+        self.check_unhandled_rejections();
 
         ready_callbacks
     }

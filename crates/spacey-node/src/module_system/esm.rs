@@ -230,7 +230,7 @@ impl EsmLoader {
     /// Resolve a module specifier
     pub fn resolve(&self, specifier: &str, parent: &Path) -> Result<PathBuf> {
         let resolved = self.resolver.resolve(specifier, parent)?;
-        
+
         match resolved {
             ResolveResult::BuiltIn(name) => {
                 Err(NodeError::ModuleResolution {
@@ -268,7 +268,7 @@ impl EsmLoader {
     /// Find the package.json type field for a file
     fn find_package_type(&self, path: &Path) -> Result<Option<ModuleType>> {
         let mut current = path.parent();
-        
+
         while let Some(dir) = current {
             let pkg_path = dir.join("package.json");
             if pkg_path.exists() {
@@ -279,7 +279,7 @@ impl EsmLoader {
             }
             current = dir.parent();
         }
-        
+
         Ok(None)
     }
 
@@ -326,7 +326,7 @@ impl EsmLoader {
 
             // Load and parse the module
             let source = std::fs::read_to_string(&abs_path)?;
-            
+
             // Parse imports/exports (simplified - real implementation would use the parser)
             let (imports, _exports) = self.parse_module_syntax(&source)?;
 
@@ -470,7 +470,7 @@ impl EsmLoader {
         for cap in export_re_export_re.captures_iter(source) {
             let named = cap.get(1).map(|m| m.as_str()).unwrap_or_default();
             let from = cap.get(2).map(|m| m.as_str().to_string()).unwrap_or_default();
-            
+
             let mut export_specs = Vec::new();
             for part in named.split(',') {
                 let part = part.trim();
@@ -506,7 +506,7 @@ impl EsmLoader {
 
             let named = cap.get(1).map(|m| m.as_str()).unwrap_or_default();
             let mut export_specs = Vec::new();
-            
+
             for part in named.split(',') {
                 let part = part.trim();
                 if part.is_empty() {
@@ -624,16 +624,16 @@ mod tests {
     #[test]
     fn test_parse_imports() {
         let loader = EsmLoader::new();
-        
+
         let source = r#"
             import foo from 'foo';
             import { bar, baz as qux } from 'bar';
             import * as all from 'all';
             import 'side-effect';
         "#;
-        
+
         let (imports, _) = loader.parse_module_syntax(source).unwrap();
-        
+
         assert_eq!(imports.len(), 4);
         assert_eq!(imports[0].specifier, "foo");
         assert_eq!(imports[1].specifier, "bar");
@@ -644,16 +644,16 @@ mod tests {
     #[test]
     fn test_parse_exports() {
         let loader = EsmLoader::new();
-        
+
         let source = r#"
             export default function() {}
             export { foo, bar as baz };
             export * from 'reexport';
             export * as ns from 'namespace';
         "#;
-        
+
         let (_, exports) = loader.parse_module_syntax(source).unwrap();
-        
+
         assert!(!exports.is_empty());
     }
 }

@@ -19,6 +19,7 @@ pub mod https;
 pub mod net;
 pub mod os;
 pub mod path;
+pub mod promises;
 pub mod querystring;
 pub mod stream;
 pub mod string_decoder;
