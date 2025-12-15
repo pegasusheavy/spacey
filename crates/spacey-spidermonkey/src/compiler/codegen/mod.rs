@@ -2,11 +2,26 @@
 //!
 //! This module contains the `Compiler` which transforms parsed JavaScript AST
 //! into executable bytecode for the VM.
+//!
+//! ## Structure
+//!
+//! - `mod.rs` - Main `Compiler` struct and compilation logic
+//! - `scope.rs` - Variable scope management
+//! - `tests.rs` - Compiler unit tests
+//!
+//! ## Documentation Submodules
+//!
+//! - `statements` - Statement compilation documentation
+//! - `expressions` - Expression compilation documentation
 
 mod scope;
 
 #[cfg(test)]
 mod tests;
+
+// Documentation and test submodules
+pub mod expressions;
+pub mod statements;
 
 pub use scope::{Local, Scope};
 
