@@ -238,11 +238,11 @@ mod tests {
         let program = parse_ts(r#"
             type ID = number;
             interface User { name: string; }
-            
+
             function greet(name: string): void {
                 console.log('Hello, ' + name);
             }
-            
+
             greet('World');
         "#);
         // Should have: Empty (type), Empty (interface), FunctionDecl, Expression

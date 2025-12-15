@@ -19,7 +19,7 @@
 //! use spacey_spidermonkey::lexer::{Scanner, TokenKind};
 //!
 //! let mut scanner = Scanner::new("let x = 42;");
-//! 
+//!
 //! loop {
 //!     let token = scanner.next_token();
 //!     if matches!(token.kind, TokenKind::Eof) {

@@ -1,0 +1,502 @@
+<!-- Spacey Documentation Website -->
+<div class="min-h-screen bg-slate-950 text-white overflow-x-hidden">
+  <!-- Animated Background -->
+  <div class="fixed inset-0 overflow-hidden pointer-events-none">
+    <div class="absolute top-0 left-1/4 w-96 h-96 bg-purple-500/20 rounded-full blur-3xl animate-pulse"></div>
+    <div class="absolute bottom-1/4 right-1/4 w-80 h-80 bg-blue-500/20 rounded-full blur-3xl animate-pulse" style="animation-delay: 1s"></div>
+    <div class="absolute top-1/2 left-1/2 w-64 h-64 bg-cyan-500/10 rounded-full blur-3xl animate-pulse" style="animation-delay: 2s"></div>
+    <!-- Stars -->
+    @for (star of stars; track star.id) {
+      <div 
+        class="absolute w-1 h-1 bg-white rounded-full animate-twinkle"
+        [style.left.%]="star.x"
+        [style.top.%]="star.y"
+        [style.animation-delay]="star.delay + 's'"
+        [style.opacity]="star.opacity"
+      ></div>
+    }
+  </div>
+
+  <!-- Navigation -->
+  <nav class="relative z-10 flex items-center justify-between px-6 lg:px-12 py-6 border-b border-white/5 backdrop-blur-sm">
+    <div class="flex items-center gap-3">
+      <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-purple-500 to-cyan-400 flex items-center justify-center">
+        <span class="text-xl font-bold">S</span>
+      </div>
+      <span class="text-xl font-semibold tracking-tight">Spacey</span>
+    </div>
+    <div class="hidden md:flex items-center gap-8">
+      <a href="#features" class="text-slate-300 hover:text-white transition-colors">Features</a>
+      <a href="#architecture" class="text-slate-300 hover:text-white transition-colors">Architecture</a>
+      <a href="#getting-started" class="text-slate-300 hover:text-white transition-colors">Getting Started</a>
+      <a href="https://github.com/pegasusheavy/spacey" target="_blank" class="flex items-center gap-2 px-4 py-2 bg-white/10 rounded-lg hover:bg-white/20 transition-colors">
+        <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
+        GitHub
+      </a>
+    </div>
+    <!-- Mobile menu button -->
+    <button class="md:hidden p-2" (click)="toggleMobileMenu()">
+      <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path>
+      </svg>
+    </button>
+  </nav>
+
+  <!-- Mobile Menu -->
+  @if (mobileMenuOpen()) {
+    <div class="md:hidden fixed inset-0 z-50 bg-slate-950/95 backdrop-blur-lg">
+      <div class="flex flex-col items-center justify-center h-full gap-8 text-xl">
+        <button class="absolute top-6 right-6" (click)="toggleMobileMenu()">
+          <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+          </svg>
+        </button>
+        <a href="#features" class="hover:text-purple-400 transition-colors" (click)="toggleMobileMenu()">Features</a>
+        <a href="#architecture" class="hover:text-purple-400 transition-colors" (click)="toggleMobileMenu()">Architecture</a>
+        <a href="#getting-started" class="hover:text-purple-400 transition-colors" (click)="toggleMobileMenu()">Getting Started</a>
+        <a href="https://github.com/pegasusheavy/spacey" target="_blank" class="flex items-center gap-2 px-6 py-3 bg-purple-600 rounded-lg">
+          <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
+          GitHub
+        </a>
+      </div>
+    </div>
+  }
+
+  <!-- Hero Section -->
+  <section class="relative z-10 px-6 lg:px-12 py-24 lg:py-32">
+    <div class="max-w-6xl mx-auto text-center">
+      <div class="inline-flex items-center gap-2 px-4 py-2 mb-8 text-sm bg-purple-500/10 border border-purple-500/20 rounded-full text-purple-300">
+        <span class="relative flex h-2 w-2">
+          <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-purple-400 opacity-75"></span>
+          <span class="relative inline-flex rounded-full h-2 w-2 bg-purple-500"></span>
+        </span>
+        Experimental · Targeting Servo Browser
+      </div>
+      
+      <h1 class="text-5xl lg:text-7xl font-bold mb-6 leading-tight">
+        <span class="bg-gradient-to-r from-purple-400 via-cyan-400 to-blue-400 bg-clip-text text-transparent">
+          JavaScript Engine
+        </span>
+        <br />
+        <span class="text-white">Written in Pure Rust</span>
+      </h1>
+      
+      <p class="text-xl lg:text-2xl text-slate-400 max-w-3xl mx-auto mb-12 leading-relaxed">
+        A from-scratch JavaScript engine designed for the 
+        <a href="https://servo.org" target="_blank" class="text-cyan-400 hover:text-cyan-300 underline decoration-cyan-400/30 hover:decoration-cyan-300">Servo</a> 
+        web browser. Memory-safe, modern, and built with Rust's power.
+      </p>
+      
+      <div class="flex flex-col sm:flex-row items-center justify-center gap-4">
+        <a href="#getting-started" class="px-8 py-4 bg-gradient-to-r from-purple-600 to-cyan-600 rounded-xl font-semibold text-lg hover:from-purple-500 hover:to-cyan-500 transition-all shadow-lg shadow-purple-500/25 hover:shadow-purple-500/40">
+          Get Started
+        </a>
+        <a href="https://github.com/pegasusheavy/spacey" target="_blank" class="px-8 py-4 bg-white/5 border border-white/10 rounded-xl font-semibold text-lg hover:bg-white/10 transition-colors flex items-center gap-2">
+          <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
+          View on GitHub
+        </a>
+      </div>
+      
+      <!-- Tech badges -->
+      <div class="flex flex-wrap items-center justify-center gap-4 mt-16">
+        <span class="px-4 py-2 bg-orange-500/10 text-orange-400 rounded-lg text-sm font-medium">Rust 2024</span>
+        <span class="px-4 py-2 bg-purple-500/10 text-purple-400 rounded-lg text-sm font-medium">ES3 Compatible</span>
+        <span class="px-4 py-2 bg-cyan-500/10 text-cyan-400 rounded-lg text-sm font-medium">TypeScript Support</span>
+        <span class="px-4 py-2 bg-green-500/10 text-green-400 rounded-lg text-sm font-medium">Node.js APIs</span>
+        <span class="px-4 py-2 bg-blue-500/10 text-blue-400 rounded-lg text-sm font-medium">Async/Tokio</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- Features Section -->
+  <section id="features" class="relative z-10 px-6 lg:px-12 py-24 border-t border-white/5">
+    <div class="max-w-6xl mx-auto">
+      <div class="text-center mb-16">
+        <h2 class="text-3xl lg:text-5xl font-bold mb-4">
+          Why <span class="bg-gradient-to-r from-purple-400 to-cyan-400 bg-clip-text text-transparent">Spacey</span>?
+        </h2>
+        <p class="text-slate-400 text-lg max-w-2xl mx-auto">
+          Built from the ground up with modern web platform needs in mind
+        </p>
+      </div>
+      
+      <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <!-- Feature Card 1 -->
+        <div class="group p-6 bg-gradient-to-br from-white/5 to-transparent border border-white/5 rounded-2xl hover:border-purple-500/30 transition-all duration-300">
+          <div class="w-12 h-12 mb-4 rounded-xl bg-purple-500/10 flex items-center justify-center group-hover:bg-purple-500/20 transition-colors">
+            <svg class="w-6 h-6 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path>
+            </svg>
+          </div>
+          <h3 class="text-xl font-semibold mb-2">Memory Safe</h3>
+          <p class="text-slate-400">Leverages Rust's ownership model for a JavaScript runtime free of memory bugs and data races.</p>
+        </div>
+
+        <!-- Feature Card 2 -->
+        <div class="group p-6 bg-gradient-to-br from-white/5 to-transparent border border-white/5 rounded-2xl hover:border-cyan-500/30 transition-all duration-300">
+          <div class="w-12 h-12 mb-4 rounded-xl bg-cyan-500/10 flex items-center justify-center group-hover:bg-cyan-500/20 transition-colors">
+            <svg class="w-6 h-6 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+            </svg>
+          </div>
+          <h3 class="text-xl font-semibold mb-2">Pure Rust</h3>
+          <p class="text-slate-400">No C++ dependencies. Enables tighter integration with Rust-based projects like Servo.</p>
+        </div>
+
+        <!-- Feature Card 3 -->
+        <div class="group p-6 bg-gradient-to-br from-white/5 to-transparent border border-white/5 rounded-2xl hover:border-blue-500/30 transition-all duration-300">
+          <div class="w-12 h-12 mb-4 rounded-xl bg-blue-500/10 flex items-center justify-center group-hover:bg-blue-500/20 transition-colors">
+            <svg class="w-6 h-6 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM4 13a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6zM16 13a1 1 0 011-1h2a1 1 0 011 1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-6z"></path>
+            </svg>
+          </div>
+          <h3 class="text-xl font-semibold mb-2">Modular Design</h3>
+          <p class="text-slate-400">Clean architecture with separate crates for engine, runtime, and Node.js compatibility.</p>
+        </div>
+
+        <!-- Feature Card 4 -->
+        <div class="group p-6 bg-gradient-to-br from-white/5 to-transparent border border-white/5 rounded-2xl hover:border-green-500/30 transition-all duration-300">
+          <div class="w-12 h-12 mb-4 rounded-xl bg-green-500/10 flex items-center justify-center group-hover:bg-green-500/20 transition-colors">
+            <svg class="w-6 h-6 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"></path>
+            </svg>
+          </div>
+          <h3 class="text-xl font-semibold mb-2">TypeScript Native</h3>
+          <p class="text-slate-400">Direct TypeScript parsing without transpilation. Types are stripped at parse time for fast execution.</p>
+        </div>
+
+        <!-- Feature Card 5 -->
+        <div class="group p-6 bg-gradient-to-br from-white/5 to-transparent border border-white/5 rounded-2xl hover:border-yellow-500/30 transition-all duration-300">
+          <div class="w-12 h-12 mb-4 rounded-xl bg-yellow-500/10 flex items-center justify-center group-hover:bg-yellow-500/20 transition-colors">
+            <svg class="w-6 h-6 text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z"></path>
+            </svg>
+          </div>
+          <h3 class="text-xl font-semibold mb-2">Generational GC</h3>
+          <p class="text-slate-400">High-performance garbage collector with nursery/old generation, incremental marking, and parallel sweeping.</p>
+        </div>
+
+        <!-- Feature Card 6 -->
+        <div class="group p-6 bg-gradient-to-br from-white/5 to-transparent border border-white/5 rounded-2xl hover:border-pink-500/30 transition-all duration-300">
+          <div class="w-12 h-12 mb-4 rounded-xl bg-pink-500/10 flex items-center justify-center group-hover:bg-pink-500/20 transition-colors">
+            <svg class="w-6 h-6 text-pink-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"></path>
+            </svg>
+          </div>
+          <h3 class="text-xl font-semibold mb-2">Node.js Compatible</h3>
+          <p class="text-slate-400">Full Node.js API layer with CommonJS, ES Modules, and async I/O through Tokio.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Architecture Section -->
+  <section id="architecture" class="relative z-10 px-6 lg:px-12 py-24 border-t border-white/5">
+    <div class="max-w-6xl mx-auto">
+      <div class="text-center mb-16">
+        <h2 class="text-3xl lg:text-5xl font-bold mb-4">Architecture</h2>
+        <p class="text-slate-400 text-lg max-w-2xl mx-auto">
+          A modern, modular design inspired by decades of JavaScript engine research
+        </p>
+      </div>
+      
+      <!-- Architecture Diagram -->
+      <div class="relative p-8 bg-gradient-to-br from-slate-900 to-slate-950 border border-white/10 rounded-3xl overflow-hidden">
+        <div class="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(124,58,237,0.1),transparent_70%)]"></div>
+        
+        <div class="relative space-y-8">
+          <!-- Pipeline -->
+          <div class="flex flex-col lg:flex-row items-center justify-between gap-4">
+            <div class="flex-1 w-full">
+              <div class="p-4 bg-purple-500/10 border border-purple-500/20 rounded-xl text-center">
+                <div class="text-purple-400 font-mono text-sm mb-1">Source Code</div>
+                <div class="text-xs text-slate-500">.js / .ts / .mjs</div>
+              </div>
+            </div>
+            <svg class="w-8 h-8 text-slate-600 rotate-90 lg:rotate-0 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"></path>
+            </svg>
+            <div class="flex-1 w-full">
+              <div class="p-4 bg-cyan-500/10 border border-cyan-500/20 rounded-xl text-center">
+                <div class="text-cyan-400 font-mono text-sm mb-1">Lexer</div>
+                <div class="text-xs text-slate-500">Tokenization</div>
+              </div>
+            </div>
+            <svg class="w-8 h-8 text-slate-600 rotate-90 lg:rotate-0 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"></path>
+            </svg>
+            <div class="flex-1 w-full">
+              <div class="p-4 bg-blue-500/10 border border-blue-500/20 rounded-xl text-center">
+                <div class="text-blue-400 font-mono text-sm mb-1">Parser</div>
+                <div class="text-xs text-slate-500">AST Generation</div>
+              </div>
+            </div>
+            <svg class="w-8 h-8 text-slate-600 rotate-90 lg:rotate-0 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"></path>
+            </svg>
+            <div class="flex-1 w-full">
+              <div class="p-4 bg-green-500/10 border border-green-500/20 rounded-xl text-center">
+                <div class="text-green-400 font-mono text-sm mb-1">Compiler</div>
+                <div class="text-xs text-slate-500">Bytecode</div>
+              </div>
+            </div>
+            <svg class="w-8 h-8 text-slate-600 rotate-90 lg:rotate-0 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"></path>
+            </svg>
+            <div class="flex-1 w-full">
+              <div class="p-4 bg-orange-500/10 border border-orange-500/20 rounded-xl text-center">
+                <div class="text-orange-400 font-mono text-sm mb-1">VM</div>
+                <div class="text-xs text-slate-500">Execution</div>
+              </div>
+            </div>
+          </div>
+          
+          <!-- Runtime Layer -->
+          <div class="p-6 bg-slate-800/50 border border-white/5 rounded-xl">
+            <div class="text-center mb-4">
+              <span class="text-sm font-medium text-slate-400">Runtime Layer</span>
+            </div>
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div class="p-3 bg-slate-900/50 rounded-lg text-center">
+                <div class="text-sm font-mono text-yellow-400">Values</div>
+              </div>
+              <div class="p-3 bg-slate-900/50 rounded-lg text-center">
+                <div class="text-sm font-mono text-yellow-400">Objects</div>
+              </div>
+              <div class="p-3 bg-slate-900/50 rounded-lg text-center">
+                <div class="text-sm font-mono text-yellow-400">Built-ins</div>
+              </div>
+              <div class="p-3 bg-slate-900/50 rounded-lg text-center">
+                <div class="text-sm font-mono text-yellow-400">GC</div>
+              </div>
+            </div>
+          </div>
+          
+          <!-- Crates -->
+          <div class="grid md:grid-cols-3 gap-4">
+            <div class="p-4 bg-purple-900/20 border border-purple-500/20 rounded-xl">
+              <div class="font-mono text-purple-400 mb-2">spacey-spidermonkey</div>
+              <div class="text-xs text-slate-400">Core JS engine library</div>
+            </div>
+            <div class="p-4 bg-cyan-900/20 border border-cyan-500/20 rounded-xl">
+              <div class="font-mono text-cyan-400 mb-2">spacey-node</div>
+              <div class="text-xs text-slate-400">Node.js compatibility layer</div>
+            </div>
+            <div class="p-4 bg-green-900/20 border border-green-500/20 rounded-xl">
+              <div class="font-mono text-green-400 mb-2">spacey-npm</div>
+              <div class="text-xs text-slate-400">NPM-compatible package manager</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Getting Started Section -->
+  <section id="getting-started" class="relative z-10 px-6 lg:px-12 py-24 border-t border-white/5">
+    <div class="max-w-6xl mx-auto">
+      <div class="text-center mb-16">
+        <h2 class="text-3xl lg:text-5xl font-bold mb-4">Getting Started</h2>
+        <p class="text-slate-400 text-lg max-w-2xl mx-auto">
+          Get up and running with Spacey in minutes
+        </p>
+      </div>
+      
+      <div class="grid lg:grid-cols-2 gap-8">
+        <!-- Build Instructions -->
+        <div class="space-y-6">
+          <h3 class="text-xl font-semibold flex items-center gap-2">
+            <span class="w-8 h-8 bg-purple-500/20 text-purple-400 rounded-lg flex items-center justify-center text-sm font-bold">1</span>
+            Build from Source
+          </h3>
+          <div class="bg-slate-900 border border-white/10 rounded-xl overflow-hidden">
+            <div class="flex items-center justify-between px-4 py-2 bg-slate-800/50 border-b border-white/5">
+              <span class="text-xs text-slate-400 font-mono">terminal</span>
+              <button class="text-xs text-slate-500 hover:text-white transition-colors" (click)="copyCode('build')">Copy</button>
+            </div>
+            <pre class="p-4 overflow-x-auto text-sm"><code class="text-slate-300"><span class="text-slate-500"># Clone the repository</span>
+<span class="text-cyan-400">git</span> clone https://github.com/pegasusheavy/spacey.git
+<span class="text-cyan-400">cd</span> spacey
+
+<span class="text-slate-500"># Build all crates</span>
+<span class="text-cyan-400">cargo</span> build --release
+
+<span class="text-slate-500"># Run the REPL</span>
+<span class="text-cyan-400">cargo</span> run</code></pre>
+          </div>
+        </div>
+
+        <!-- Rust Usage -->
+        <div class="space-y-6">
+          <h3 class="text-xl font-semibold flex items-center gap-2">
+            <span class="w-8 h-8 bg-cyan-500/20 text-cyan-400 rounded-lg flex items-center justify-center text-sm font-bold">2</span>
+            Use as a Library
+          </h3>
+          <div class="bg-slate-900 border border-white/10 rounded-xl overflow-hidden">
+            <div class="flex items-center justify-between px-4 py-2 bg-slate-800/50 border-b border-white/5">
+              <span class="text-xs text-slate-400 font-mono">main.rs</span>
+              <button class="text-xs text-slate-500 hover:text-white transition-colors" (click)="copyCode('rust')">Copy</button>
+            </div>
+            <pre class="p-4 overflow-x-auto text-sm"><code class="text-slate-300"><span class="text-purple-400">use</span> spacey_spidermonkey::Engine;
+
+<span class="text-purple-400">fn</span> <span class="text-cyan-400">main</span>() {{ '{' }}
+    <span class="text-purple-400">let mut</span> engine = Engine::new();
+    
+    <span class="text-purple-400">match</span> engine.eval(<span class="text-green-400">"1 + 2 * 3"</span>) {{ '{' }}
+        <span class="text-cyan-400">Ok</span>(result) =&gt; <span class="text-cyan-400">println!</span>(<span class="text-green-400">"Result: {{ '{}' }}"</span>, result),
+        <span class="text-cyan-400">Err</span>(e) =&gt; <span class="text-cyan-400">eprintln!</span>(<span class="text-green-400">"Error: {{ '{}' }}"</span>, e),
+    {{ '}' }}
+{{ '}' }}</code></pre>
+          </div>
+        </div>
+
+        <!-- TypeScript Example -->
+        <div class="space-y-6">
+          <h3 class="text-xl font-semibold flex items-center gap-2">
+            <span class="w-8 h-8 bg-blue-500/20 text-blue-400 rounded-lg flex items-center justify-center text-sm font-bold">3</span>
+            Run TypeScript Directly
+          </h3>
+          <div class="bg-slate-900 border border-white/10 rounded-xl overflow-hidden">
+            <div class="flex items-center justify-between px-4 py-2 bg-slate-800/50 border-b border-white/5">
+              <span class="text-xs text-slate-400 font-mono">example.ts</span>
+              <button class="text-xs text-slate-500 hover:text-white transition-colors" (click)="copyCode('typescript')">Copy</button>
+            </div>
+            <pre class="p-4 overflow-x-auto text-sm"><code class="text-slate-300"><span class="text-slate-500">// TypeScript runs natively!</span>
+<span class="text-purple-400">interface</span> <span class="text-cyan-400">User</span> {{'{'}}
+    name: <span class="text-yellow-400">string</span>;
+    age: <span class="text-yellow-400">number</span>;
+{{'}'}}
+
+<span class="text-purple-400">const</span> greet = (user: <span class="text-cyan-400">User</span>): <span class="text-yellow-400">string</span> => {{'{'}}
+    <span class="text-purple-400">return</span> <span class="text-green-400">`Hello, ${{'{'}}</span>user.name<span class="text-green-400">{{'}'}}!`</span>;
+{{'}'}};
+
+console.log(greet({{'{'}} name: <span class="text-green-400">"World"</span>, age: <span class="text-orange-400">42</span> {{'}'}});</code></pre>
+          </div>
+        </div>
+
+        <!-- Node.js Example -->
+        <div class="space-y-6">
+          <h3 class="text-xl font-semibold flex items-center gap-2">
+            <span class="w-8 h-8 bg-green-500/20 text-green-400 rounded-lg flex items-center justify-center text-sm font-bold">4</span>
+            Node.js Compatibility
+          </h3>
+          <div class="bg-slate-900 border border-white/10 rounded-xl overflow-hidden">
+            <div class="flex items-center justify-between px-4 py-2 bg-slate-800/50 border-b border-white/5">
+              <span class="text-xs text-slate-400 font-mono">server.js</span>
+              <button class="text-xs text-slate-500 hover:text-white transition-colors" (click)="copyCode('node')">Copy</button>
+            </div>
+            <pre class="p-4 overflow-x-auto text-sm"><code class="text-slate-300"><span class="text-purple-400">const</span> fs = <span class="text-cyan-400">require</span>(<span class="text-green-400">'node:fs'</span>);
+<span class="text-purple-400">const</span> path = <span class="text-cyan-400">require</span>(<span class="text-green-400">'node:path'</span>);
+
+<span class="text-slate-500">// ES Modules also supported</span>
+<span class="text-purple-400">import</span> {{'{'}} readFile {{'}'}} <span class="text-purple-400">from</span> <span class="text-green-400">'node:fs/promises'</span>;
+
+<span class="text-purple-400">async function</span> <span class="text-cyan-400">main</span>() {{'{'}}
+    <span class="text-purple-400">const</span> data = <span class="text-purple-400">await</span> readFile(<span class="text-green-400">'./data.json'</span>);
+    console.log(data);
+{{'}'}}</code></pre>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Status Section -->
+  <section class="relative z-10 px-6 lg:px-12 py-24 border-t border-white/5">
+    <div class="max-w-6xl mx-auto">
+      <div class="text-center mb-16">
+        <h2 class="text-3xl lg:text-5xl font-bold mb-4">Development Status</h2>
+        <p class="text-slate-400 text-lg max-w-2xl mx-auto">
+          Spacey is under active development. Here's where we are:
+        </p>
+      </div>
+      
+      <div class="grid md:grid-cols-2 gap-6">
+        @for (item of statusItems; track item.name) {
+          <div class="flex items-center gap-4 p-4 bg-white/5 rounded-xl border border-white/5">
+            @switch (item.status) {
+              @case ('complete') {
+                <div class="w-10 h-10 rounded-full bg-green-500/20 flex items-center justify-center flex-shrink-0">
+                  <svg class="w-5 h-5 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                  </svg>
+                </div>
+              }
+              @case ('in-progress') {
+                <div class="w-10 h-10 rounded-full bg-yellow-500/20 flex items-center justify-center flex-shrink-0">
+                  <svg class="w-5 h-5 text-yellow-400 animate-spin" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                </div>
+              }
+              @case ('planned') {
+                <div class="w-10 h-10 rounded-full bg-slate-500/20 flex items-center justify-center flex-shrink-0">
+                  <svg class="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                  </svg>
+                </div>
+              }
+            }
+            <div class="flex-1">
+              <div class="font-medium">{{ item.name }}</div>
+              <div class="text-sm text-slate-400">{{ item.description }}</div>
+            </div>
+            <span class="px-3 py-1 text-xs rounded-full" 
+              [class]="item.status === 'complete' ? 'bg-green-500/10 text-green-400' : item.status === 'in-progress' ? 'bg-yellow-500/10 text-yellow-400' : 'bg-slate-500/10 text-slate-400'">
+              {{ item.status === 'complete' ? 'Complete' : item.status === 'in-progress' ? 'In Progress' : 'Planned' }}
+            </span>
+          </div>
+        }
+      </div>
+    </div>
+  </section>
+
+  <!-- CTA Section -->
+  <section class="relative z-10 px-6 lg:px-12 py-24 border-t border-white/5">
+    <div class="max-w-4xl mx-auto text-center">
+      <div class="p-12 bg-gradient-to-br from-purple-900/30 to-cyan-900/30 border border-white/10 rounded-3xl">
+        <h2 class="text-3xl lg:text-4xl font-bold mb-4">Ready to Contribute?</h2>
+        <p class="text-slate-400 text-lg mb-8 max-w-2xl mx-auto">
+          Spacey welcomes contributions! Help us build the future of JavaScript engines in Rust.
+        </p>
+        <div class="flex flex-col sm:flex-row items-center justify-center gap-4">
+          <a href="https://github.com/pegasusheavy/spacey" target="_blank" class="px-8 py-4 bg-white text-slate-900 rounded-xl font-semibold hover:bg-slate-100 transition-colors flex items-center gap-2">
+            <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
+            Star on GitHub
+          </a>
+          <a href="https://github.com/pegasusheavy/spacey/issues" target="_blank" class="px-8 py-4 bg-white/10 rounded-xl font-semibold hover:bg-white/20 transition-colors">
+            Browse Issues
+          </a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer class="relative z-10 px-6 lg:px-12 py-12 border-t border-white/5">
+    <div class="max-w-6xl mx-auto">
+      <div class="flex flex-col md:flex-row items-center justify-between gap-6">
+        <div class="flex items-center gap-3">
+          <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-purple-500 to-cyan-400 flex items-center justify-center">
+            <span class="text-sm font-bold">S</span>
+          </div>
+          <span class="font-semibold">Spacey</span>
+        </div>
+        
+        <div class="flex items-center gap-6 text-sm text-slate-400">
+          <a href="https://github.com/pegasusheavy/spacey" target="_blank" class="hover:text-white transition-colors">GitHub</a>
+          <a href="https://servo.org" target="_blank" class="hover:text-white transition-colors">Servo</a>
+          <span>MPL-2.0 License</span>
+        </div>
+        
+        <div class="text-sm text-slate-500">
+          © 2025 Pegasus Heavy Industries
+        </div>
+      </div>
+    </div>
+  </footer>
+</div>
+
+<router-outlet />
