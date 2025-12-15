@@ -4,6 +4,7 @@ members = [
     "crates/spacey-macros",
     "crates/spacey-spidermonkey",
     "crates/spacey-node",
+    "crates/spacey-npm",
 ]
 
 [workspace.package]
