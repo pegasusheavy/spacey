@@ -112,6 +112,52 @@ pub enum TokenKind {
     Yield,
     Async,
 
+    // TypeScript Keywords
+    /// type (TypeScript)
+    Type,
+    /// interface (TypeScript)
+    Interface,
+    /// namespace (TypeScript)
+    Namespace,
+    /// declare (TypeScript)
+    Declare,
+    /// readonly (TypeScript)
+    Readonly,
+    /// abstract (TypeScript)
+    Abstract,
+    /// implements (TypeScript)
+    Implements,
+    /// private (TypeScript - also valid JS class field)
+    Private,
+    /// protected (TypeScript)
+    Protected,
+    /// public (TypeScript)
+    Public,
+    /// as (TypeScript type assertion)
+    As,
+    /// is (TypeScript type predicate)
+    Is,
+    /// keyof (TypeScript)
+    Keyof,
+    /// infer (TypeScript)
+    Infer,
+    /// never (TypeScript)
+    Never,
+    /// unknown (TypeScript)
+    Unknown,
+    /// any (TypeScript)
+    Any,
+    /// asserts (TypeScript)
+    Asserts,
+    /// override (TypeScript)
+    Override,
+    /// satisfies (TypeScript)
+    Satisfies,
+    /// out (TypeScript variance modifier)
+    Out,
+    /// accessor (TypeScript)
+    Accessor,
+
     // Punctuation
     /// {
     LeftBrace,
@@ -227,6 +273,8 @@ pub enum TokenKind {
     QuestionQuestionEqual,
     /// =>
     Arrow,
+    /// @ (decorator)
+    At,
 
     // Special
     /// End of file
@@ -278,6 +326,35 @@ impl TokenKind {
                 | TokenKind::With
                 | TokenKind::Yield
                 | TokenKind::Async
+        )
+    }
+
+    /// Returns true if this token is a TypeScript keyword.
+    pub fn is_typescript_keyword(&self) -> bool {
+        matches!(
+            self,
+            TokenKind::Type
+                | TokenKind::Interface
+                | TokenKind::Namespace
+                | TokenKind::Declare
+                | TokenKind::Readonly
+                | TokenKind::Abstract
+                | TokenKind::Implements
+                | TokenKind::Private
+                | TokenKind::Protected
+                | TokenKind::Public
+                | TokenKind::As
+                | TokenKind::Is
+                | TokenKind::Keyof
+                | TokenKind::Infer
+                | TokenKind::Never
+                | TokenKind::Unknown
+                | TokenKind::Any
+                | TokenKind::Asserts
+                | TokenKind::Override
+                | TokenKind::Satisfies
+                | TokenKind::Out
+                | TokenKind::Accessor
         )
     }
 

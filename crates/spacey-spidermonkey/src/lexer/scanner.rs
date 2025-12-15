@@ -7,6 +7,8 @@ pub struct Scanner<'a> {
     source: &'a str,
     chars: std::iter::Peekable<std::str::CharIndices<'a>>,
     current_pos: usize,
+    /// Enable TypeScript syntax support
+    typescript_mode: bool,
 }
 
 impl<'a> Scanner<'a> {
@@ -16,14 +18,39 @@ impl<'a> Scanner<'a> {
             source,
             chars: source.char_indices().peekable(),
             current_pos: 0,
+            typescript_mode: false,
         }
+    }
+
+    /// Creates a new scanner with TypeScript mode enabled.
+    pub fn new_typescript(source: &'a str) -> Self {
+        Self {
+            source,
+            chars: source.char_indices().peekable(),
+            current_pos: 0,
+            typescript_mode: true,
+        }
+    }
+
+    /// Enable or disable TypeScript mode.
+    pub fn set_typescript_mode(&mut self, enabled: bool) {
+        self.typescript_mode = enabled;
+    }
+
+    /// Returns whether TypeScript mode is enabled.
+    pub fn is_typescript_mode(&self) -> bool {
+        self.typescript_mode
     }
 
     /// Peeks at the next token without consuming it.
     /// Note: This is relatively expensive as it clones internal state.
     pub fn peek_token(&self) -> Token {
         // Create a copy of the scanner state
-        let mut scanner_copy = Scanner::new(self.source);
+        let mut scanner_copy = if self.typescript_mode {
+            Scanner::new_typescript(self.source)
+        } else {
+            Scanner::new(self.source)
+        };
         scanner_copy.current_pos = self.current_pos;
         scanner_copy.chars = self.source[self.current_pos..].char_indices().peekable();
         // Adjust positions in the cloned iterator
@@ -83,6 +110,9 @@ impl<'a> Scanner<'a> {
 
             // Private identifiers
             '#' => self.scan_private_identifier(),
+
+            // Decorators (TypeScript)
+            '@' => TokenKind::At,
 
             _ => TokenKind::Invalid,
         };
@@ -677,7 +707,7 @@ impl<'a> Scanner<'a> {
             }
         }
 
-        // Check for keywords
+        // Check for JavaScript keywords first
         match name.as_str() {
             "await" => TokenKind::Await,
             "break" => TokenKind::Break,
@@ -720,6 +750,29 @@ impl<'a> Scanner<'a> {
             "with" => TokenKind::With,
             "yield" => TokenKind::Yield,
             "async" => TokenKind::Async,
+            // TypeScript keywords (only recognized in TypeScript mode)
+            "type" if self.typescript_mode => TokenKind::Type,
+            "interface" if self.typescript_mode => TokenKind::Interface,
+            "namespace" if self.typescript_mode => TokenKind::Namespace,
+            "declare" if self.typescript_mode => TokenKind::Declare,
+            "readonly" if self.typescript_mode => TokenKind::Readonly,
+            "abstract" if self.typescript_mode => TokenKind::Abstract,
+            "implements" if self.typescript_mode => TokenKind::Implements,
+            "private" if self.typescript_mode => TokenKind::Private,
+            "protected" if self.typescript_mode => TokenKind::Protected,
+            "public" if self.typescript_mode => TokenKind::Public,
+            "as" if self.typescript_mode => TokenKind::As,
+            "is" if self.typescript_mode => TokenKind::Is,
+            "keyof" if self.typescript_mode => TokenKind::Keyof,
+            "infer" if self.typescript_mode => TokenKind::Infer,
+            "never" if self.typescript_mode => TokenKind::Never,
+            "unknown" if self.typescript_mode => TokenKind::Unknown,
+            "any" if self.typescript_mode => TokenKind::Any,
+            "asserts" if self.typescript_mode => TokenKind::Asserts,
+            "override" if self.typescript_mode => TokenKind::Override,
+            "satisfies" if self.typescript_mode => TokenKind::Satisfies,
+            "out" if self.typescript_mode => TokenKind::Out,
+            "accessor" if self.typescript_mode => TokenKind::Accessor,
             _ => TokenKind::Identifier(name),
         }
     }
@@ -1168,8 +1221,15 @@ mod tests {
 
     #[test]
     fn test_invalid_character() {
-        let mut scanner = Scanner::new("@");
+        // Use a character that's not valid in JS/TS (backslash at start)
+        let mut scanner = Scanner::new("\\");
         assert!(matches!(scanner.next_token().kind, TokenKind::Invalid));
+    }
+
+    #[test]
+    fn test_at_decorator_token() {
+        let mut scanner = Scanner::new("@");
+        assert!(matches!(scanner.next_token().kind, TokenKind::At));
     }
 
     #[test]
@@ -1221,5 +1281,65 @@ mod tests {
         let scanner = Scanner::new("const x = a + b * (c - d) / e;");
         let tokens: Vec<_> = scanner.collect();
         assert_eq!(tokens.len(), 15);
+    }
+
+    // TypeScript-specific tests
+
+    #[test]
+    fn test_typescript_keywords_in_js_mode() {
+        // In JS mode, TypeScript keywords should be treated as identifiers
+        let mut scanner = Scanner::new("type interface as");
+        assert!(matches!(scanner.next_token().kind, TokenKind::Identifier(s) if s == "type"));
+        assert!(matches!(scanner.next_token().kind, TokenKind::Identifier(s) if s == "interface"));
+        assert!(matches!(scanner.next_token().kind, TokenKind::Identifier(s) if s == "as"));
+    }
+
+    #[test]
+    fn test_typescript_keywords_in_ts_mode() {
+        // In TS mode, TypeScript keywords should be recognized
+        let mut scanner = Scanner::new_typescript("type interface as");
+        assert!(matches!(scanner.next_token().kind, TokenKind::Type));
+        assert!(matches!(scanner.next_token().kind, TokenKind::Interface));
+        assert!(matches!(scanner.next_token().kind, TokenKind::As));
+    }
+
+    #[test]
+    fn test_typescript_mode_toggle() {
+        let mut scanner = Scanner::new("type");
+        assert!(!scanner.is_typescript_mode());
+        assert!(matches!(scanner.next_token().kind, TokenKind::Identifier(_)));
+
+        let mut scanner = Scanner::new_typescript("type");
+        assert!(scanner.is_typescript_mode());
+        assert!(matches!(scanner.next_token().kind, TokenKind::Type));
+    }
+
+    #[test]
+    fn test_all_typescript_keywords() {
+        let keywords = "type interface namespace declare readonly abstract implements private protected public as is keyof infer never unknown any asserts override satisfies out accessor";
+        let mut scanner = Scanner::new_typescript(keywords);
+
+        assert!(matches!(scanner.next_token().kind, TokenKind::Type));
+        assert!(matches!(scanner.next_token().kind, TokenKind::Interface));
+        assert!(matches!(scanner.next_token().kind, TokenKind::Namespace));
+        assert!(matches!(scanner.next_token().kind, TokenKind::Declare));
+        assert!(matches!(scanner.next_token().kind, TokenKind::Readonly));
+        assert!(matches!(scanner.next_token().kind, TokenKind::Abstract));
+        assert!(matches!(scanner.next_token().kind, TokenKind::Implements));
+        assert!(matches!(scanner.next_token().kind, TokenKind::Private));
+        assert!(matches!(scanner.next_token().kind, TokenKind::Protected));
+        assert!(matches!(scanner.next_token().kind, TokenKind::Public));
+        assert!(matches!(scanner.next_token().kind, TokenKind::As));
+        assert!(matches!(scanner.next_token().kind, TokenKind::Is));
+        assert!(matches!(scanner.next_token().kind, TokenKind::Keyof));
+        assert!(matches!(scanner.next_token().kind, TokenKind::Infer));
+        assert!(matches!(scanner.next_token().kind, TokenKind::Never));
+        assert!(matches!(scanner.next_token().kind, TokenKind::Unknown));
+        assert!(matches!(scanner.next_token().kind, TokenKind::Any));
+        assert!(matches!(scanner.next_token().kind, TokenKind::Asserts));
+        assert!(matches!(scanner.next_token().kind, TokenKind::Override));
+        assert!(matches!(scanner.next_token().kind, TokenKind::Satisfies));
+        assert!(matches!(scanner.next_token().kind, TokenKind::Out));
+        assert!(matches!(scanner.next_token().kind, TokenKind::Accessor));
     }
 }
