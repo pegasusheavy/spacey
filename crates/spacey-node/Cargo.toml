@@ -12,7 +12,7 @@ crate-type = ["cdylib"]
 spacey-spidermonkey = { path = "../spacey-spidermonkey" }
 
 # Node.js native addon bindings
-napi = { version = "2", default-features = false, features = ["napi4"] }
+napi = { version = "3", default-features = false, features = ["napi4"] }
 napi-derive = "3"
 
 [build-dependencies]
