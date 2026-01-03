@@ -16,7 +16,7 @@ num-traits = "0.2"
 rustc-hash = "2.0"
 
 # Arena allocation for AST nodes
-bumpalo = "3.16"
+bumpalo = "3.19"
 
 [dev-dependencies]
 criterion = "0.8"
